@@ -30,48 +30,27 @@ Use with *-legacy* and it prints logs to stdout.
 ```
 
 ### Start a Web Server
-Start a web server with *-web* option.
+Start a web server with *-web* option.  The default port is 3721.
 ```bash
 ./dist/hatchet -web [<log file>...]
 ```
-## Query Database
-The default database is stored in the *data/hatchet.db* file.
-```bash
-sqlite3 ./data/hatchet.db
+
+### View from Browser
+**View Slow Op Stats Summary**
+```
+/tables/{table}/slowops/summary
 ```
 
-### Useful SQLite3 Commands
-```sqlite3
-.header on
-.mode column
-.tables
-.schema
+For example `http://localhost:3721/tables/mongod_v2/slowops/summary`
+
+**View Slow Op Stats Summary Order by count**
+```
+/tables/{table}/slowops/summary?orderBy=count
 ```
 
-### Query All Data
-```sqlite3
-SELECT * from mongod_v2;
+For example `http://localhost:3721/tables/mongod_v2/slowops/summary?orderBy=count`
 
-SELECT date, severity, component, context, substr(message, 1, 60) message 
-    FROM mongod_v2;
-```
-
-### Query by Component and Context
-```sqlite3
-SELECT date, severity, message 
-    FROM mongod_v2 
-    WHERE component = 'NETWORK' AND context = 'listener';
-```
-
-### Query Performance Data
-```sqlite3
-SELECT op, COUNT(*) "count", ROUND(AVG(milli),1) avg_ms, MAX(milli) max_ms, SUM(milli) total_ms,
-    ns, _index "index", SUM(reslen) "reslen", filter "query pattern"
-    FROM mongod_v2 
-    WHERE op != "" 
-    GROUP BY op, ns, filter
-    ORDER BY avg_ms DESC;
-```
+For Hatchet APIs, see [developer's guide](README_DEV.md) for more details.
 
 ## License
 [Apache-2.0 License](LICENSE)

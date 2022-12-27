@@ -10,6 +10,7 @@ import (
 	"net/http"
 
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/simagix/gox"
 )
 
 func Run(fullVersion string) {
@@ -38,11 +39,13 @@ func Run(fullVersion string) {
 		return
 	}
 
+	http.HandleFunc("/", gox.Cors(handler))
 	addr := fmt.Sprintf(":%d", *port)
 	if listener, err := net.Listen("tcp", addr); err != nil {
 		log.Fatal(err)
 	} else {
 		listener.Close()
+		log.Println("starting web server", addr)
 		log.Fatal(http.ListenAndServe(addr, nil))
 	}
 }

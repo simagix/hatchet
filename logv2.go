@@ -58,20 +58,19 @@ type Attributes struct {
 	Type               string                 `json:"type" bson:"type"`
 }
 
-// OpPattern stores performance data
-type OpPattern struct {
-	Command   string `bson:"command"` // count, delete, find, remove, and update
-	Filter    string `bson:"filter"`  // query pattern
-	Index     string `bson:"index"`   // index used
-	Milli     int    `bson:"milli"`   // max millisecond
-	Namespace string `bson:"ns"`      // database.collectin
-	Plan      string `bson:"plan"`
-	Reslen    int64  `bson:"reslen"` // total reslen
+// OpStat stores performance data
+type OpStat struct {
+	AvgMilli   float64 `json:"avg_ms"`        // max millisecond
+	Command    string  `json:"command"`       // count, delete, find, remove, and update
+	Count      int     `json:"count"`         // number of ops
+	Filter     string  `json:"query_pattern"` // query pattern
+	Index      string  `json:"index"`         // index used
+	MaxMilli   int     `json:"max_ms"`        // max millisecond
+	Namespace  string  `json:"ns"`            // database.collectin
+	Reslen     int64   `json:"total_reslen"`  // total reslen
+	TotalMilli int64   `json:"total_ms"`      // total milliseconds
 
-	Count       int   `bson:"count"`       // number of ops
-	MaxMilli    int   `bson:"maxmilli"`    // max millisecond
-	TotalMilli  int64 `bson:"totalmilli"`  // total milliseconds
-	TotalReslen int64 `bson:"totalreslen"` // total reslen
+	Plan string `json:"plan"` // planSummary
 }
 
 // LogStats log stats structure
@@ -228,8 +227,8 @@ func (ptr *Logv2) Analyze(filename string) error {
 			stat = LogStats{}
 		}
 		if _, err = pstmt.Exec(index, doc.Timestamp["$date"], doc.Severity, doc.Component, doc.Context,
-			doc.Msg, doc.Attr["planSummary"], doc.Attr["type"], doc.Attr["ns"], doc.Message,
-			stat.op, stat.filter, stat.index, doc.Attr["durationMillis"], doc.Attr["reslen"]); err != nil {
+			doc.Msg, doc.Attributes.PlanSummary, doc.Attr["type"], doc.Attr["ns"], doc.Message,
+			stat.op, stat.filter, stat.index, doc.Attributes.Milli, doc.Attributes.Reslen); err != nil {
 			log.Fatal(err)
 		}
 	}
@@ -251,45 +250,29 @@ func (ptr *Logv2) PrintSummary() {
 	if ptr.buildInfo != nil {
 		fmt.Println(gox.Stringify(ptr.buildInfo, "", "  "))
 	}
-	fmt.Println(ptr.GetSlowQueyiesSummary())
+	str, err := ptr.GetSlowQueyiesSummary()
+	if err != nil {
+		log.Fatalf("error GetSlowQueyiesSummary %v\n", err)
+	}
+	fmt.Println(str)
 }
 
 // printLogsSummary prints loginfo summary
-func (ptr *Logv2) GetSlowQueyiesSummary() string {
+func (ptr *Logv2) GetSlowQueyiesSummary() (string, error) {
 	var maxSize = 20
-	red := ""
-	green := ""
-	tail := ""
 	summaries := []string{}
 	var buffer bytes.Buffer
 	buffer.WriteString("\r+----------+--------+------+--------+------+---------------------------------+--------------------------------------------------------------+\n")
 	buffer.WriteString(fmt.Sprintf("| Command  |COLLSCAN|avg ms| max ms | Count| %-32s| %-60s |\n", "Namespace", "Query Pattern"))
 	buffer.WriteString("|----------+--------+------+--------+------+---------------------------------+--------------------------------------------------------------|\n")
-	count := 0
 
-	db, err := sql.Open("sqlite3", SQLITE_FILE)
+	ops, err := getSlowOps(ptr.tableName, "avg_ms", "DESC")
 	if err != nil {
-		log.Fatal(err)
+		return "", err
 	}
-	defer db.Close()
-	query := fmt.Sprintf(`SELECT op, COUNT(*) "count", ROUND(AVG(milli),1) avg_ms, MAX(milli) max_ms, SUM(milli) total_ms,
-			ns, _index "index", SUM(reslen) "reslen", filter "query pattern"
-			FROM %v WHERE op != "" GROUP BY op, ns, filter ORDER BY avg_ms DESC`, ptr.tableName)
-	rows, err := db.Query(query)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer rows.Close()
-	for rows.Next() {
-		count++
-		if count >= maxSize {
-			continue
-		}
-		value := OpPattern{}
-		var avg float64
-		if err = rows.Scan(&value.Command, &value.Count, &avg, &value.MaxMilli, &value.TotalMilli,
-			&value.Namespace, &value.Index, &value.TotalReslen, &value.Filter); err != nil {
-			log.Fatal(err)
+	for count, value := range ops {
+		if count > maxSize {
+			break
 		}
 		str := value.Filter
 		if len(value.Command) > 10 {
@@ -307,13 +290,8 @@ func (ptr *Logv2) GetSlowQueyiesSummary() string {
 			}
 		}
 		output := ""
-		if value.Plan == COLLSCAN {
-			output = fmt.Sprintf("|%-10s %v%8s%v %6d %8d %6d %-33s %v%-62s%v|\n", value.Command, red, value.Plan, tail,
-				int(avg), value.MaxMilli, value.Count, value.Namespace, red, str, tail)
-		} else {
-			output = fmt.Sprintf("|%-10s %8s %6d %8d %6d %-33s %-62s|\n", value.Command, "",
-				int(avg), value.MaxMilli, value.Count, value.Namespace, str)
-		}
+		output = fmt.Sprintf("|%-10s %8s %6d %8d %6d %-33s %-62s|\n", value.Command, "",
+			int(value.AvgMilli), value.MaxMilli, value.Count, value.Namespace, str)
 		buffer.WriteString(output)
 		if len(value.Filter) > 60 {
 			remaining := value.Filter[len(str):]
@@ -334,24 +312,19 @@ func (ptr *Logv2) GetSlowQueyiesSummary() string {
 						i -= (60 - len(str))
 					}
 				}
-				if value.Plan == COLLSCAN {
-					output = fmt.Sprintf("|%74s   %v%-62s%v|\n", " ", red, pstr, tail)
-					buffer.WriteString(output)
-				} else {
-					output = fmt.Sprintf("|%74s   %-62s|\n", " ", pstr)
-					buffer.WriteString(output)
-				}
+				output = fmt.Sprintf("|%74s   %-62s|\n", " ", pstr)
+				buffer.WriteString(output)
 			}
 		}
 		if value.Index != "" {
-			output = fmt.Sprintf("|...index:  %v%-128s%v|\n", green, value.Index, tail)
+			output = fmt.Sprintf("|...index:  %-128s|\n", value.Index)
 			buffer.WriteString(output)
 		}
 	}
 	buffer.WriteString("+----------+--------+------+--------+------+---------------------------------+--------------------------------------------------------------+\n")
 	summaries = append(summaries, buffer.String())
-	if maxSize < count {
-		summaries = append(summaries, fmt.Sprintf(`top %d of %d lines displayed.`, maxSize, count))
+	if maxSize < len(ops) {
+		summaries = append(summaries, fmt.Sprintf(`top %d of %d lines displayed.`, maxSize, len(ops)))
 	}
-	return strings.Join(summaries, "\n")
+	return strings.Join(summaries, "\n"), err
 }

@@ -60,28 +60,23 @@ type Attributes struct {
 
 // OpStat stores performance data
 type OpStat struct {
-	AvgMilli   float64 `json:"avg_ms"`        // max millisecond
-	Command    string  `json:"command"`       // count, delete, find, remove, and update
-	Count      int     `json:"count"`         // number of ops
-	Filter     string  `json:"query_pattern"` // query pattern
-	Index      string  `json:"index"`         // index used
-	MaxMilli   int     `json:"max_ms"`        // max millisecond
-	Namespace  string  `json:"ns"`            // database.collectin
-	Reslen     int64   `json:"total_reslen"`  // total reslen
-	TotalMilli int64   `json:"total_ms"`      // total milliseconds
-
-	Plan string `json:"plan"` // planSummary
+	AvgMilli     float64 `json:"avg_ms"`        // max millisecond
+	Count        int     `json:"count"`         // number of ops
+	Index        string  `json:"index"`         // index used
+	MaxMilli     int     `json:"max_ms"`        // max millisecond
+	Namespace    string  `json:"ns"`            // database.collectin
+	Op           string  `json:"op"`            // count, delete, find, remove, and update
+	QueryPattern string  `json:"query_pattern"` // query pattern
+	Reslen       int     `json:"total_reslen"`  // total reslen
+	TotalMilli   int     `json:"total_ms"`      // total milliseconds
 }
 
-// LogStats log stats structure
-type LogStats struct {
-	filter string
-	index  string
-	milli  int
-	ns     string
-	op     string
-	reslen int
-	date   string
+type LegacyLog struct {
+	Component string `json:"component"`
+	Context   string `json:"context"`
+	Message   string `json:"message"` // remaining legacy message
+	Severity  string `json:"severity"`
+	Timestamp string `json:"date"`
 }
 
 // Analyze analyzes logs from a file
@@ -121,7 +116,7 @@ func (ptr *Logv2) Analyze(filename string) error {
 
 	str := string(buf)
 	if !regexp.MustCompile("^{.*}$").MatchString(str) {
-		log.Fatal("log format not supported")
+		return errors.New("log format not supported")
 	}
 
 	// get total counts of logs
@@ -134,36 +129,42 @@ func (ptr *Logv2) Analyze(filename string) error {
 	}
 
 	var isPrefix bool
-	var stat LogStats
+	var stat OpStat
 	index := 0
 
 	db, err := sql.Open("sqlite3", SQLITE_FILE)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer db.Close()
 
 	fmt.Println("creating table", ptr.tableName)
-	db.Exec(fmt.Sprintf(`DROP TABLE IF EXISTS %v;`, ptr.tableName))
-	sqlStmt := fmt.Sprintf(`CREATE TABLE %v 
-		(	id integer not null primary key, date text, severity text, component text, context text,
+	sqlStmt := fmt.Sprintf(`
+		DROP TABLE IF EXISTS %v;
+		CREATE TABLE %v (
+			id integer not null primary key, date text, severity text, component text, context text,
 			msg text, plan text, type text, ns text, message text,
 			op text, filter text, _index text, milli integer, reslen integer);
-		CREATE INDEX idx_op ON %v (op,ns,filter)`, ptr.tableName, ptr.tableName)
+		CREATE INDEX IF NOT EXISTS %v_idx_component ON %v (component);
+		CREATE INDEX IF NOT EXISTS %v_idx_context ON %v (context);
+		CREATE INDEX IF NOT EXISTS %v_idx_severity ON %v (severity);
+		CREATE INDEX IF NOT EXISTS %v_idx_op ON %v (op,ns,filter);`,
+		ptr.tableName, ptr.tableName, ptr.tableName, ptr.tableName, ptr.tableName,
+		ptr.tableName, ptr.tableName, ptr.tableName, ptr.tableName, ptr.tableName)
 	if _, err = db.Exec(sqlStmt); err != nil {
-		log.Printf("%q: %s\n", err, sqlStmt)
+		return err
 	}
 
 	tx, err := db.Begin()
 	if err != nil {
-		log.Println(err)
+		return err
 	}
 	pstmt, err := tx.Prepare(fmt.Sprintf(`INSERT INTO 
 		%v(	id, date, severity, component, context,
             msg, plan, type, ns, message, op, filter, _index, milli, reslen)
         VALUES(?,?,?,?,?, ?,?,?,?,?, ?,?,?,?,?)`, ptr.tableName))
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer pstmt.Close()
 
@@ -224,41 +225,41 @@ func (ptr *Logv2) Analyze(filename string) error {
 		}
 
 		if stat, err = AnalyzeSlowQuery(&doc); err != nil {
-			stat = LogStats{}
+			stat = OpStat{}
 		}
 		if _, err = pstmt.Exec(index, doc.Timestamp["$date"], doc.Severity, doc.Component, doc.Context,
 			doc.Msg, doc.Attributes.PlanSummary, doc.Attr["type"], doc.Attr["ns"], doc.Message,
-			stat.op, stat.filter, stat.index, doc.Attributes.Milli, doc.Attributes.Reslen); err != nil {
-			log.Fatal(err)
+			stat.Op, stat.QueryPattern, stat.Index, doc.Attributes.Milli, doc.Attributes.Reslen); err != nil {
+			return err
 		}
 	}
 	if ptr.legacy {
 		return nil
 	}
 	if err = tx.Commit(); err != nil {
-		log.Fatal(err)
+		return err
 	}
 	if !ptr.verbose && !ptr.legacy {
 		fmt.Fprintf(os.Stderr, "\r                         \r")
 	}
 
-	ptr.PrintSummary()
-	return nil
+	return ptr.PrintSummary()
 }
 
-func (ptr *Logv2) PrintSummary() {
+func (ptr *Logv2) PrintSummary() error {
 	if ptr.buildInfo != nil {
 		fmt.Println(gox.Stringify(ptr.buildInfo, "", "  "))
 	}
-	str, err := ptr.GetSlowQueyiesSummary()
+	str, err := ptr.GetSlowOpsStats()
 	if err != nil {
-		log.Fatalf("error GetSlowQueyiesSummary %v\n", err)
+		return err
 	}
 	fmt.Println(str)
+	return err
 }
 
-// printLogsSummary prints loginfo summary
-func (ptr *Logv2) GetSlowQueyiesSummary() (string, error) {
+// GetSlowOpsStats prints slow ops stats
+func (ptr *Logv2) GetSlowOpsStats() (string, error) {
 	var maxSize = 20
 	summaries := []string{}
 	var buffer bytes.Buffer
@@ -266,7 +267,7 @@ func (ptr *Logv2) GetSlowQueyiesSummary() (string, error) {
 	buffer.WriteString(fmt.Sprintf("| Command  |COLLSCAN|avg ms| max ms | Count| %-32s| %-60s |\n", "Namespace", "Query Pattern"))
 	buffer.WriteString("|----------+--------+------+--------+------+---------------------------------+--------------------------------------------------------------|\n")
 
-	ops, err := getSlowOps(ptr.tableName, "avg_ms", "DESC")
+	ops, err := getSlowOps(ptr.tableName, "avg_ms", "DESC", false)
 	if err != nil {
 		return "", err
 	}
@@ -274,27 +275,31 @@ func (ptr *Logv2) GetSlowQueyiesSummary() (string, error) {
 		if count > maxSize {
 			break
 		}
-		str := value.Filter
-		if len(value.Command) > 10 {
-			value.Command = value.Command[:10]
+		str := value.QueryPattern
+		if len(value.Op) > 10 {
+			value.Op = value.Op[:10]
 		}
 		if len(value.Namespace) > 33 {
 			length := len(value.Namespace)
 			value.Namespace = value.Namespace[:1] + "*" + value.Namespace[(length-31):]
 		}
 		if len(str) > 60 {
-			str = value.Filter[:60]
+			str = value.QueryPattern[:60]
 			idx := strings.LastIndex(str, " ")
 			if idx > 0 {
-				str = value.Filter[:idx]
+				str = value.QueryPattern[:idx]
 			}
 		}
 		output := ""
-		output = fmt.Sprintf("|%-10s %8s %6d %8d %6d %-33s %-62s|\n", value.Command, "",
+		collscan := ""
+		if value.Index == "COLLSCAN" {
+			collscan = "COLLSCAN"
+		}
+		output = fmt.Sprintf("|%-10s %8s %6d %8d %6d %-33s %-62s|\n", value.Op, collscan,
 			int(value.AvgMilli), value.MaxMilli, value.Count, value.Namespace, str)
 		buffer.WriteString(output)
-		if len(value.Filter) > 60 {
-			remaining := value.Filter[len(str):]
+		if len(value.QueryPattern) > 60 {
+			remaining := value.QueryPattern[len(str):]
 			for i := 0; i < len(remaining); i += 60 {
 				epos := i + 60
 				var pstr string
@@ -316,7 +321,7 @@ func (ptr *Logv2) GetSlowQueyiesSummary() (string, error) {
 				buffer.WriteString(output)
 			}
 		}
-		if value.Index != "" {
+		if value.Index != "" && value.Index != "COLLSCAN" {
 			output = fmt.Sprintf("|...index:  %-128s|\n", value.Index)
 			buffer.WriteString(output)
 		}

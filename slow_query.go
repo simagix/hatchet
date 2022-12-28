@@ -27,54 +27,52 @@ const cmdRemove = "remove"
 const cmdUpdate = "update"
 
 // AnalyzeSlowQuery analyzes slow queries
-func AnalyzeSlowQuery(doc *Logv2Info) (LogStats, error) {
+func AnalyzeSlowQuery(doc *Logv2Info) (OpStat, error) {
 	var err error
-	var stat = LogStats{}
+	var stat = OpStat{}
 
 	c := doc.Component
 	if c != "COMMAND" && c != "QUERY" && c != "WRITE" {
 		return stat, errors.New("unsupported command")
 	}
-	stat.milli = doc.Attributes.Milli
-	stat.ns = doc.Attributes.NS
-	if stat.ns == "" {
+	stat.TotalMilli = doc.Attributes.Milli
+	stat.Namespace = doc.Attributes.NS
+	if stat.Namespace == "" {
 		return stat, errors.New("no namespace found")
-	} else if strings.HasPrefix(stat.ns, "admin.") || strings.HasPrefix(stat.ns, "config.") || strings.HasPrefix(stat.ns, "local.") {
-		stat.op = DOLLAR_CMD
+	} else if strings.HasPrefix(stat.Namespace, "admin.") || strings.HasPrefix(stat.Namespace, "config.") || strings.HasPrefix(stat.Namespace, "local.") {
+		stat.Op = DOLLAR_CMD
 		return stat, errors.New("system database")
-	} else if strings.HasSuffix(stat.ns, ".$cmd") {
-		stat.op = DOLLAR_CMD
+	} else if strings.HasSuffix(stat.Namespace, ".$cmd") {
+		stat.Op = DOLLAR_CMD
 		return stat, errors.New("system command")
 	}
 
 	if doc.Attributes.PlanSummary != "" { // not insert
 		plan := doc.Attributes.PlanSummary
-		if plan == COLLSCAN {
-			stat.index = ""
-		} else if strings.HasPrefix(plan, "IXSCAN") {
-			stat.index = plan[len("IXSCAN")+1:]
+		if strings.HasPrefix(plan, "IXSCAN") {
+			stat.Index = plan[len("IXSCAN")+1:]
 		} else {
-			stat.index = plan
+			stat.Index = plan
 		}
 	}
-	stat.reslen = doc.Attributes.Reslen
+	stat.Reslen = doc.Attributes.Reslen
 	if doc.Attributes.Command == nil {
 		return stat, errors.New("no command found")
 	}
 	command := doc.Attributes.Command
-	stat.op = doc.Attributes.Type
-	if stat.op == "command" || stat.op == "none" {
-		stat.op = getOp(command)
+	stat.Op = doc.Attributes.Type
+	if stat.Op == "command" || stat.Op == "none" {
+		stat.Op = getOp(command)
 	}
 	var isGetMore bool
-	if stat.op == cmdGetMore {
+	if stat.Op == cmdGetMore {
 		isGetMore = true
 		command = doc.Attributes.OriginatingCommand
-		stat.op = getOp(command)
+		stat.Op = getOp(command)
 	}
-	if stat.op == cmdInsert || stat.op == cmdCreateIndexes {
-		stat.filter = "N/A"
-	} else if (stat.op == cmdUpdate || stat.op == cmdRemove || stat.op == cmdDelete) && stat.filter == "" {
+	if stat.Op == cmdInsert || stat.Op == cmdCreateIndexes {
+		stat.QueryPattern = "N/A"
+	} else if (stat.Op == cmdUpdate || stat.Op == cmdRemove || stat.Op == cmdDelete) && stat.QueryPattern == "" {
 		var query interface{}
 		if command["q"] != nil {
 			query = command["q"]
@@ -86,14 +84,14 @@ func AnalyzeSlowQuery(doc *Logv2Info) (LogStats, error) {
 			walker := gox.NewMapWalker(cb)
 			doc := walker.Walk(query.(map[string]interface{}))
 			if buf, err := json.Marshal(doc); err == nil {
-				stat.filter = string(buf)
+				stat.QueryPattern = string(buf)
 			} else {
-				stat.filter = "{}"
+				stat.QueryPattern = "{}"
 			}
 		} else {
 			return stat, errors.New("no filter found")
 		}
-	} else if stat.op == cmdAggregate {
+	} else if stat.Op == cmdAggregate {
 		pipeline, ok := command["pipeline"].([]interface{})
 		if !ok || len(pipeline) == 0 {
 			return stat, errors.New("pipeline not found")
@@ -108,19 +106,19 @@ func AnalyzeSlowQuery(doc *Logv2Info) (LogStats, error) {
 			walker := gox.NewMapWalker(cb)
 			doc := walker.Walk(fmap)
 			if buf, err := json.Marshal(doc); err == nil {
-				stat.filter = string(buf)
+				stat.QueryPattern = string(buf)
 			} else {
-				stat.filter = "{}"
+				stat.QueryPattern = "{}"
 			}
-			if !strings.Contains(stat.filter, "$match") && !strings.Contains(stat.filter, "$sort") &&
-				!strings.Contains(stat.filter, "$facet") && !strings.Contains(stat.filter, "$indexStats") {
-				stat.filter = "{}"
+			if !strings.Contains(stat.QueryPattern, "$match") && !strings.Contains(stat.QueryPattern, "$sort") &&
+				!strings.Contains(stat.QueryPattern, "$facet") && !strings.Contains(stat.QueryPattern, "$indexStats") {
+				stat.QueryPattern = "{}"
 			}
 		} else {
 			buf, _ := json.Marshal(fmap)
 			str := string(buf)
 			re := regexp.MustCompile(`{(.*):{"\$regularExpression":{"options":"(\S+)?","pattern":"(\^)?(\S+)"}}}`)
-			stat.filter = re.ReplaceAllString(str, "{$1:/$3.../$2}")
+			stat.QueryPattern = re.ReplaceAllString(str, "{$1:/$3.../$2}")
 		}
 	} else {
 		var fmap map[string]interface{}
@@ -140,34 +138,33 @@ func AnalyzeSlowQuery(doc *Logv2Info) (LogStats, error) {
 			if data, err = json.Marshal(doc); err != nil {
 				return stat, err
 			}
-			stat.filter = string(data)
-			if stat.filter == `{"":null}` {
-				stat.filter = "{}"
+			stat.QueryPattern = string(data)
+			if stat.QueryPattern == `{"":null}` {
+				stat.QueryPattern = "{}"
 			}
 		} else {
 			buf, _ := json.Marshal(fmap)
 			str := string(buf)
 			re := regexp.MustCompile(`{(.*):{"\$regularExpression":{"options":"(\S+)?","pattern":"(\^)?(\S+)"}}}`)
-			stat.filter = re.ReplaceAllString(str, "{$1:/$3.../$2}")
+			stat.QueryPattern = re.ReplaceAllString(str, "{$1:/$3.../$2}")
 		}
 	}
-	if stat.op == "" {
+	if stat.Op == "" {
 		return stat, nil
 	}
 	re := regexp.MustCompile(`\[1(,1)*\]`)
-	stat.filter = re.ReplaceAllString(stat.filter, `[...]`)
+	stat.QueryPattern = re.ReplaceAllString(stat.QueryPattern, `[...]`)
 	re = regexp.MustCompile(`\[{\S+}(,{\S+})*\]`) // matches repeated doc {"base64":1,"subType":1}}
-	stat.filter = re.ReplaceAllString(stat.filter, `[...]`)
+	stat.QueryPattern = re.ReplaceAllString(stat.QueryPattern, `[...]`)
 	re = regexp.MustCompile(`^{("\$match"|"\$sort"):(\S+)}$`)
-	stat.filter = re.ReplaceAllString(stat.filter, `$2`)
+	stat.QueryPattern = re.ReplaceAllString(stat.QueryPattern, `$2`)
 	re = regexp.MustCompile(`^{("(\$facet")):\S+}$`)
-	stat.filter = re.ReplaceAllString(stat.filter, `{$1:...}`)
+	stat.QueryPattern = re.ReplaceAllString(stat.QueryPattern, `{$1:...}`)
 	re = regexp.MustCompile(`{"\$oid":1}`)
-	stat.filter = re.ReplaceAllString(stat.filter, `1`)
+	stat.QueryPattern = re.ReplaceAllString(stat.QueryPattern, `1`)
 	if isGetMore {
-		stat.op = cmdGetMore
+		stat.Op = cmdGetMore
 	}
-	stat.date = doc.Timestamp["$date"]
 	return stat, nil
 }
 

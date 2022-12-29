@@ -33,13 +33,14 @@ func getSlowOps(tableName string, orderBy string, order string, collscan bool) (
 }
 
 func getSlowOpsQuery(tableName string, orderBy string, order string, collscan bool) string {
-	query := fmt.Sprintf(`SELECT op, COUNT(*) "count", ROUND(AVG(milli),1) avg_ms, MAX(milli) max_ms, SUM(milli) total_ms,
-			ns, _index "index", SUM(reslen) "reslen", filter "query pattern"
+	query := fmt.Sprintf(`SELECT op, COUNT(*) "count", ROUND(AVG(milli),1) avg_ms, MAX(milli) max_ms,
+			SUM(milli) total_ms, ns, _index "index", SUM(reslen) "reslen", filter "query pattern"
 			FROM %v WHERE op != "" GROUP BY op, ns, filter ORDER BY %v %v`, tableName, orderBy, order)
 	if collscan {
-		query = fmt.Sprintf(`SELECT op, COUNT(*) "count", ROUND(AVG(milli),1) avg_ms, MAX(milli) max_ms, SUM(milli) total_ms,
-				ns, _index "index", SUM(reslen) "reslen", filter "query pattern"
-				FROM %v WHERE op != "" AND _index = "COLLSCAN" GROUP BY op, ns, filter ORDER BY %v %v`, tableName, orderBy, order)
+		query = fmt.Sprintf(`SELECT op, COUNT(*) "count", ROUND(AVG(milli),1) avg_ms, MAX(milli) max_ms,
+				SUM(milli) total_ms, ns, _index "index", SUM(reslen) "reslen", filter "query pattern"
+				FROM %v WHERE op != "" AND _index = "COLLSCAN" GROUP BY op, ns, filter ORDER BY %v %v`,
+			tableName, orderBy, order)
 	}
 	return query
 }
@@ -48,14 +49,15 @@ func getLogs(tableName string, opts ...string) ([]LegacyLog, error) {
 	docs := []LegacyLog{}
 	query := fmt.Sprintf(`SELECT date, severity, component, context, message FROM %v`, tableName)
 	if len(opts) > 0 {
-		query += " WHERE"
 		cnt := 0
 		for _, opt := range opts {
 			toks := strings.Split(opt, "=")
 			if len(toks) < 2 || toks[1] == "" {
 				continue
 			}
-			if cnt > 0 {
+			if cnt == 0 {
+				query += " WHERE"
+			} else if cnt > 0 {
 				query += " AND"
 			}
 			if toks[0] == "duration" {
@@ -67,6 +69,7 @@ func getLogs(tableName string, opts ...string) ([]LegacyLog, error) {
 			cnt++
 		}
 	}
+	query += " LIMIT 1000"
 	db, err := sql.Open("sqlite3", SQLITE_FILE)
 	if err != nil {
 		return docs, err
@@ -111,4 +114,37 @@ func getSlowestLogs(tableName string, topN int) ([]string, error) {
 		logstrs = append(logstrs, logstr)
 	}
 	return logstrs, err
+}
+
+type OpCount struct {
+	Date      string
+	Count     int
+	Op        string
+	Namespace string
+	Filter    string
+}
+
+func getOpCounts(tableName string) ([]OpCount, error) {
+	docs := []OpCount{}
+	query := fmt.Sprintf(`SELECT SUBSTR(date, 1, 16), COUNT(op), op, ns, filter 
+		FROM %v where op != ''
+		GROUP by SUBSTR(date, 1, 16), op, ns, filter;`, tableName)
+	db, err := sql.Open("sqlite3", SQLITE_FILE)
+	if err != nil {
+		return docs, err
+	}
+	defer db.Close()
+	rows, err := db.Query(query)
+	if err != nil {
+		return docs, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var doc OpCount
+		if err = rows.Scan(&doc.Date, &doc.Count, &doc.Op, &doc.Namespace, &doc.Filter); err != nil {
+			return docs, err
+		}
+		docs = append(docs, doc)
+	}
+	return docs, err
 }

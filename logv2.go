@@ -72,11 +72,11 @@ type OpStat struct {
 }
 
 type LegacyLog struct {
+	Timestamp string `json:"date"`
+	Severity  string `json:"severity"`
 	Component string `json:"component"`
 	Context   string `json:"context"`
 	Message   string `json:"message"` // remaining legacy message
-	Severity  string `json:"severity"`
-	Timestamp string `json:"date"`
 }
 
 // Analyze analyzes logs from a file
@@ -138,7 +138,7 @@ func (ptr *Logv2) Analyze(filename string) error {
 	}
 	defer db.Close()
 
-	fmt.Println("creating table", ptr.tableName)
+	log.Println("creating table", ptr.tableName)
 	sqlStmt := fmt.Sprintf(`
 		DROP TABLE IF EXISTS %v;
 		CREATE TABLE %v (
@@ -224,7 +224,7 @@ func (ptr *Logv2) Analyze(filename string) error {
 			doc.Attributes.Type = doc.Attr["type"].(string)
 		}
 
-		if stat, err = AnalyzeSlowQuery(&doc); err != nil {
+		if stat, err = AnalyzeSlowOp(&doc); err != nil {
 			stat = OpStat{}
 		}
 		if _, err = pstmt.Exec(index, doc.Timestamp["$date"], doc.Severity, doc.Component, doc.Context,
@@ -331,5 +331,6 @@ func (ptr *Logv2) GetSlowOpsStats() (string, error) {
 	if maxSize < len(ops) {
 		summaries = append(summaries, fmt.Sprintf(`top %d of %d lines displayed.`, maxSize, len(ops)))
 	}
+	summaries = append(summaries, "hatchet table is "+ptr.tableName)
 	return strings.Join(summaries, "\n"), err
 }

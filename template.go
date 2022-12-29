@@ -5,6 +5,7 @@ package hatchet
 import (
 	"html/template"
 	"regexp"
+	"time"
 
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
@@ -49,6 +50,17 @@ func GetLegacyLogTemplate() (*template.Template, error) {
 		}}).Parse(html)
 }
 
+// GetLegacyLogTemplate returns HTML
+func GetOpCountsTemplate() (*template.Template, error) {
+	html := headers + getOpCountsTable() + "</body>"
+	return template.New("hatchet").Funcs(template.FuncMap{
+		"epoch": func(d string, s string) int64 {
+			sdt, _ := time.Parse("2006-01-02T15:04:05", s+":00")
+			dt, _ := time.Parse("2006-01-02T15:04:05", d+":00")
+			return dt.Unix() - sdt.Unix()
+		}}).Parse(html)
+}
+
 const headers = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -63,11 +75,10 @@ const headers = `<!DOCTYPE html>
   <style>
   	body {
 		font-family: Helvetica, Arial, sans-serif;
-		background-color: #f2f2f2;
-		margin-top: 5px;
+		margin-top: 10px;
 		margin-bottom: 10px;
-		margin-right: 20px;
-		margin-left: 20px;
+		margin-right: 10px;
+		margin-left: 10px;
   	}
     table
     {
@@ -99,41 +110,18 @@ const headers = `<!DOCTYPE html>
     }
     tr:nth-child(even) {background-color: #f2f2f2;}
     tr:nth-child(odd) {background-color: #fff;}
-    .rowtitle
-    {
-    	font-weight:bold;
-    }
-	a {
-	  text-decoration: none;
-	  color: #000;
-	  display: block;
-
-	  -webkit-transition: font-size 0.3s ease, background-color 0.3s ease;
-	  -moz-transition: font-size 0.3s ease, background-color 0.3s ease;
-	  -o-transition: font-size 0.3s ease, background-color 0.3s ease;
-	  -ms-transition: font-size 0.3s ease, background-color 0.3s ease;
-	  transition: font-size 0.3s ease, background-color 0.3s ease;
+	.btn {
+	  background-color: #fff;
+	  border: none;
+	  outline:none;
+	  color: #4285F4;
+	  padding: 5px 30px;
+	  cursor: pointer;
+	  font-size: 20px;
 	}
-		a:hover {
-			color: blue;
-		}
-    .button {
-	  font-family: "Trebuchet MS";
-      background-color: #4285f4;
-      border: 2px solid #4285f4;
-      border-radius: 4px;
-      color: white;
-      padding: 2px 4px;
-      text-align: center;
-      text-decoration: none;
-      display: inline-block;
-      font-size: 14px;
-    }
-    .fixed {
-      position: fixed;
-      top: 20px;
-      right: 20px;
-    }
+	.btn:hover {
+	  color: #DB4437;
+	}
 
     h1 {
 	  font-family: "Trebuchet MS";
@@ -155,38 +143,18 @@ const headers = `<!DOCTYPE html>
       font-size: 1em;
       font-weight: bold;
 	}
-	.command {
-	  background-color: #fff;
-	  border: none;
-	  outline:none;
-	}
-	.btn {
-	  background-color: #fff;
-	  border: none;
-	  outline:none;
-	  color: #4285F4;
-	  padding: 5px 30px;
-	  cursor: pointer;
-	  font-size: 20px;
-	}
-	.btn:hover {
-	  color: blue;
-	  border: none;
-	}
     </style>
 </head>
 
 <body>
-<script type="text/javascript">
-	function toggleDiv(tag) {
-		var x = document.getElementById(tag);
-		if (x.style.display === "none") {
-	  		x.style.display = "block";
-		} else {
-	  		x.style.display = "none";
-		}
-  	}
-</script>
+<div align='center'>
+	<button id="stats" onClick="javascript:location.href='/tables/{{.Table}}/stats/slowops'; return false;"
+		class="btn" style="float: left;"><i class="fa fa-info"></i> Stats</button>
+	<button id="stats" onClick="javascript:location.href='/tables/{{.Table}}/charts/slowops'; return false;"
+		class="btn" style="float: center;"><i class="fa fa-pie-chart"></i> Chart</button>
+	<button id="stats" onClick="javascript:location.href='/tables/{{.Table}}/logs/slowops'; return false;"
+		class="btn" style="float: right;"><i class="fa fa-database"></i> Top N</button>
+</div>
 `
 
 func getStatsTable() string {
@@ -272,6 +240,43 @@ func getLegacyLogTable() string {
 		</tr>
 {{end}}
 	</table>
+</div>
+`
+	return template
+}
+
+func getOpCountsTable() string {
+	template := `
+<script>
+	google.charts.load('current', {'packages':['corechart']});
+	google.charts.setOnLoadCallback(drawChart);
+	function drawChart() {
+		var data = google.visualization.arrayToDataTable([
+			['op', 'secs+', 'count', 'op detail', 'count'],
+{{$sdate := ""}}
+{{range $i, $v := .OpCounts}}
+{{if eq $i 0}}
+	{{$sdate = $v.Date}}
+{{end}}
+			['{{$v.Op}}', {{epoch $v.Date $sdate}}, {{$v.Count}}, '{{$v.Date}} {{$v.Namespace}} {{$v.Filter}}', {{$v.Count}}],
+{{end}}
+		]);
+		// Set chart options
+		var options = {
+			'title':'Ops Counts Chart ({{.Table}})',
+			'hAxis': { textPosition: 'none' },
+			'vAxis': {title: 'Count', minValue: 0},
+			'height': 600,
+			'titleTextStyle': {'fontSize': 20},
+			'chartArea': {'width': '90%', 'height': '90%'},
+			'legend': { 'position': 'none' } };
+		// Instantiate and draw our chart, passing in some options.
+		var chart = new google.visualization.BubbleChart(document.getElementById('OpsCounts'));
+		chart.draw(data, options);
+	}
+</script>
+
+<div id="OpsCounts" align='center' width='100%'>
 </div>
 `
 	return template

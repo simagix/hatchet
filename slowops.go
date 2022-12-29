@@ -26,8 +26,8 @@ const cmdInsert = "insert"
 const cmdRemove = "remove"
 const cmdUpdate = "update"
 
-// AnalyzeSlowQuery analyzes slow queries
-func AnalyzeSlowQuery(doc *Logv2Info) (OpStat, error) {
+// AnalyzeSlowOp analyzes slow ops
+func AnalyzeSlowOp(doc *Logv2Info) (OpStat, error) {
 	var err error
 	var stat = OpStat{}
 

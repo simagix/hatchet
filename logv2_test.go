@@ -7,7 +7,7 @@ import (
 )
 
 func TestAnalyze(t *testing.T) {
-	filename := "testdata/mongod-v2.log.gz"
+	filename := "testdata/mongod.json.log.gz"
 	logv2 := &Logv2{verbose: true}
 	err := logv2.Analyze(filename)
 	if err != nil {
@@ -16,7 +16,7 @@ func TestAnalyze(t *testing.T) {
 }
 
 func TestAnalyzeLegacy(t *testing.T) {
-	filename := "testdata/mongod-v2.log.gz"
+	filename := "testdata/mongod.json.log.gz"
 	logv2 := &Logv2{legacy: true}
 	err := logv2.Analyze(filename)
 	if err != nil {

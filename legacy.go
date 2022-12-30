@@ -6,12 +6,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 // AddLegacyString converts log to legacy format
 func AddLegacyString(doc *Logv2Info) error {
 	var err error
 	var arr []string
+	attrMap := doc.Attr.Map()
 
 	if doc.Msg != "Slow query" {
 		if doc.Msg == "Connection ended" {
@@ -25,66 +28,50 @@ func AddLegacyString(doc *Logv2Info) error {
 		}
 	}
 
-	if doc.Component == "CONTROL" && doc.Attr["host"] != nil {
-		arr = append(arr, fmt.Sprintf("pid=%v port=%v %v host=%v", doc.Attr["pid"], doc.Attr["port"], doc.Attr["architecture"], doc.Attr["host"]))
+	if doc.Component == "CONTROL" && attrMap["host"] != nil {
+		arr = append(arr, fmt.Sprintf("pid=%v port=%v %v host=%v",
+			attrMap["pid"], attrMap["port"], attrMap["architecture"], attrMap["host"]))
 	} else if doc.Component == "ACCESS" {
-		var milli interface{}
-		for k, v := range doc.Attr {
-			if k == "authenticationDatabase" {
-				arr = append(arr, fmt.Sprintf("on %v", v))
-			} else if k == "principalName" {
-				arr = append(arr, fmt.Sprintf("as principal %v", v))
-			} else if k == "remote" {
-				arr = append(arr, fmt.Sprintf("from client %v", v))
-			} else if k == "durationMillis" {
-				milli = v
-			} else {
-				b, _ := json.Marshal(v)
-				arr = append(arr, fmt.Sprintf("%v:%v", k, string(b)))
+		for _, attr := range doc.Attr {
+			if attr.Key == "authenticationDatabase" {
+				arr = append(arr, fmt.Sprintf("on %v", attr.Value))
+			} else if attr.Key == "principalName" {
+				arr = append(arr, fmt.Sprintf("as principal %v", attr.Value))
+			} else if attr.Key == "remote" {
+				arr = append(arr, fmt.Sprintf("from client %v", attr.Value))
+			} else if attr.Key == "durationMillis" {
+				arr = append(arr, fmt.Sprintf("%vms", attr.Value))
 			}
 		}
-		if milli != nil {
-			arr = append(arr, fmt.Sprintf("%vms", milli))
-		}
 	} else if doc.Component == "NETWORK" {
-		for k, v := range doc.Attr {
-			if k == "remote" {
+		for _, attr := range doc.Attr {
+			if attr.Key == "remote" {
 				if doc.Msg == "Connection ended" {
-					arr = append(arr, fmt.Sprintf("%v", v))
+					arr = append(arr, fmt.Sprintf("%v", attr.Value))
 				} else {
-					arr = append(arr, fmt.Sprintf("from %v", v))
+					arr = append(arr, fmt.Sprintf("from %v", attr.Value))
 				}
-			} else if k == "client" {
-				arr = append(arr, fmt.Sprintf("%v:", v))
-			} else if k == "connectionId" && doc.Msg != "Connection ended" {
-				arr = append(arr, fmt.Sprintf("#%v", v))
-			} else if k == "connectionCount" {
-				arr = append(arr, fmt.Sprintf("(%v connections now open)", v))
-			} else {
-				b, _ := json.Marshal(v)
+			} else if attr.Key == "client" {
+				arr = append(arr, fmt.Sprintf("%v:", attr.Value))
+			} else if attr.Key == "connectionId" && doc.Msg != "Connection ended" {
+				arr = append(arr, fmt.Sprintf("#%v", attr.Value))
+			} else if attr.Key == "connectionCount" {
+				arr = append(arr, fmt.Sprintf("(%v connections now open)", attr.Value))
+			} else if attr.Key == "doc" {
+				b, _ := json.Marshal(attr.Value)
 				arr = append(arr, string(b))
 			}
 		}
 	} else if doc.Component == "COMMAND" || doc.Component == "WRITE" || doc.Component == "QUERY" || doc.Component == "TXT" {
-		var milli interface{}
-		for k, v := range doc.Attr {
-			if k == "type" || k == "ns" {
-				b, _ := json.Marshal(v)
-				arr = append(arr, string(b))
-			} else if k == "command" {
-				b, _ := json.Marshal(v)
-				attrs := string(b)
-				length := len(attrs)
-				arr = append(arr, attrs[1:length-1])
-			} else if k == "durationMillis" {
-				milli = v
+		for _, attr := range doc.Attr {
+			if attr.Key == "type" || attr.Key == "ns" {
+				str := attr.Value.(string)
+				arr = append(arr, str)
+			} else if attr.Key == "durationMillis" {
+				arr = append(arr, fmt.Sprintf("%vms", attr.Value))
 			} else {
-				b, _ := json.Marshal(v)
-				arr = append(arr, fmt.Sprintf("%v:%v", k, string(b)))
+				arr = append(arr, fmt.Sprintf("%v:%v", attr.Key, toLegacyString(attr.Value)))
 			}
-		}
-		if milli != nil {
-			arr = append(arr, fmt.Sprintf("%vms", milli))
 		}
 	}
 
@@ -93,4 +80,43 @@ func AddLegacyString(doc *Logv2Info) error {
 	}
 	doc.Message = strings.Join(arr, " ")
 	return err
+}
+
+func toLegacyString(o interface{}) interface{} {
+	if list, ok := o.(bson.A); ok {
+		arrs := []string{}
+		for _, alist := range list {
+			arr := []string{}
+			if _, ok := alist.(bson.D); ok {
+				for _, doc := range alist.(bson.D) {
+					arr = append(arr, fmt.Sprintf("{ %v:%v }", doc.Key, toLegacyString(doc.Value)))
+				}
+			} else {
+				arr = append(arr, fmt.Sprintf("%v", alist))
+			}
+			arrs = append(arrs, strings.Join(arr, ", "))
+		}
+		return "[" + strings.Join(arrs, ", ") + "]"
+	} else if list, ok := o.(bson.D); ok {
+		arr := []string{}
+		for _, doc := range list {
+			if doc.Key == "lsid" || doc.Key == "signature" || doc.Key == "$clusterTime" {
+				b, _ := bson.MarshalExtJSON(doc.Value, false, false)
+				arr = append(arr, fmt.Sprintf("%v: %v", doc.Key, string(b)))
+			} else {
+				arr = append(arr, fmt.Sprintf("%v:%v", doc.Key, toLegacyString(doc.Value)))
+			}
+		}
+		return " { " + strings.Join(arr, ", ") + " }"
+	} else if elem, ok := o.(bson.E); ok {
+		return fmt.Sprintf(" { %v:%v } ", elem.Key, toLegacyString(elem.Value))
+	} else {
+		if _, ok := o.(string); ok {
+			return fmt.Sprintf(` %v`, o)
+		} else if _, ok := o.(bool); ok {
+			return fmt.Sprintf(` %v`, o)
+		} else {
+			return o
+		}
+	}
 }

@@ -8,9 +8,32 @@ import (
 	"strings"
 )
 
+// getHatchetInitStmt returns init statement
+func getHatchetInitStmt(tableName string) string {
+	return fmt.Sprintf(`
+			DROP TABLE IF EXISTS %v;
+			CREATE TABLE %v (
+				id integer not null primary key, date text, severity text, component text, context text,
+				msg text, plan text, type text, ns text, message text,
+				op text, filter text, _index text, milli integer, reslen integer);
+			CREATE INDEX IF NOT EXISTS %v_idx_component ON %v (component);
+			CREATE INDEX IF NOT EXISTS %v_idx_context ON %v (context);
+			CREATE INDEX IF NOT EXISTS %v_idx_severity ON %v (severity);
+			CREATE INDEX IF NOT EXISTS %v_idx_op ON %v (op,ns,filter);`,
+		tableName, tableName, tableName, tableName, tableName,
+		tableName, tableName, tableName, tableName, tableName)
+}
+
+// getHatchetInitStmt returns prepared statement of log table
+func getHatchetPreparedStmt(tableName string) string {
+	return fmt.Sprintf(`INSERT INTO  %v(id, date, severity, component, context,
+		msg, plan, type, ns, message, op, filter, _index, milli, reslen)
+		VALUES(?,?,?,?,?, ?,?,?,?,?, ?,?,?,?,?)`, tableName)
+}
+
 func getSlowOps(tableName string, orderBy string, order string, collscan bool) ([]OpStat, error) {
 	ops := []OpStat{}
-	db, err := sql.Open("sqlite3", SQLITE_FILE)
+	db, err := sql.Open("sqlite3", GetLogv2().dbfile)
 	if err != nil {
 		return ops, err
 	}
@@ -70,7 +93,7 @@ func getLogs(tableName string, opts ...string) ([]LegacyLog, error) {
 		}
 	}
 	query += " LIMIT 1000"
-	db, err := sql.Open("sqlite3", SQLITE_FILE)
+	db, err := sql.Open("sqlite3", GetLogv2().dbfile)
 	if err != nil {
 		return docs, err
 	}
@@ -94,7 +117,7 @@ func getSlowestLogs(tableName string, topN int) ([]string, error) {
 	logstrs := []string{}
 	query := fmt.Sprintf(`SELECT date, severity, component, context, message
 			FROM %v WHERE op != "" ORDER BY milli DESC LIMIT %v`, tableName, topN)
-	db, err := sql.Open("sqlite3", SQLITE_FILE)
+	db, err := sql.Open("sqlite3", GetLogv2().dbfile)
 	if err != nil {
 		return logstrs, err
 	}
@@ -129,7 +152,7 @@ func getOpCounts(tableName string) ([]OpCount, error) {
 	query := fmt.Sprintf(`SELECT SUBSTR(date, 1, 16), COUNT(op), op, ns, filter 
 		FROM %v where op != ''
 		GROUP by SUBSTR(date, 1, 16), op, ns, filter;`, tableName)
-	db, err := sql.Open("sqlite3", SQLITE_FILE)
+	db, err := sql.Open("sqlite3", GetLogv2().dbfile)
 	if err != nil {
 		return docs, err
 	}
@@ -152,7 +175,7 @@ func getOpCounts(tableName string) ([]OpCount, error) {
 func getTables() ([]string, error) {
 	tables := []string{}
 	query := "SELECT tbl_name FROM sqlite_schema WHERE type = 'table' ORDER BY tbl_name"
-	db, err := sql.Open("sqlite3", SQLITE_FILE)
+	db, err := sql.Open("sqlite3", GetLogv2().dbfile)
 	if err != nil {
 		return tables, err
 	}

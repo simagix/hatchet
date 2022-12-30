@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/simagix/gox"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 var ops = []string{cmdAggregate, cmdCount, cmdDelete, cmdDistinct, cmdFind,
@@ -82,7 +83,7 @@ func AnalyzeSlowOp(doc *Logv2Info) (OpStat, error) {
 
 		if query != nil {
 			walker := gox.NewMapWalker(cb)
-			doc := walker.Walk(query.(map[string]interface{}))
+			doc := walker.Walk(query.(bson.D).Map())
 			if buf, err := json.Marshal(doc); err == nil {
 				stat.QueryPattern = string(buf)
 			} else {
@@ -123,11 +124,11 @@ func AnalyzeSlowOp(doc *Logv2Info) (OpStat, error) {
 	} else {
 		var fmap map[string]interface{}
 		if command["filter"] != nil {
-			fmap = command["filter"].(map[string]interface{})
+			fmap = command["filter"].(bson.D).Map()
 		} else if command["query"] != nil {
-			fmap = command["query"].(map[string]interface{})
+			fmap = command["query"].(bson.D).Map()
 		} else if command["q"] != nil {
-			fmap = command["q"].(map[string]interface{})
+			fmap = command["q"].(bson.D).Map()
 		} else {
 			return stat, errors.New("no filter found")
 		}

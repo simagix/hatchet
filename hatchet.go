@@ -13,7 +13,10 @@ import (
 	"github.com/simagix/gox"
 )
 
+const SQLITE3_FILE = "./data/hatchet.db"
+
 func Run(fullVersion string) {
+	dbfile := flag.String("dbfile", SQLITE3_FILE, "database file name")
 	legacy := flag.Bool("legacy", false, "view logs in legacy format")
 	port := flag.Int("port", 3721, "web server port number")
 	ver := flag.Bool("version", false, "print version number")
@@ -28,7 +31,8 @@ func Run(fullVersion string) {
 		return
 	}
 
-	logv2 := Logv2{verbose: *verbose, legacy: *legacy}
+	logv2 := Logv2{dbfile: *dbfile, verbose: *verbose, legacy: *legacy}
+	instance = &logv2
 	for _, filename := range flag.Args() {
 		err := logv2.Analyze(filename)
 		if err != nil {

@@ -6,7 +6,6 @@ import (
 	"bufio"
 	"bytes"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -14,19 +13,28 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/simagix/gox"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 const (
-	COLLSCAN    = "COLLSCAN"
-	DOLLAR_CMD  = "$cmd"
-	SQLITE_FILE = "./data/hatchet.db"
+	COLLSCAN   = "COLLSCAN"
+	DOLLAR_CMD = "$cmd"
 )
+
+var instance *Logv2
+
+// GetLogv2 returns Logv2 instance
+func GetLogv2() *Logv2 {
+	return instance
+}
 
 // Logv2 keeps Logv2 object
 type Logv2 struct {
 	buildInfo  map[string]interface{}
+	dbfile     string
 	filename   string
 	legacy     bool
 	tableName  string
@@ -36,13 +44,13 @@ type Logv2 struct {
 
 // Logv2Info stores logv2 struct
 type Logv2Info struct {
-	Attr      map[string]interface{} `json:"attr" bson:"attr"`
-	Component string                 `json:"c" bson:"c"`
-	Context   string                 `json:"ctx" bson:"ctx"`
-	ID        int                    `json:"id" bson:"id"`
-	Msg       string                 `json:"msg" bson:"msg"`
-	Severity  string                 `json:"s" bson:"s"`
-	Timestamp map[string]string      `json:"t" bson:"t"`
+	Attr      bson.D    `json:"attr" bson:"attr"`
+	Component string    `json:"c" bson:"c"`
+	Context   string    `json:"ctx" bson:"ctx"`
+	ID        int       `json:"id" bson:"id"`
+	Msg       string    `json:"msg" bson:"msg"`
+	Severity  string    `json:"s" bson:"s"`
+	Timestamp time.Time `json:"t" bson:"t"`
 
 	Attributes Attributes
 	Message    string // remaining legacy message
@@ -90,6 +98,8 @@ func (ptr *Logv2) Analyze(filename string) error {
 	ptr.filename = filename
 	log.Println("processing", filename)
 	ptr.tableName = "hatchet"
+	dirname := filepath.Dir(ptr.dbfile)
+	os.Mkdir(dirname, 0755)
 	temp := filepath.Base(ptr.filename)
 	i := strings.LastIndex(temp, ".log")
 	if i > 0 {
@@ -131,42 +141,33 @@ func (ptr *Logv2) Analyze(filename string) error {
 	var isPrefix bool
 	var stat OpStat
 	index := 0
+	var sqlStmt string
+	var pstmt *sql.Stmt
+	var tx *sql.Tx
 
-	db, err := sql.Open("sqlite3", SQLITE_FILE)
-	if err != nil {
-		return err
-	}
-	defer db.Close()
+	if !ptr.legacy {
+		db, err := sql.Open("sqlite3", ptr.dbfile)
+		if err != nil {
+			return err
+		}
+		defer db.Close()
 
-	log.Println("creating table", ptr.tableName)
-	sqlStmt := fmt.Sprintf(`
-		DROP TABLE IF EXISTS %v;
-		CREATE TABLE %v (
-			id integer not null primary key, date text, severity text, component text, context text,
-			msg text, plan text, type text, ns text, message text,
-			op text, filter text, _index text, milli integer, reslen integer);
-		CREATE INDEX IF NOT EXISTS %v_idx_component ON %v (component);
-		CREATE INDEX IF NOT EXISTS %v_idx_context ON %v (context);
-		CREATE INDEX IF NOT EXISTS %v_idx_severity ON %v (severity);
-		CREATE INDEX IF NOT EXISTS %v_idx_op ON %v (op,ns,filter);`,
-		ptr.tableName, ptr.tableName, ptr.tableName, ptr.tableName, ptr.tableName,
-		ptr.tableName, ptr.tableName, ptr.tableName, ptr.tableName, ptr.tableName)
-	if _, err = db.Exec(sqlStmt); err != nil {
-		return err
-	}
+		log.Println("creating table", ptr.tableName)
+		sqlStmt = getHatchetInitStmt(ptr.tableName)
+		if _, err = db.Exec(sqlStmt); err != nil {
+			return err
+		}
 
-	tx, err := db.Begin()
-	if err != nil {
-		return err
+		tx, err = db.Begin()
+		if err != nil {
+			return err
+		}
+		pstmt, err = tx.Prepare(getHatchetPreparedStmt(ptr.tableName))
+		if err != nil {
+			return err
+		}
+		defer pstmt.Close()
 	}
-	pstmt, err := tx.Prepare(fmt.Sprintf(`INSERT INTO 
-		%v(	id, date, severity, component, context,
-            msg, plan, type, ns, message, op, filter, _index, milli, reslen)
-        VALUES(?,?,?,?,?, ?,?,?,?,?, ?,?,?,?,?)`, ptr.tableName))
-	if err != nil {
-		return err
-	}
-	defer pstmt.Close()
 
 	for {
 		if !ptr.verbose && !ptr.legacy && index%50 == 0 {
@@ -189,7 +190,7 @@ func (ptr *Logv2) Analyze(filename string) error {
 		}
 
 		doc := Logv2Info{}
-		if err = json.Unmarshal([]byte(str), &doc); err != nil {
+		if err = bson.UnmarshalExtJSON([]byte(str), false, &doc); err != nil {
 			continue
 		}
 
@@ -197,40 +198,43 @@ func (ptr *Logv2) Analyze(filename string) error {
 			continue
 		}
 		if ptr.buildInfo == nil && doc.Msg == "Build Info" {
-			ptr.buildInfo = doc.Attr["buildInfo"].(map[string]interface{})
+			ptr.buildInfo = doc.Attr.Map()["buildInfo"].(bson.D).Map()
 		}
 
 		if ptr.legacy {
-			logstr := fmt.Sprintf("%v %-2s %-8s [%v] %v", doc.Timestamp["$date"], doc.Severity, doc.Component, doc.Context, doc.Message)
+			logstr := fmt.Sprintf("%v.000Z %-2s %-8s [%v] %v", doc.Timestamp.Format(time.RFC3339)[:19],
+				doc.Severity, doc.Component, doc.Context, doc.Message)
 			fmt.Println(logstr)
 		}
 
-		if doc.Attr["command"] != nil {
-			doc.Attributes.Command = doc.Attr["command"].(map[string]interface{})
+		if doc.Attr.Map()["command"] != nil {
+			doc.Attributes.Command = doc.Attr.Map()["command"].(bson.D).Map()
 		}
-		if doc.Attr["ns"] != nil {
-			doc.Attributes.NS = doc.Attr["ns"].(string)
+		if doc.Attr.Map()["ns"] != nil {
+			doc.Attributes.NS = doc.Attr.Map()["ns"].(string)
 		}
-		if doc.Attr["durationMillis"] != nil {
-			doc.Attributes.Milli = ToInt(doc.Attr["durationMillis"])
+		if doc.Attr.Map()["durationMillis"] != nil {
+			doc.Attributes.Milli = ToInt(doc.Attr.Map()["durationMillis"])
 		}
-		if doc.Attr["planSummary"] != nil {
-			doc.Attributes.PlanSummary = doc.Attr["planSummary"].(string)
+		if doc.Attr.Map()["planSummary"] != nil {
+			doc.Attributes.PlanSummary = doc.Attr.Map()["planSummary"].(string)
 		}
-		if doc.Attr["reslen"] != nil {
-			doc.Attributes.Reslen = ToInt(doc.Attr["reslen"])
+		if doc.Attr.Map()["reslen"] != nil {
+			doc.Attributes.Reslen = ToInt(doc.Attr.Map()["reslen"])
 		}
-		if doc.Attr["type"] != nil {
-			doc.Attributes.Type = doc.Attr["type"].(string)
+		if doc.Attr.Map()["type"] != nil {
+			doc.Attributes.Type = doc.Attr.Map()["type"].(string)
 		}
 
 		if stat, err = AnalyzeSlowOp(&doc); err != nil {
 			stat = OpStat{}
 		}
-		if _, err = pstmt.Exec(index, doc.Timestamp["$date"], doc.Severity, doc.Component, doc.Context,
-			doc.Msg, doc.Attributes.PlanSummary, doc.Attr["type"], doc.Attr["ns"], doc.Message,
-			stat.Op, stat.QueryPattern, stat.Index, doc.Attributes.Milli, doc.Attributes.Reslen); err != nil {
-			return err
+		if !ptr.legacy {
+			if _, err = pstmt.Exec(index, doc.Timestamp.Format(time.RFC3339), doc.Severity, doc.Component, doc.Context,
+				doc.Msg, doc.Attributes.PlanSummary, doc.Attr.Map()["type"], doc.Attr.Map()["ns"], doc.Message,
+				stat.Op, stat.QueryPattern, stat.Index, doc.Attributes.Milli, doc.Attributes.Reslen); err != nil {
+				return err
+			}
 		}
 	}
 	if ptr.legacy {

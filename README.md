@@ -1,49 +1,27 @@
-# Hatchet - MongoDB logv2 Analyzer
-Hatchet is a MongoDB logv2 analyzer and it stores parsed data in the embbedded SQLite3 database.
+# Hatchet - MongoDB JSON Log Analyzer
+Hatchet is a MongoDB JSON logs analyzer and it stores processed data in a embbedded SQLite3 database.
 
 ## Build
-Clone and run the *build.sh* script.  For the first installation, *gcc* is required to support CGO.
+Clone and run the *build.sh* script; *gcc* is required to support CGO.
 ```bash
 ./build.sh
 ```
 
-## Usages
-Hatchet can be used in multiple ways and they are:
-- Parse logs and store in SQLite3 database
-- View logs in legacy format using *-legacy* flag
-- Start as a web server to view HTML reports
+An executable *hatchet* is output to the directory *dist/*.
 
-### Process Log File(s)
-Use the command below to process log files and obtain hatchet IDs.
-
+## Quick Start
+Use the command below to process a log file, mongod.log.gz and start a web server listening to port 3721.
 ```bash
-./dist/hatchet <log file> [<more log file>...]
+./dist/hatchet -web mongod.log.gz
 ```
 
-### View Logs in Legacy Format
-Use with *-legacy* and it prints logs to stdout.
+Use the URL `http://localhost:3721/` in a browser to view reports and charts.  if you choose to view in the
+legacy format without a browser, use the command below:
 ```bash
-./dist/hatchet -legacy <log file> [<more log file>...]
+./dist/hatchet -legacy mongod.log.gz
 ```
 
-### Start a Web Server
-Start a web server with *-web* option.  The default port is 3721.
-```bash
-./dist/hatchet -web [<log file>...]
-```
-
-### View in Browser
-####View Slow Op Stats
-```
-/tables/{table}/stats/slowops
-```
-
-####View Slow Op Stats Logs
-```
-/tables/{table}/logs/slowops
-```
-
-See [developer's guide](README_DEV.md) for Hatchet integration  details.
+For additional usages and integration details, see [developer's guide](README_DEV.md).
 
 ## License
 [Apache-2.0 License](LICENSE)

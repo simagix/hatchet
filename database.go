@@ -148,3 +148,26 @@ func getOpCounts(tableName string) ([]OpCount, error) {
 	}
 	return docs, err
 }
+
+func getTables() ([]string, error) {
+	tables := []string{}
+	query := "SELECT tbl_name FROM sqlite_schema WHERE type = 'table' ORDER BY tbl_name"
+	db, err := sql.Open("sqlite3", SQLITE_FILE)
+	if err != nil {
+		return tables, err
+	}
+	defer db.Close()
+	rows, err := db.Query(query)
+	if err != nil {
+		return tables, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var table string
+		if err = rows.Scan(&table); err != nil {
+			return tables, err
+		}
+		tables = append(tables, table)
+	}
+	return tables, err
+}

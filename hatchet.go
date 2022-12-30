@@ -3,7 +3,6 @@
 package hatchet
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -53,10 +52,3 @@ func Run(fullVersion string) {
 	}
 }
 
-// handler responds to API calls
-func handler(w http.ResponseWriter, r *http.Request) {
-	json.NewEncoder(w).Encode(map[string]interface{}{"ok": 1, "message": "Hello Hatchet!",
-		"URLs": []string{"/tables/{table}", "/tables/{table}/charts/slowops",
-				"/tables/{table}/logs", "/tables/{table}/logs/slowops",
-				"/tables/{table}/stats/slowops"}})
-}

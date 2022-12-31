@@ -19,16 +19,27 @@ func getHatchetInitStmt(tableName string) string {
 			CREATE INDEX IF NOT EXISTS %v_idx_component ON %v (component);
 			CREATE INDEX IF NOT EXISTS %v_idx_context ON %v (context);
 			CREATE INDEX IF NOT EXISTS %v_idx_severity ON %v (severity);
-			CREATE INDEX IF NOT EXISTS %v_idx_op ON %v (op,ns,filter);`,
+			CREATE INDEX IF NOT EXISTS %v_idx_op ON %v (op,ns,filter);
+
+			DROP TABLE IF EXISTS %v_rmt;
+			CREATE TABLE %v_rmt(
+				id integer not null primary key, ip text, port text, conns integer, accepted integer, ended integer)`,
 		tableName, tableName, tableName, tableName, tableName,
-		tableName, tableName, tableName, tableName, tableName)
+		tableName, tableName, tableName, tableName, tableName,
+		tableName, tableName)
 }
 
-// getHatchetInitStmt returns prepared statement of log table
-func getHatchetPreparedStmt(tableName string) string {
-	return fmt.Sprintf(`INSERT INTO  %v(id, date, severity, component, context,
+// getHatchetPreparedStmt returns prepared statement of log table
+func getHatchetPreparedStmt(id string) string {
+	return fmt.Sprintf(`INSERT INTO %v (id, date, severity, component, context,
 		msg, plan, type, ns, message, op, filter, _index, milli, reslen)
-		VALUES(?,?,?,?,?, ?,?,?,?,?, ?,?,?,?,?)`, tableName)
+		VALUES(?,?,?,?,?, ?,?,?,?,?, ?,?,?,?,?)`, id)
+}
+
+// getClientPreparedStmt returns prepared statement of client table
+func getClientPreparedStmt(id string) string {
+	return fmt.Sprintf(`INSERT INTO %v_rmt (id, ip, port, conns, accepted, ended)
+		VALUES(?,?,?,?,?, ?)`, id)
 }
 
 func getSlowOps(tableName string, orderBy string, order string, collscan bool) ([]OpStat, error) {
@@ -150,7 +161,7 @@ type OpCount struct {
 func getOpCounts(tableName string) ([]OpCount, error) {
 	docs := []OpCount{}
 	query := fmt.Sprintf(`SELECT SUBSTR(date, 1, 16), COUNT(op), op, ns, filter 
-		FROM %v where op != ''
+		FROM %v WHERE op != ''
 		GROUP by SUBSTR(date, 1, 16), op, ns, filter;`, tableName)
 	db, err := sql.Open("sqlite3", GetLogv2().dbfile)
 	if err != nil {
@@ -190,7 +201,71 @@ func getTables() ([]string, error) {
 		if err = rows.Scan(&table); err != nil {
 			return tables, err
 		}
+		if strings.HasSuffix(table, "_rmt") {
+			continue
+		}
 		tables = append(tables, table)
 	}
 	return tables, err
+}
+
+// getAcceptedConnsCount returns opened connection counts
+func getAcceptedConnsCount(tableName string) ([]Remote, error) {
+	docs := []Remote{}
+	query := fmt.Sprintf(`SELECT ip, SUM(accepted)
+		FROM %v_rmt WHERE accepted = 1 GROUP by ip ORDER BY accepted DESC;`, tableName)
+	db, err := sql.Open("sqlite3", GetLogv2().dbfile)
+	if err != nil {
+		return docs, err
+	}
+	defer db.Close()
+	rows, err := db.Query(query)
+	if err != nil {
+		return docs, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var doc Remote
+		var conns float64
+		if err = rows.Scan(&doc.IP, &conns); err != nil {
+			return docs, err
+		}
+		doc.Conns = int(conns)
+		docs = append(docs, doc)
+	}
+	return docs, err
+}
+
+// getConnectionStats returns stats data of accepted and ended
+func getConnectionStats(tableName string, chartType string) ([]Remote, error) {
+	docs := []Remote{}
+	query := fmt.Sprintf(`SELECT ip, SUM(accepted), SUM(ended)
+		FROM %v_rmt GROUP by ip ORDER BY accepted DESC;`, tableName)
+	if chartType == "time" {
+		query = fmt.Sprintf(`SELECT SUBSTR(a.date, 1, 16) dt, SUM(b.accepted), SUM(b.ended)
+			FROM %v a, %v_rmt b WHERE a.id = b.id GROUP by dt ORDER BY dt;`,
+			tableName, tableName)
+	}
+	db, err := sql.Open("sqlite3", GetLogv2().dbfile)
+	if err != nil {
+		return docs, err
+	}
+	defer db.Close()
+	rows, err := db.Query(query)
+	if err != nil {
+		return docs, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var doc Remote
+		var accepted float64
+		var ended float64
+		if err = rows.Scan(&doc.IP, &accepted, &ended); err != nil {
+			return docs, err
+		}
+		doc.Accepted = int(accepted)
+		doc.Ended = int(ended)
+		docs = append(docs, doc)
+	}
+	return docs, err
 }

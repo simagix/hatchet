@@ -24,6 +24,8 @@ The easiest way is to go to the home page `http://localhost:3721` and following 
   - context
   - duration (begin_datetime,end_datetime)
   - severity
+- `/tables/{table}/charts/connections` views accepted vs ended connections chart
+- `/tables/{table}/charts/accepted_conns` views total accepted connections chart
 - `/tables/{table}/charts/slowops` views ops counts chart
 ```
 

@@ -45,12 +45,47 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return
 		}
-		templ, err := GetOpCountsTemplate()
+		templ, err := GetChartTemplate(attr)
 		if err != nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return
 		}
 		doc := map[string]interface{}{"Table": tableName, "OpCounts": docs}
+		if err = templ.Execute(w, doc); err != nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+			return
+		}
+		return
+	} else if category == "charts" && attr == "connections" {
+		chartType := r.URL.Query().Get("type")
+		docs, err := getConnectionStats(tableName, chartType)
+		if err != nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+			return
+		}
+		templ, err := GetChartTemplate(attr)
+		if err != nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+			return
+		}
+		doc := map[string]interface{}{"Table": tableName, "Remote": docs}
+		if err = templ.Execute(w, doc); err != nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+			return
+		}
+		return
+	} else if category == "charts" && attr == "accepted_conns" {
+		docs, err := getAcceptedConnsCount(tableName)
+		if err != nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+			return
+		}
+		templ, err := GetChartTemplate(attr)
+		if err != nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+			return
+		}
+		doc := map[string]interface{}{"Table": tableName, "Remote": docs}
 		if err = templ.Execute(w, doc); err != nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return

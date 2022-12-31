@@ -44,11 +44,17 @@ func AddLegacyString(doc *Logv2Info) error {
 			}
 		}
 	} else if doc.Component == "NETWORK" {
+		remote := Remote{}
 		for _, attr := range doc.Attr {
 			if attr.Key == "remote" {
+				toks := strings.Split(attr.Value.(string), ":")
+				remote.IP = toks[0]
+				remote.Port = toks[1]
 				if doc.Msg == "Connection ended" {
+					remote.Ended = 1
 					arr = append(arr, fmt.Sprintf("%v", attr.Value))
 				} else {
+					remote.Accepted = 1
 					arr = append(arr, fmt.Sprintf("from %v", attr.Value))
 				}
 			} else if attr.Key == "client" {
@@ -57,10 +63,14 @@ func AddLegacyString(doc *Logv2Info) error {
 				arr = append(arr, fmt.Sprintf("#%v", attr.Value))
 			} else if attr.Key == "connectionCount" {
 				arr = append(arr, fmt.Sprintf("(%v connections now open)", attr.Value))
+				remote.Conns = ToInt(attr.Value)
 			} else if attr.Key == "doc" {
 				b, _ := json.Marshal(attr.Value)
 				arr = append(arr, string(b))
 			}
+		}
+		if remote.IP != "" {
+			doc.Remote = &remote
 		}
 	} else if doc.Component == "COMMAND" || doc.Component == "WRITE" || doc.Component == "QUERY" || doc.Component == "TXT" {
 		for _, attr := range doc.Attr {

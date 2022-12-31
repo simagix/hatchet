@@ -5,7 +5,6 @@ package hatchet
 import (
 	"html/template"
 	"regexp"
-	"time"
 
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
@@ -47,17 +46,6 @@ func GetLegacyLogTemplate() (*template.Template, error) {
 	return template.New("hatchet").Funcs(template.FuncMap{
 		"add": func(a int, b int) int {
 			return a + b
-		}}).Parse(html)
-}
-
-// GetLegacyLogTemplate returns HTML
-func GetOpCountsTemplate() (*template.Template, error) {
-	html := headers + menuHTML + getOpCountsChart() + "</body>"
-	return template.New("hatchet").Funcs(template.FuncMap{
-		"epoch": func(d string, s string) int64 {
-			sdt, _ := time.Parse("2006-01-02T15:04:05", s+":00")
-			dt, _ := time.Parse("2006-01-02T15:04:05", d+":00")
-			return dt.Unix() - sdt.Unix()
 		}}).Parse(html)
 }
 
@@ -115,6 +103,9 @@ const headers = `<!DOCTYPE html>
     }
     tr:nth-child(even) {background-color: #f2f2f2;}
     tr:nth-child(odd) {background-color: #fff;}
+    .api {
+      font-family: Consolas, monaco, monospace;
+    }
     .btn {
       background-color: #fff;
       border: none;
@@ -132,9 +123,9 @@ const headers = `<!DOCTYPE html>
       border: none;
       outline:none;
       color: #000;
-      padding: 5px 10px;
+      padding: 5px 5px;
       cursor: pointer;
-      font-size: 20px;
+      font-size: 16px;
     }
     h1 {
       font-family: "Trebuchet MS";
@@ -163,14 +154,29 @@ const headers = `<!DOCTYPE html>
 `
 
 const menuHTML = `
+<script>
+	function gotoChart() {
+		var sel = document.getElementById('nextChart')
+		var value = sel.options[sel.selectedIndex].value;
+		if(value == "") {
+			return;
+		}
+		window.location.href = value
+	}
+</script>
 <div align='center'>
-	<button id="home" onClick="javascript:location.href='/'; return false;"
-		class="btn" style="float: right;"><i class="fa fa-home"></i> Home</button>
-	<button class="button" style="float: center;"><i class="fa fa-leaf"></i> Hatchet</button>
+	<select id='nextChart' class='btn' style="float: right;" onchange='gotoChart()'>
+		<option value=''>select a chart</option>
+		<option value='/tables/{{.Table}}/charts/slowops'>Ops Stats</option>
+		<option value='/tables/{{.Table}}/charts/accepted_conns'>Accepted Connections</option>
+		<option value='/tables/{{.Table}}/charts/connections?type=time'>Connections by Time</option>
+		<option value='/tables/{{.Table}}/charts/connections?type=total'>Connections by Total</option>
+	</select>
+	<button id="title" onClick="javascript:location.href='/'; return false;"
+		class="btn" style="float: center;"><i class="fa fa-leaf"></i> Hatchet</button>
 	<button id="stats" onClick="javascript:location.href='/tables/{{.Table}}/stats/slowops'; return false;"
 		class="btn" style="float: left;"><i class="fa fa-info"></i> Stats</button>
-	<button id="chart" onClick="javascript:location.href='/tables/{{.Table}}/charts/slowops'; return false;"
-		class="btn" style="float: right;"><i class="fa fa-bar-chart"></i> Chart</button>
+	<button id="chart" class="btn" style="float: right;"><i class="fa fa-bar-chart"></i></button>
 	<button id="logs" onClick="javascript:location.href='/tables/{{.Table}}/logs/slowops'; return false;"
 		class="btn" style="float: left;"><i class="fa fa-list"></i> Top N</button>
 </div>
@@ -264,43 +270,6 @@ func getLegacyLogTable() string {
 	return template
 }
 
-func getOpCountsChart() string {
-	template := `
-
-<div id="OpsCounts" align='center' width='100%'/>
-
-<script>
-	google.charts.load('current', {'packages':['corechart']});
-	google.charts.setOnLoadCallback(drawChart);
-	function drawChart() {
-		var data = google.visualization.arrayToDataTable([
-			['op', 'secs+', 'count', 'op detail', 'count'],
-{{$sdate := ""}}
-{{range $i, $v := .OpCounts}}
-{{if eq $i 0}}
-	{{$sdate = $v.Date}}
-{{end}}
-			['{{$v.Op}}', {{epoch $v.Date $sdate}}, {{$v.Count}}, '{{$v.Date}} {{$v.Namespace}} {{$v.Filter}}', {{$v.Count}}],
-{{end}}
-		]);
-		// Set chart options
-		var options = {
-			'title':'Ops Counts Chart ({{.Table}})',
-			'hAxis': { textPosition: 'none' },
-			'vAxis': {title: 'Count', minValue: 0},
-			'height': 600,
-			'titleTextStyle': {'fontSize': 20},
-			'chartArea': {'width': '90%', 'height': '80%'},
-			'legend': { 'position': 'none' } };
-		// Instantiate and draw our chart, passing in some options.
-		var chart = new google.visualization.BubbleChart(document.getElementById('OpsCounts'));
-		chart.draw(data, options);
-	}
-</script>
-`
-	return template
-}
-
 func getMainPage() string {
 	template := `
 <script>
@@ -311,13 +280,13 @@ func getMainPage() string {
 			return;
 		}
 		window.location.href='/tables/' + value + '/stats/slowops'
-	}
+	} 
 </script>
 
 <div>
 	<h2><i class='fa fa-leaf'></i> Hatchet - MongoDB JSON Log Analyzer</h2>
 	<select id='table' class='btn' onchange='redirect()'>
-		<option value=''>Select a table name...</option>
+		<option value=''>select a hatchet<option>
 {{range $n, $value := .Tables}}
 		<option value='{{$value}}'>{{$value}}</option>
 {{end}}
@@ -326,20 +295,20 @@ func getMainPage() string {
 
 <hr/>
 <h3>URL</h3>
-<ul>
+<ul class="api">
 	<li>/</li>
 	<li>/tables/{table}</li>
-	<li>/tables/{table}/charts/slowops</li>
-	<li>/tables/{table}/logs</li>
-	<li>/tables/{table}/logs/slowops</li>
-	<li>/tables/{table}/stats/slowops</li>
+	<li>/tables/{table}/charts/{chart}</li>
+	<li>/tables/{table}/logs[?component={str}&context={str}&duration={date},{date}&severity={str}]</li>
+	<li>/tables/{table}/logs/slowops[?topN={int}]</li>
+	<li>/tables/{table}/stats/slowops[?COLLSCAN={bool}&orderBy={str}]</li>
 </ul>
 
 <h3>API</h3>
-<ul>
-	<li>/api/hatchet/v1.0/tables/{table}/logs</li>
-	<li>/api/hatchet/v1.0/tables/{table}/logs/slowops</li>
-	<li>/api/hatchet/v1.0/tables/{table}/stats/slowops</li>
+<ul class="api">
+	<li>/api/hatchet/v1.0/tables/{table}/logs[?component={str}&context={str}&duration={date},{date}&severity={str}]</li>
+	<li>/api/hatchet/v1.0/tables/{table}/logs/slowops[?topN={int}]</li>
+	<li>/api/hatchet/v1.0/tables/{table}/stats/slowops[?COLLSCAN={bool}&orderBy={str}]</li>
 </ul>
 `
 	return template

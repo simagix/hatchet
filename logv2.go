@@ -54,6 +54,7 @@ type Logv2Info struct {
 
 	Attributes Attributes
 	Message    string // remaining legacy message
+	Remote     *Remote
 }
 
 type Attributes struct {
@@ -64,6 +65,14 @@ type Attributes struct {
 	PlanSummary        string                 `json:"planSummary" bson:"planSummary"`
 	Reslen             int                    `json:"reslen" bson:"reslen"`
 	Type               string                 `json:"type" bson:"type"`
+}
+
+type Remote struct {
+	Accepted int    `json:"accepted"`
+	Conns    int    `json:"conns"`
+	Ended    int    `json:"ended"`
+	IP       string `json:"ip"`
+	Port     string `json:"port"`
 }
 
 // OpStat stores performance data
@@ -141,8 +150,7 @@ func (ptr *Logv2) Analyze(filename string) error {
 	var isPrefix bool
 	var stat OpStat
 	index := 0
-	var sqlStmt string
-	var pstmt *sql.Stmt
+	var pstmt, cstmt *sql.Stmt
 	var tx *sql.Tx
 
 	if !ptr.legacy {
@@ -153,20 +161,21 @@ func (ptr *Logv2) Analyze(filename string) error {
 		defer db.Close()
 
 		log.Println("creating table", ptr.tableName)
-		sqlStmt = getHatchetInitStmt(ptr.tableName)
-		if _, err = db.Exec(sqlStmt); err != nil {
+		if _, err = db.Exec(getHatchetInitStmt(ptr.tableName)); err != nil {
 			return err
 		}
 
-		tx, err = db.Begin()
-		if err != nil {
+		if tx, err = db.Begin(); err != nil {
 			return err
 		}
-		pstmt, err = tx.Prepare(getHatchetPreparedStmt(ptr.tableName))
-		if err != nil {
+		if pstmt, err = tx.Prepare(getHatchetPreparedStmt(ptr.tableName)); err != nil {
 			return err
 		}
 		defer pstmt.Close()
+		if cstmt, err = tx.Prepare(getClientPreparedStmt(ptr.tableName)); err != nil {
+			return err
+		}
+		defer cstmt.Close()
 	}
 
 	for {
@@ -234,6 +243,12 @@ func (ptr *Logv2) Analyze(filename string) error {
 				doc.Msg, doc.Attributes.PlanSummary, doc.Attr.Map()["type"], doc.Attr.Map()["ns"], doc.Message,
 				stat.Op, stat.QueryPattern, stat.Index, doc.Attributes.Milli, doc.Attributes.Reslen); err != nil {
 				return err
+			}
+			if doc.Remote != nil {
+				rmt := doc.Remote
+				if _, err = cstmt.Exec(index, rmt.IP, rmt.Port, rmt.Conns, rmt.Accepted, rmt.Ended); err != nil {
+					return err
+				}
 			}
 		}
 	}

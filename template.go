@@ -10,6 +10,8 @@ import (
 	"golang.org/x/text/message"
 )
 
+const hatchetImage = `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`
+
 // GetStatsTemplate returns HTML
 func GetStatsTemplate() (*template.Template, error) {
 	html := headers + menuHTML + getStatsTable() + "</body>"
@@ -53,6 +55,9 @@ func GetLegacyLogTemplate() (*template.Template, error) {
 func GetTablesTemplate() (*template.Template, error) {
 	html := headers + getMainPage() + "</body>"
 	return template.New("hatchet").Funcs(template.FuncMap{
+		"getHatchetImage": func() string {
+			return hatchetImage
+		},
 		"add": func(a int, b int) int {
 			return a + b
 		}}).Parse(html)
@@ -76,6 +81,7 @@ const headers = `<!DOCTYPE html>
       margin-bottom: 10px;
       margin-right: 10px;
       margin-left: 10px;
+	  background-color: #f2f2f2;
     }
     table {
       font-family: Consolas, monaco, monospace;
@@ -107,7 +113,7 @@ const headers = `<!DOCTYPE html>
       font-family: Consolas, monaco, monospace;
     }
     .btn {
-      background-color: #fff;
+      background-color: #f2f2f2;
       border: none;
       outline:none;
       color: #4285F4;
@@ -119,13 +125,19 @@ const headers = `<!DOCTYPE html>
       color: #DB4437;
     }
     .button {
-      background-color: #fff;
+      background-color: #f2f2f2;
       border: none;
       outline:none;
       color: #000;
       padding: 5px 5px;
       cursor: pointer;
       font-size: 16px;
+    }
+    .head {
+      border: none;
+      outline:none;
+      color: #000;
+      font-size: 24px;
     }
     h1 {
       font-family: "Trebuchet MS";
@@ -146,7 +158,15 @@ const headers = `<!DOCTYPE html>
       font-family: "Trebuchet MS";
       font-size: 1em;
       font-weight: bold;
-    }
+    }    
+	.footer {
+	  position: fixed;
+	  left: 0;
+	  bottom: 0;
+	  width: 100%;
+	  color: #000;
+	  text-align: center;
+	  }
   </style>
 </head>
 
@@ -166,17 +186,21 @@ const menuHTML = `
 </script>
 <div align='center'>
 	<select id='nextChart' class='btn' style="float: right;" onchange='gotoChart()'>
+		<button id="chart" class="btn" style="float: right;"><i class="fa fa-bar-chart"></i></button>
 		<option value=''>select a chart</option>
-		<option value='/tables/{{.Table}}/charts/slowops'>Ops Stats</option>
-		<option value='/tables/{{.Table}}/charts/accepted_conns'>Accepted Connections</option>
-		<option value='/tables/{{.Table}}/charts/connections?type=time'>Connections by Time</option>
-		<option value='/tables/{{.Table}}/charts/connections?type=total'>Connections by Total</option>
+		<option value='/tables/{{.Table}}/charts/slowops'>ops stats</option>
+		<option value='/tables/{{.Table}}/charts/slowops?type=counts'>ops counts</option>
+		<option value='/tables/{{.Table}}/charts/connections?type=accepted'>conns accepted</option>
+		<option value='/tables/{{.Table}}/charts/connections?type=time'>conns by time</option>
+		<option value='/tables/{{.Table}}/charts/connections?type=total'>conns by total</option>
 	</select>
+	<!--
+	<button id="chart" class="btn" style="float: right;"><i class="fa fa-bar-chart"></i></button>
+	-->
 	<button id="title" onClick="javascript:location.href='/'; return false;"
-		class="btn" style="float: center;"><i class="fa fa-leaf"></i> Hatchet</button>
+		class="btn" style="float: center;"><i class="fa fa-home"></i> Hatchet</button>
 	<button id="stats" onClick="javascript:location.href='/tables/{{.Table}}/stats/slowops'; return false;"
 		class="btn" style="float: left;"><i class="fa fa-info"></i> Stats</button>
-	<button id="chart" class="btn" style="float: right;"><i class="fa fa-bar-chart"></i></button>
 	<button id="logs" onClick="javascript:location.href='/tables/{{.Table}}/logs/slowops'; return false;"
 		class="btn" style="float: left;"><i class="fa fa-list"></i> Top N</button>
 </div>
@@ -184,7 +208,8 @@ const menuHTML = `
 
 func getStatsTable() string {
 	template := `
-<div align='center'>
+<div><p/>{{.Summary}}</div>
+<div align='left'>
 	<table width='100%'>
 		<tr>
 			<th>#</th>
@@ -224,6 +249,7 @@ func getStatsTable() string {
 
 func getLogsTable() string {
 	template := `
+<div><p/>{{.Summary}}</div>
 <div align='center'>
 	<table width='100%'>
 		<tr>
@@ -283,10 +309,10 @@ func getMainPage() string {
 	} 
 </script>
 
-<div>
-	<h2><i class='fa fa-leaf'></i> Hatchet - MongoDB JSON Log Analyzer</h2>
+<div align='center'>
+	<h2><img width='60' valign="middle" src='data:image/png;base64,{{ getHatchetImage }}'>Hatchet - MongoDB JSON Log Analyzer</img></h2>
 	<select id='table' class='btn' onchange='redirect()'>
-		<option value=''>select a hatchet<option>
+		<option value=''>select a hatchet</option>
 {{range $n, $value := .Tables}}
 		<option value='{{$value}}'>{{$value}}</option>
 {{end}}
@@ -298,7 +324,7 @@ func getMainPage() string {
 <ul class="api">
 	<li>/</li>
 	<li>/tables/{table}</li>
-	<li>/tables/{table}/charts/{chart}</li>
+	<li>/tables/{table}/charts/{chart}[?type={str}]</li>
 	<li>/tables/{table}/logs[?component={str}&context={str}&duration={date},{date}&severity={str}]</li>
 	<li>/tables/{table}/logs/slowops[?topN={int}]</li>
 	<li>/tables/{table}/stats/slowops[?COLLSCAN={bool}&orderBy={str}]</li>

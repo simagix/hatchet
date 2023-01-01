@@ -112,10 +112,12 @@ func (ptr *Logv2) Analyze(filename string) error {
 	temp := filepath.Base(ptr.filename)
 	i := strings.LastIndex(temp, ".log")
 	if i > 0 {
-		hatchetName := getTableName(temp[0:i])
-		log.Println("hatchet table is", hatchetName)
-		ptr.tableName = hatchetName
+		ptr.tableName = getTableName(temp[0:i])
 	}
+	if ptr.tableName == "hatchet" {
+		ptr.tableName = "_hatchet"
+	}
+	log.Println("hatchet table is", ptr.tableName)
 	if file, err = os.Open(filename); err != nil {
 		return err
 	}
@@ -150,11 +152,12 @@ func (ptr *Logv2) Analyze(filename string) error {
 	var isPrefix bool
 	var stat OpStat
 	index := 0
+	var db *sql.DB
 	var pstmt, cstmt *sql.Stmt
 	var tx *sql.Tx
 
 	if !ptr.legacy {
-		db, err := sql.Open("sqlite3", ptr.dbfile)
+		db, err = sql.Open("sqlite3", ptr.dbfile)
 		if err != nil {
 			return err
 		}
@@ -209,32 +212,12 @@ func (ptr *Logv2) Analyze(filename string) error {
 		if ptr.buildInfo == nil && doc.Msg == "Build Info" {
 			ptr.buildInfo = doc.Attr.Map()["buildInfo"].(bson.D).Map()
 		}
-
 		if ptr.legacy {
 			logstr := fmt.Sprintf("%v.000Z %-2s %-8s [%v] %v", doc.Timestamp.Format(time.RFC3339)[:19],
 				doc.Severity, doc.Component, doc.Context, doc.Message)
 			fmt.Println(logstr)
+			continue
 		}
-
-		if doc.Attr.Map()["command"] != nil {
-			doc.Attributes.Command = doc.Attr.Map()["command"].(bson.D).Map()
-		}
-		if doc.Attr.Map()["ns"] != nil {
-			doc.Attributes.NS = doc.Attr.Map()["ns"].(string)
-		}
-		if doc.Attr.Map()["durationMillis"] != nil {
-			doc.Attributes.Milli = ToInt(doc.Attr.Map()["durationMillis"])
-		}
-		if doc.Attr.Map()["planSummary"] != nil {
-			doc.Attributes.PlanSummary = doc.Attr.Map()["planSummary"].(string)
-		}
-		if doc.Attr.Map()["reslen"] != nil {
-			doc.Attributes.Reslen = ToInt(doc.Attr.Map()["reslen"])
-		}
-		if doc.Attr.Map()["type"] != nil {
-			doc.Attributes.Type = doc.Attr.Map()["type"].(string)
-		}
-
 		if stat, err = AnalyzeSlowOp(&doc); err != nil {
 			stat = OpStat{}
 		}
@@ -258,10 +241,33 @@ func (ptr *Logv2) Analyze(filename string) error {
 	if err = tx.Commit(); err != nil {
 		return err
 	}
+	instr := fmt.Sprintf(`INSERT INTO hatchet (name, version, module, arch, os)
+				VALUES ('%v', '', '', '', '');`, ptr.tableName)
+	if ptr.buildInfo != nil {
+		var arch, os string
+		b := ptr.buildInfo
+		if ptr.buildInfo["environment"] != nil {
+			env := ptr.buildInfo["environment"].(bson.D).Map()
+			arch, _ = env["distarch"].(string)
+			os, _ = env["distmod"].(string)
+		}
+		var module interface{}
+		if modules, ok := b["modules"].(bson.A); ok {
+			if len(modules) > 0 {
+				module = modules[0]
+			}
+		}
+		instr = fmt.Sprintf(`INSERT INTO hatchet (name, version, module, arch, os)
+			VALUES ('%v', '%v', '%v', '%v', '%v');`, ptr.tableName, b["version"], module, arch, os)
+	}
+	uptstr := fmt.Sprintf("DELETE FROM hatchet WHERE name = '%v';", ptr.tableName)
+	db.Exec(uptstr);
+	if _, err = db.Exec(instr); err != nil {
+		return err
+	}
 	if !ptr.verbose && !ptr.legacy {
 		fmt.Fprintf(os.Stderr, "\r                         \r")
 	}
-
 	return ptr.PrintSummary()
 }
 

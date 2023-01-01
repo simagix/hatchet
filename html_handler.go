@@ -40,57 +40,87 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if category == "charts" && attr == "slowops" {
-		docs, err := getOpCounts(tableName)
-		if err != nil {
-			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
-			return
-		}
-		templ, err := GetChartTemplate(attr)
-		if err != nil {
-			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
-			return
-		}
-		doc := map[string]interface{}{"Table": tableName, "OpCounts": docs}
-		if err = templ.Execute(w, doc); err != nil {
-			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
-			return
-		}
-		return
-	} else if category == "charts" && attr == "connections" {
+		summary := getTableSummary(tableName)
 		chartType := r.URL.Query().Get("type")
-		docs, err := getConnectionStats(tableName, chartType)
-		if err != nil {
-			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+		if chartType == "" || chartType == "stats" {
+			chartType = "stats"
+			docs, err := getOpCounts(tableName)
+			if err != nil {
+				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+				return
+			}
+			templ, err := GetChartTemplate(attr)
+			if err != nil {
+				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+				return
+			}
+			doc := map[string]interface{}{"Table": tableName, "OpCounts": docs, "Summary": summary}
+			if err = templ.Execute(w, doc); err != nil {
+				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+				return
+			}
+			return
+		} else if chartType == "counts" {
+			docs, err := getOpsCounts(tableName)
+			if err != nil {
+				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+				return
+			}
+			templ, err := GetChartTemplate("pieChart")
+			if err != nil {
+				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+				return
+			}
+			doc := map[string]interface{}{"Table": tableName, "NameValues": docs, "Title": "Ops Counts", "Summary": summary}
+			if err = templ.Execute(w, doc); err != nil {
+				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+				return
+			}
 			return
 		}
-		templ, err := GetChartTemplate(attr)
-		if err != nil {
-			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+	} else if category == "charts" && attr == "connections" {
+		summary := getTableSummary(tableName)
+		chartType := r.URL.Query().Get("type")
+		if chartType == "" || chartType == "accepted" {
+			chartType = "accepted"
+			docs, err := getAcceptedConnsCounts(tableName)
+			if err != nil {
+				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+				return
+			}
+			templ, err := GetChartTemplate("pieChart")
+			if err != nil {
+				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+				return
+			}
+			doc := map[string]interface{}{"Table": tableName, "NameValues": docs, "Title": "Accepted Connections", "Summary": summary}
+			if err = templ.Execute(w, doc); err != nil {
+				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+				return
+			}
 			return
-		}
-		doc := map[string]interface{}{"Table": tableName, "Remote": docs}
-		if err = templ.Execute(w, doc); err != nil {
-			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+		} else {
+			docs, err := getConnectionStats(tableName, chartType)
+			if err != nil {
+				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+				return
+			}
+			templ, err := GetChartTemplate(attr)
+			if err != nil {
+				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+				return
+			}
+			if len(docs) == 0 {
+				docs = []Remote{{IP: "No data", Accepted: 0, Ended: 0}}
+			}
+			doc := map[string]interface{}{"Table": tableName, "Remote": docs, "Summary": summary}
+			if err = templ.Execute(w, doc); err != nil {
+				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+				return
+			}
 			return
+
 		}
-		return
-	} else if category == "charts" && attr == "accepted_conns" {
-		docs, err := getAcceptedConnsCount(tableName)
-		if err != nil {
-			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
-			return
-		}
-		templ, err := GetChartTemplate(attr)
-		if err != nil {
-			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
-			return
-		}
-		doc := map[string]interface{}{"Table": tableName, "Remote": docs}
-		if err = templ.Execute(w, doc); err != nil {
-			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
-			return
-		}
-		return
 	} else if category == "logs" && attr == "slowops" {
 		topN := ToInt(r.URL.Query().Get("topN"))
 		if topN == 0 {
@@ -101,12 +131,13 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return
 		}
+		summary := getTableSummary(tableName)
 		templ, err := GetLogsTemplate()
 		if err != nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return
 		}
-		doc := map[string]interface{}{"Table": tableName, "Logs": logstrs}
+		doc := map[string]interface{}{"Table": tableName, "Logs": logstrs, "Summary": summary}
 		if err = templ.Execute(w, doc); err != nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return
@@ -124,6 +155,7 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 		} else if orderBy == "index" || orderBy == "_index" {
 			orderBy = "_index"
 		}
+		summary := getTableSummary(tableName)
 		ops, err := getSlowOps(tableName, orderBy, order, collscan)
 		if err != nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
@@ -134,7 +166,7 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return
 		}
-		doc := map[string]interface{}{"Table": tableName, "Ops": ops}
+		doc := map[string]interface{}{"Table": tableName, "Ops": ops, "Summary": summary}
 		if err = templ.Execute(w, doc); err != nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return

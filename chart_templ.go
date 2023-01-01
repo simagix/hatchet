@@ -2,19 +2,31 @@
 package hatchet
 
 import (
+	"fmt"
 	"html/template"
 	"time"
 )
+
+type NameValue struct {
+	Name  string
+	Value int
+}
+
+func getFooter() string {
+	str := fmt.Sprintf(`<div class="footer"><img width='32' valign="middle" src='data:image/png;base64,%v'>Hatchet</img></div>`,
+		hatchetImage)
+	return str
+}
 
 // GetChartTemplate returns HTML
 func GetChartTemplate(attr string) (*template.Template, error) {
 	var html string
 	if attr == "connections" {
-		html = headers + menuHTML + getConnectionsChart() + "</body>"
-	} else if attr == "accepted_conns" {
-		html = headers + menuHTML + getAcceptedConnsChart() + "</body>"
+		html = headers + menuHTML + getFooter() + getConnectionsChart() + "</body></html>"
+	} else if attr == "pieChart" {
+		html = headers + menuHTML + getFooter() + getPieChart() + "</body></html>"
 	} else {
-		html = headers + menuHTML + getOpCountsChart() + "</body>"
+		html = headers + menuHTML + getFooter() + getOpCountsChart() + "</body></html>"
 	}
 	return template.New("hatchet").Funcs(template.FuncMap{
 		"epoch": func(d string, s string) int64 {
@@ -26,7 +38,6 @@ func GetChartTemplate(attr string) (*template.Template, error) {
 
 func getOpCountsChart() string {
 	template := `
-<div id="OpCounts" align='center' width='100%'/>
 <script>
 	google.charts.load('current', {'packages':['corechart']});
 	google.charts.setOnLoadCallback(drawChart);
@@ -44,56 +55,58 @@ func getOpCountsChart() string {
 		]);
 		// Set chart options
 		var options = {
-			'title':'Ops Stats',
+			'title': 'Ops Stats',
 			'hAxis': { textPosition: 'none' },
 			'vAxis': {title: 'Count', minValue: 0},
-			'height': 600,
+			'height': 400,
 			'titleTextStyle': {'fontSize': 20},
 			'chartArea': {'width': '90%', 'height': '80%'},
 			'legend': { 'position': 'none' } };
 		// Instantiate and draw our chart, passing in some options.
-		var chart = new google.visualization.BubbleChart(document.getElementById('OpCounts'));
+		var chart = new google.visualization.BubbleChart(document.getElementById('hatchetChart'));
 		chart.draw(data, options);
 	}
 </script>
+<div><p/>{{.Summary}}</div>
+<div id="hatchetChart" align='center' width='100%'/>
 `
 	return template
 }
 
-func getAcceptedConnsChart() string {
+func getPieChart() string {
 	template := `
-<div id="OpCounts" align='center' width='100%'/>
 <script>
 	google.charts.load('current', {'packages':['corechart']});
 	google.charts.setOnLoadCallback(drawChart);
 
 	function drawChart() {
 		var data = google.visualization.arrayToDataTable([
-			['IP', 'Conns'],
-{{range $i, $v := .Remote}}
-			['{{$v.IP}}', {{$v.Conns}}],
+			['Name', 'Value'],
+{{range $i, $v := .NameValues}}
+			['{{$v.Name}}', {{$v.Value}}],
 {{end}}
 		]);
 		// Set chart options
 		var options = {
-			'title':'Accepted Connections',
+			'title': '{{.Title}}',
 			'hAxis': { slantedText:true, slantedTextAngle:15 },
 			'vAxis': {title: 'Count', minValue: 0},
-			'height': 600,
+			'height': 400,
 			'titleTextStyle': {'fontSize': 20},
 			'legend': { 'position': 'right' } };
 		// Instantiate and draw our chart, passing in some options.
-		var chart = new google.visualization.PieChart(document.getElementById('OpCounts'));
+		var chart = new google.visualization.PieChart(document.getElementById('hatchetChart'));
 		chart.draw(data, options);
 	}
 </script>
+<div><p/>{{.Summary}}</div>
+<div id="hatchetChart" align='center' width='100%'/>
 `
 	return template
 }
 
 func getConnectionsChart() string {
 	template := `
-<div id="OpCounts" align='center' width='100%'/>
 <script>
 	google.charts.load('current', {'packages':['corechart']});
 	google.charts.setOnLoadCallback(drawChart);
@@ -107,17 +120,19 @@ func getConnectionsChart() string {
 		]);
 		// Set chart options
 		var options = {
-			'title':'Accepted vs Ended Connections',
+			'title': 'Accepted vs Ended Connections',
 			'hAxis': { slantedText:true, slantedTextAngle:15 },
 			'vAxis': {title: 'Count', minValue: 0},
-			'height': 600,
+			'height': 400,
 			'titleTextStyle': {'fontSize': 20},
 			'legend': { 'position': 'right' } };
 		// Instantiate and draw our chart, passing in some options.
-		var chart = new google.visualization.ColumnChart(document.getElementById('OpCounts'));
+		var chart = new google.visualization.ColumnChart(document.getElementById('hatchetChart'));
 		chart.draw(data, options);
 	}
 </script>
+<div><p/>{{.Summary}}</div>
+<div id="hatchetChart" align='center' width='100%'/>
 `
 	return template
 }

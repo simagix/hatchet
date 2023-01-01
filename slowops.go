@@ -36,6 +36,8 @@ func AnalyzeSlowOp(doc *Logv2Info) (OpStat, error) {
 	if c != "COMMAND" && c != "QUERY" && c != "WRITE" {
 		return stat, errors.New("unsupported command")
 	}
+	b, _ := bson.Marshal(doc.Attr)
+	bson.Unmarshal(b, &doc.Attributes)
 	stat.TotalMilli = doc.Attributes.Milli
 	stat.Namespace = doc.Attributes.NS
 	if stat.Namespace == "" {
@@ -72,7 +74,7 @@ func AnalyzeSlowOp(doc *Logv2Info) (OpStat, error) {
 		stat.Op = getOp(command)
 	}
 	if stat.Op == cmdInsert || stat.Op == cmdCreateIndexes {
-		stat.QueryPattern = "N/A"
+		stat.QueryPattern = ""
 	} else if (stat.Op == cmdUpdate || stat.Op == cmdRemove || stat.Op == cmdDelete) && stat.QueryPattern == "" {
 		var query interface{}
 		if command["q"] != nil {
@@ -83,7 +85,7 @@ func AnalyzeSlowOp(doc *Logv2Info) (OpStat, error) {
 
 		if query != nil {
 			walker := gox.NewMapWalker(cb)
-			doc := walker.Walk(query.(bson.D).Map())
+			doc := walker.Walk(query.(map[string]interface{}))
 			if buf, err := json.Marshal(doc); err == nil {
 				stat.QueryPattern = string(buf)
 			} else {
@@ -93,7 +95,7 @@ func AnalyzeSlowOp(doc *Logv2Info) (OpStat, error) {
 			return stat, errors.New("no filter found")
 		}
 	} else if stat.Op == cmdAggregate {
-		pipeline, ok := command["pipeline"].([]interface{})
+		pipeline, ok := command["pipeline"].(bson.A)
 		if !ok || len(pipeline) == 0 {
 			return stat, errors.New("pipeline not found")
 		}
@@ -124,11 +126,11 @@ func AnalyzeSlowOp(doc *Logv2Info) (OpStat, error) {
 	} else {
 		var fmap map[string]interface{}
 		if command["filter"] != nil {
-			fmap = command["filter"].(bson.D).Map()
+			fmap = command["filter"].(map[string]interface{})
 		} else if command["query"] != nil {
-			fmap = command["query"].(bson.D).Map()
+			fmap = command["query"].(map[string]interface{})
 		} else if command["q"] != nil {
-			fmap = command["q"].(bson.D).Map()
+			fmap = command["q"].(map[string]interface{})
 		} else {
 			return stat, errors.New("no filter found")
 		}

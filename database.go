@@ -11,6 +11,9 @@ import (
 // getHatchetInitStmt returns init statement
 func getHatchetInitStmt(tableName string) string {
 	return fmt.Sprintf(`
+			CREATE TABLE IF NOT EXISTS hatchet ( name string not null primary key,
+				version string, module string, arch string, os string);
+
 			DROP TABLE IF EXISTS %v;
 			CREATE TABLE %v (
 				id integer not null primary key, date text, severity text, component text, context text,
@@ -183,9 +186,44 @@ func getOpCounts(tableName string) ([]OpCount, error) {
 	return docs, err
 }
 
+func getTableSummary(tableName string) string {
+	query := fmt.Sprintf("SELECT name, version, module, os, arch FROM hatchet WHERE name = '%v'", tableName)
+	db, err := sql.Open("sqlite3", GetLogv2().dbfile)
+	if err != nil {
+		return ""
+	}
+	defer db.Close()
+	rows, err := db.Query(query)
+	if err != nil {
+		return ""
+	}
+	defer rows.Close()
+	if rows.Next() {
+		var table, version, module, os, arch string
+		if err = rows.Scan(&table, &version, &module, &os, &arch); err != nil {
+			return ""
+		}
+		arr := []string{}
+		if module == "" {
+			module = "community"
+		}
+		if version != "" {
+			arr = append(arr, fmt.Sprintf("v%v (%v)", version, module))
+		}
+		if os != "" {
+			arr = append(arr, "os: "+os)
+		}
+		if arch != "" {
+			arr = append(arr, "arch: "+arch)
+		}
+		return table + " " + strings.Join(arr, ", ")
+	}
+	return ""
+}
+
 func getTables() ([]string, error) {
 	tables := []string{}
-	query := "SELECT tbl_name FROM sqlite_schema WHERE type = 'table' ORDER BY tbl_name"
+	query := "SELECT name, version, module, os, arch FROM hatchet ORDER BY name"
 	db, err := sql.Open("sqlite3", GetLogv2().dbfile)
 	if err != nil {
 		return tables, err
@@ -197,21 +235,18 @@ func getTables() ([]string, error) {
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var table string
-		if err = rows.Scan(&table); err != nil {
+		var table, version, module, os, arch string
+		if err = rows.Scan(&table, &version, &module, &os, &arch); err != nil {
 			return tables, err
-		}
-		if strings.HasSuffix(table, "_rmt") {
-			continue
 		}
 		tables = append(tables, table)
 	}
 	return tables, err
 }
 
-// getAcceptedConnsCount returns opened connection counts
-func getAcceptedConnsCount(tableName string) ([]Remote, error) {
-	docs := []Remote{}
+// getAcceptedConnsCounts returns opened connection counts
+func getAcceptedConnsCounts(tableName string) ([]NameValue, error) {
+	docs := []NameValue{}
 	query := fmt.Sprintf(`SELECT ip, SUM(accepted)
 		FROM %v_rmt WHERE accepted = 1 GROUP by ip ORDER BY accepted DESC;`, tableName)
 	db, err := sql.Open("sqlite3", GetLogv2().dbfile)
@@ -225,12 +260,12 @@ func getAcceptedConnsCount(tableName string) ([]Remote, error) {
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var doc Remote
+		var doc NameValue
 		var conns float64
-		if err = rows.Scan(&doc.IP, &conns); err != nil {
+		if err = rows.Scan(&doc.Name, &conns); err != nil {
 			return docs, err
 		}
-		doc.Conns = int(conns)
+		doc.Value = int(conns)
 		docs = append(docs, doc)
 	}
 	return docs, err
@@ -242,7 +277,8 @@ func getConnectionStats(tableName string, chartType string) ([]Remote, error) {
 	query := fmt.Sprintf(`SELECT ip, SUM(accepted), SUM(ended)
 		FROM %v_rmt GROUP by ip ORDER BY accepted DESC;`, tableName)
 	if chartType == "time" {
-		query = fmt.Sprintf(`SELECT SUBSTR(a.date, 1, 16) dt, SUM(b.accepted), SUM(b.ended)
+		// aggregated in a 10-minute bucket
+		query = fmt.Sprintf(`SELECT SUBSTR(a.date, 1, 15)||'0' dt, SUM(b.accepted), SUM(b.ended)
 			FROM %v a, %v_rmt b WHERE a.id = b.id GROUP by dt ORDER BY dt;`,
 			tableName, tableName)
 	}
@@ -265,6 +301,33 @@ func getConnectionStats(tableName string, chartType string) ([]Remote, error) {
 		}
 		doc.Accepted = int(accepted)
 		doc.Ended = int(ended)
+		docs = append(docs, doc)
+	}
+	return docs, err
+}
+
+// getOpsCounts returns opened connection counts
+func getOpsCounts(tableName string) ([]NameValue, error) {
+	docs := []NameValue{}
+	query := fmt.Sprintf(`SELECT op, COUNT(op) counts
+		FROM %v WHERE op != '' GROUP by op ORDER BY counts DESC;`, tableName)
+	db, err := sql.Open("sqlite3", GetLogv2().dbfile)
+	if err != nil {
+		return docs, err
+	}
+	defer db.Close()
+	rows, err := db.Query(query)
+	if err != nil {
+		return docs, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var doc NameValue
+		var conns float64
+		if err = rows.Scan(&doc.Name, &conns); err != nil {
+			return docs, err
+		}
+		doc.Value = int(conns)
 		docs = append(docs, doc)
 	}
 	return docs, err

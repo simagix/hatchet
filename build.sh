@@ -18,9 +18,17 @@ if [ ! -f go.sum ]; then
 fi
 
 mkdir -p dist
-rm -f ./dist/hatchet
-go build -ldflags "$LDFLAGS" -o ./dist/hatchet main/hatchet.go
-if [[ -f ./dist/hatchet ]]; then
-  ./dist/hatchet -version
+if [ "$1" == "docker" ]; then
+  BR=$(git branch --show-current)
+  if [[ "${BR}" == "main" ]]; then
+    BR="latest"
+  fi
+  docker build --no-cache -f Dockerfile -t ${TAG}:${BR} .
+  # docker rmi -f $(docker images -f "dangling=true" -q) > /dev/null 2>&1
+else
+  rm -f ./dist/hatchet
+  go build -ldflags "$LDFLAGS" -o ./dist/hatchet main/hatchet.go
+  if [[ -f ./dist/hatchet ]]; then
+    ./dist/hatchet -version
+  fi
 fi
-

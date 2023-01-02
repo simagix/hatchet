@@ -148,12 +148,20 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Get("COLLSCAN") == "true" {
 			collscan = true
 		}
-		orderBy := r.URL.Query().Get("orderBy")
-		order := "DESC"
+		var order, orderBy string
+		orderBy = r.URL.Query().Get("orderBy")
 		if orderBy == "" {
 			orderBy = "avg_ms"
 		} else if orderBy == "index" || orderBy == "_index" {
 			orderBy = "_index"
+		}
+		order = r.URL.Query().Get("order")
+		if order == "" {
+			if orderBy == "op" || orderBy == "ns" {
+				order = "ASC"
+			} else {
+				order = "DESC"
+			}
 		}
 		summary := getTableSummary(tableName)
 		ops, err := getSlowOps(tableName, orderBy, order, collscan)

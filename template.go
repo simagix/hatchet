@@ -123,6 +123,7 @@ const headers = `<!DOCTYPE html>
     }
     .btn:hover {
       color: #DB4437;
+	  cursor: hand;
     }
     .button {
       background-color: #f2f2f2;
@@ -132,12 +133,6 @@ const headers = `<!DOCTYPE html>
       padding: 5px 5px;
       cursor: pointer;
       font-size: 16px;
-    }
-    .head {
-      border: none;
-      outline:none;
-      color: #000;
-      font-size: 24px;
     }
     h1 {
       font-family: "Trebuchet MS";
@@ -166,7 +161,30 @@ const headers = `<!DOCTYPE html>
 	  width: 100%;
 	  color: #000;
 	  text-align: center;
-	  }
+	}
+	select {
+	  appearance: auto;
+      font-family: "Trebuchet MS";
+	  background-color: #4285F4;
+	  color: #f2f2f2;
+	  outline: 0;
+	  border: 0;
+	  cursor: pointer;
+      border-radius: .25em;
+      font-size: 1em;
+	  padding: 5px 5px;
+	}
+	.hatchet-sel {
+      font-size: 1.25em;
+	  padding: 10px 20px;
+	}
+	.rotate45:hover {
+	  -webkit-transform: rotate(45deg);
+	  -moz-transform: rotate(45deg);
+	  -o-transform: rotate(45deg);
+	  -ms-transform: rotate(45deg);
+	  transform: rotate(45deg);
+	}
   </style>
 </head>
 
@@ -185,8 +203,7 @@ const menuHTML = `
 	}
 </script>
 <div align='center'>
-	<select id='nextChart' class='btn' style="float: right;" onchange='gotoChart()'>
-		<button id="chart" class="btn" style="float: right;"><i class="fa fa-bar-chart"></i></button>
+	<select id='nextChart' style="float: right;" onchange='gotoChart()'>
 		<option value=''>select a chart</option>
 		<option value='/tables/{{.Table}}/charts/slowops'>ops stats</option>
 		<option value='/tables/{{.Table}}/charts/slowops?type=counts'>ops counts</option>
@@ -194,9 +211,6 @@ const menuHTML = `
 		<option value='/tables/{{.Table}}/charts/connections?type=time'>conns by time</option>
 		<option value='/tables/{{.Table}}/charts/connections?type=total'>conns by total</option>
 	</select>
-	<!--
-	<button id="chart" class="btn" style="float: right;"><i class="fa fa-bar-chart"></i></button>
-	-->
 	<button id="title" onClick="javascript:location.href='/'; return false;"
 		class="btn" style="float: center;"><i class="fa fa-home"></i> Hatchet</button>
 	<button id="stats" onClick="javascript:location.href='/tables/{{.Table}}/stats/slowops'; return false;"
@@ -213,13 +227,13 @@ func getStatsTable() string {
 	<table width='100%'>
 		<tr>
 			<th>#</th>
-			<th>command</th>
-			<th>namespace</th>
-			<th>count</th>
-			<th>avg ms</th>
-			<th>max ms</th>
-			<th>total ms</th>
-			<th>total reslen</th>
+			<th>op <a href='/tables/{{.Table}}/stats/slowops?orderBy=op'><i class='fa fa-sort-asc'/></th>
+			<th>namespace <a href='/tables/{{.Table}}/stats/slowops?orderBy=ns&order=ASC'><i class='fa fa-sort-asc'/></th>
+			<th>count <a href='/tables/{{.Table}}/stats/slowops?orderBy=count'><i class='fa fa-sort-desc'/></th>
+			<th>avg ms <a href='/tables/{{.Table}}/stats/slowops?orderBy=avg_ms'><i class='fa fa-sort-desc'/></th>
+			<th>max ms <a href='/tables/{{.Table}}/stats/slowops?orderBy=max_ms'><i class='fa fa-sort-desc'/></th>
+			<th>total ms <a href='/tables/{{.Table}}/stats/slowops?orderBy=total_ms'><i class='fa fa-sort-desc'/></th>
+			<th>reslen <a href='/tables/{{.Table}}/stats/slowops?orderBy=reslen'><i class='fa fa-sort-desc'/></th>
 			<th>index</th>
 			<th>query pattern</th>
 		</tr>
@@ -310,8 +324,8 @@ func getMainPage() string {
 </script>
 
 <div align='center'>
-	<h2><img width='60' valign="middle" src='data:image/png;base64,{{ getHatchetImage }}'>Hatchet - MongoDB JSON Log Analyzer</img></h2>
-	<select id='table' class='btn' onchange='redirect()'>
+	<h2><img class='rotate45' width='60' valign="middle" src='data:image/png;base64,{{ getHatchetImage }}'>Hatchet - MongoDB JSON Log Analyzer</img></h2>
+	<select id='table' class='hatchet-sel' onchange='redirect()'>
 		<option value=''>select a hatchet</option>
 {{range $n, $value := .Tables}}
 		<option value='{{$value}}'>{{$value}}</option>

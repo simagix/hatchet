@@ -208,7 +208,7 @@ func getTableSummary(tableName string) string {
 			module = "community"
 		}
 		if version != "" {
-			arr = append(arr, fmt.Sprintf("v%v (%v)", version, module))
+			arr = append(arr, fmt.Sprintf(": MongoDB v%v (%v)", version, module))
 		}
 		if os != "" {
 			arr = append(arr, "os: "+os)
@@ -216,7 +216,7 @@ func getTableSummary(tableName string) string {
 		if arch != "" {
 			arr = append(arr, "arch: "+arch)
 		}
-		return table + " " + strings.Join(arr, ", ")
+		return table + strings.Join(arr, ", ")
 	}
 	return ""
 }

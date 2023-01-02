@@ -4,8 +4,16 @@ package hatchet
 
 import (
 	"fmt"
+	"math/rand"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
+)
+
+const (
+	MAX_SIZE  = 128
+	TAIL_SIZE = 7
 )
 
 // ToInt converts to int
@@ -18,9 +26,26 @@ func ToInt(num interface{}) int {
 	return int(x)
 }
 
-func getTableName(name string) string {
+func replaceSpecialChars(name string) string {
 	for _, sep := range []string{"-", ".", " ", ":", ","} {
 		name = strings.ReplaceAll(name, sep, "_")
 	}
 	return name
+}
+
+func getHatchetName(filename string) string {
+	temp := filepath.Base(filename)
+	tableName := replaceSpecialChars(temp)
+	i := strings.LastIndex(tableName, "_log")
+	if i >= 0 {
+		tableName = replaceSpecialChars(tableName[0:i])
+	}
+	if len(tableName) > MAX_SIZE {
+		tableName = tableName[:MAX_SIZE-TAIL_SIZE]
+	}
+	rand.Seed(time.Now().UnixNano())
+	b := make([]byte, TAIL_SIZE)
+	rand.Read(b)
+	tail := fmt.Sprintf("%x", b)[:TAIL_SIZE-1]
+	return fmt.Sprintf("%v_%v", tableName, tail)
 }

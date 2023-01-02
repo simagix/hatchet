@@ -28,6 +28,9 @@ var instance *Logv2
 
 // GetLogv2 returns Logv2 instance
 func GetLogv2() *Logv2 {
+	if instance == nil {
+		instance = &Logv2{dbfile: SQLITE3_FILE}
+	}
 	return instance
 }
 
@@ -38,6 +41,7 @@ type Logv2 struct {
 	filename   string
 	legacy     bool
 	tableName  string
+	testing    bool //test mode
 	totalLines int
 	verbose    bool
 }
@@ -106,17 +110,9 @@ func (ptr *Logv2) Analyze(filename string) error {
 	var reader *bufio.Reader
 	ptr.filename = filename
 	log.Println("processing", filename)
-	ptr.tableName = "hatchet"
 	dirname := filepath.Dir(ptr.dbfile)
 	os.Mkdir(dirname, 0755)
-	temp := filepath.Base(ptr.filename)
-	i := strings.LastIndex(temp, ".log")
-	if i > 0 {
-		ptr.tableName = getTableName(temp[0:i])
-	}
-	if ptr.tableName == "hatchet" {
-		ptr.tableName = "_hatchet"
-	}
+	ptr.tableName = getHatchetName(ptr.filename)
 	log.Println("hatchet table is", ptr.tableName)
 	if file, err = os.Open(filename); err != nil {
 		return err
@@ -164,7 +160,11 @@ func (ptr *Logv2) Analyze(filename string) error {
 		defer db.Close()
 
 		log.Println("creating table", ptr.tableName)
-		if _, err = db.Exec(getHatchetInitStmt(ptr.tableName)); err != nil {
+		stmts := getHatchetInitStmt(ptr.tableName)
+		if ptr.verbose {
+			log.Println(stmts)
+		}
+		if _, err = db.Exec(stmts); err != nil {
 			return err
 		}
 
@@ -182,7 +182,7 @@ func (ptr *Logv2) Analyze(filename string) error {
 	}
 
 	for {
-		if !ptr.verbose && !ptr.legacy && index%50 == 0 {
+		if !ptr.testing && !ptr.legacy && index%50 == 0 {
 			fmt.Fprintf(os.Stderr, "\r%3d%% \r", (100*index)/ptr.totalLines)
 		}
 		if buf, isPrefix, err = reader.ReadLine(); err != nil { // 0x0A separator = newline
@@ -215,7 +215,9 @@ func (ptr *Logv2) Analyze(filename string) error {
 		if ptr.legacy {
 			logstr := fmt.Sprintf("%v.000Z %-2s %-8s [%v] %v", doc.Timestamp.Format(time.RFC3339)[:19],
 				doc.Severity, doc.Component, doc.Context, doc.Message)
-			fmt.Println(logstr)
+			if !ptr.testing {
+				fmt.Println(logstr)
+			}
 			continue
 		}
 		if stat, err = AnalyzeSlowOp(&doc); err != nil {
@@ -260,12 +262,12 @@ func (ptr *Logv2) Analyze(filename string) error {
 		instr = fmt.Sprintf(`INSERT INTO hatchet (name, version, module, arch, os)
 			VALUES ('%v', '%v', '%v', '%v', '%v');`, ptr.tableName, b["version"], module, arch, os)
 	}
-	uptstr := fmt.Sprintf("DELETE FROM hatchet WHERE name = '%v';", ptr.tableName)
-	db.Exec(uptstr);
+	delstr := fmt.Sprintf("DELETE FROM hatchet WHERE name = '%v';", ptr.tableName)
+	db.Exec(delstr)
 	if _, err = db.Exec(instr); err != nil {
 		return err
 	}
-	if !ptr.verbose && !ptr.legacy {
+	if !ptr.testing && !ptr.legacy {
 		fmt.Fprintf(os.Stderr, "\r                         \r")
 	}
 	return ptr.PrintSummary()

@@ -116,3 +116,36 @@ func TestAddLegacyStringPipeline(t *testing.T) {
 	logstr := fmt.Sprintf("%v %-2s %-8s [%v] %v", doc.Timestamp.Format(time.RFC3339), doc.Severity, doc.Component, doc.Context, doc.Message)
 	t.Log(logstr)
 }
+
+func TestAddLegacyStringClientMeta(t *testing.T) {
+	str := `{"t":{"$date":"2021-07-25T09:26:14.105+00:00"},"s":"I",  "c":"NETWORK",  "id":51800,   "ctx":"conn177","msg":"client metadata","attr":{"remote":"192.168.241.193:46318","client":"conn177","doc":{"driver":{"name":"NetworkInterfaceTL","version":"4.4.7"},"os":{"type":"Linux","name":"CentOS Linux release 7.9.2009 (Core)","architecture":"x86_64","version":"Kernel 3.10.0-1160.31.1.el7.x86_64"}}}}`
+	t.Log(str)
+	doc := Logv2Info{}
+	err := bson.UnmarshalExtJSON([]byte(str), false, &doc)
+	if err != nil {
+		t.Fatalf("bson unmarshal error %v", err)
+	}
+
+	if err = AddLegacyString(&doc); err != nil {
+		t.Fatalf("logv2 marshal error %v", err)
+	}
+	logstr := fmt.Sprintf("%v %-2s %-8s [%v] %v", doc.Timestamp.Format(time.RFC3339), doc.Severity, doc.Component, doc.Context, doc.Message)
+	t.Log(logstr)
+}
+
+func TestAddLegacyStringLogicalSessionWrite(t *testing.T) {
+	str := `{"t":{"$date":"2021-07-25T09:56:00.691+00:00"},"s":"I",  "c":"WRITE",    "id":51803,   "ctx":"LogicalSessionCacheRefresh","msg":"Slow query","attr":{"type":"update","ns":"config.system.sessions","command":{"q":{"_id":{"id":{"$uuid":"6712143d-c644-4e18-a627-555ac42f35e5"},"uid":{"$binary":{"base64":"FS5Vi3aeniqLFs3ALoTFS1pJY/Sz3Ngs1h+xZYOrI8Y=","subType":"0"}}}},"u":[{"$set":{"lastUse":"$$NOW"}}],"multi":false,"upsert":true},"planSummary":"IDHACK","keysExamined":0,"docsExamined":0,"nMatched":0,"nModified":0,"upsert":true,"keysInserted":2,"numYields":0,"locks":{"ParallelBatchWriterMode":{"acquireCount":{"r":1}},"ReplicationStateTransition":{"acquireCount":{"w":1}},"Global":{"acquireCount":{"w":1}},"Database":{"acquireCount":{"w":1}},"Collection":{"acquireCount":{"w":1}},"Mutex":{"acquireCount":{"r":1}}},"flowControl":{"acquireCount":1,"timeAcquiringMicros":1},"storage":{"data":{"bytesRead":23074,"timeReadingMicros":105638}},"durationMillis":105}}`
+	t.Log(str)
+	doc := Logv2Info{}
+	err := bson.UnmarshalExtJSON([]byte(str), false, &doc)
+	if err != nil {
+		t.Fatalf("bson unmarshal error %v", err)
+	}
+
+	if err = AddLegacyString(&doc); err != nil {
+		t.Fatalf("logv2 marshal error %v", err)
+	}
+	logstr := fmt.Sprintf("%v %-2s %-8s [%v] %v", doc.Timestamp.Format(time.RFC3339), doc.Severity, doc.Component, doc.Context, doc.Message)
+	t.Log(logstr)
+}
+

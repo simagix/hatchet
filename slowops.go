@@ -42,9 +42,9 @@ func AnalyzeSlowOp(doc *Logv2Info) (OpStat, error) {
 	stat.Namespace = doc.Attributes.NS
 	if stat.Namespace == "" {
 		return stat, errors.New("no namespace found")
-	} else if strings.HasPrefix(stat.Namespace, "admin.") || strings.HasPrefix(stat.Namespace, "config.") || strings.HasPrefix(stat.Namespace, "local.") {
-		stat.Op = DOLLAR_CMD
-		return stat, errors.New("system database")
+		//	} else if strings.HasPrefix(stat.Namespace, "admin.") || strings.HasPrefix(stat.Namespace, "config.") || strings.HasPrefix(stat.Namespace, "local.") {
+		//		stat.Op = DOLLAR_CMD
+		//		return stat, errors.New("system database")
 	} else if strings.HasSuffix(stat.Namespace, ".$cmd") {
 		stat.Op = DOLLAR_CMD
 		return stat, errors.New("system command")
@@ -75,7 +75,8 @@ func AnalyzeSlowOp(doc *Logv2Info) (OpStat, error) {
 	}
 	if stat.Op == cmdInsert || stat.Op == cmdCreateIndexes {
 		stat.QueryPattern = ""
-	} else if (stat.Op == cmdUpdate || stat.Op == cmdRemove || stat.Op == cmdDelete) && stat.QueryPattern == "" {
+	} else if stat.QueryPattern == "" &&
+		(stat.Op == cmdFind || stat.Op == cmdUpdate || stat.Op == cmdRemove || stat.Op == cmdDelete) {
 		var query interface{}
 		if command["q"] != nil {
 			query = command["q"]
@@ -92,7 +93,7 @@ func AnalyzeSlowOp(doc *Logv2Info) (OpStat, error) {
 				stat.QueryPattern = "{}"
 			}
 		} else {
-			return stat, errors.New("no filter found")
+			stat.QueryPattern = "{}"
 		}
 	} else if stat.Op == cmdAggregate {
 		pipeline, ok := command["pipeline"].(bson.A)
@@ -132,7 +133,7 @@ func AnalyzeSlowOp(doc *Logv2Info) (OpStat, error) {
 		} else if command["q"] != nil {
 			fmap = command["q"].(map[string]interface{})
 		} else {
-			return stat, errors.New("no filter found")
+			stat.QueryPattern = "{}"
 		}
 		if !isRegex(fmap) {
 			walker := gox.NewMapWalker(cb)

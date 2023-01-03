@@ -3,7 +3,6 @@
 package hatchet
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -65,7 +64,7 @@ func AddLegacyString(doc *Logv2Info) error {
 				arr = append(arr, fmt.Sprintf("(%v connections now open)", attr.Value))
 				remote.Conns = ToInt(attr.Value)
 			} else if attr.Key == "doc" {
-				b, _ := json.Marshal(attr.Value)
+				b, _ := bson.MarshalExtJSON(attr.Value, false, false)
 				arr = append(arr, string(b))
 			}
 		}
@@ -110,7 +109,7 @@ func toLegacyString(o interface{}) interface{} {
 	} else if list, ok := o.(bson.D); ok {
 		arr := []string{}
 		for _, doc := range list {
-			if doc.Key == "lsid" || doc.Key == "signature" || doc.Key == "$clusterTime" {
+			if _, ok := doc.Value.(bson.D); ok {
 				b, _ := bson.MarshalExtJSON(doc.Value, false, false)
 				arr = append(arr, fmt.Sprintf("%v: %v", doc.Key, string(b)))
 			} else {

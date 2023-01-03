@@ -31,7 +31,7 @@ func Run(fullVersion string) {
 		return
 	}
 
-	logv2 := Logv2{dbfile: *dbfile, verbose: *verbose, legacy: *legacy}
+	logv2 := Logv2{version: fullVersion, dbfile: *dbfile, verbose: *verbose, legacy: *legacy}
 	instance = &logv2
 	for _, filename := range flag.Args() {
 		err := logv2.Analyze(filename)

@@ -19,7 +19,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 		return
 	}
-	doc := map[string]interface{}{"Tables": tables}
+	doc := map[string]interface{}{"Tables": tables, "Version": GetLogv2().version}
 	if err = templ.Execute(w, doc); err != nil {
 		json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 		return

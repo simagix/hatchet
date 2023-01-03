@@ -34,38 +34,38 @@ The database file is *data/hatchet.db*; use the *sqlite3* command as below:
 sqlite3 ./data/hatchet.db
 ```
 
-After a log file is processed, a table is created in the SQLite3 database.  The table name is part of a file name.  For example, A table *mongod* is created after a log file $HOME/Downloads/**mongod**.log.gz is processed.  A few SQL commands follow.
+After a log file is processed, 2 tables are created in the SQLite3 database.  Part of the table name are from the processed log file.  For example, a table *mongod*_<hex> (e.g., mongod_1b3d5f7) is created after a log file $HOME/Downloads/**mongod**.log.gz is processed.  The other table, mongod_<hex>_rmt, stores remote clients information.  A few SQL commands follow.
 
 ### Query All Data
 ```sqlite3
-SELECT * FROM mongod;
+SELECT * FROM mongod_1b3d5f7;
 ```
 
 ```sqlite3
-SELECT date, severity, component, context, substr(message, 1, 60) message FROM mongod;
+SELECT date, severity, component, context, substr(message, 1, 60) message FROM mongod_1b3d5f7;
 ```
 
 ```sqlite3
-SELECT date, severity, message FROM mongod WHERE component = 'NETWORK';
+SELECT date, severity, message FROM mongod_1b3d5f7 WHERE component = 'NETWORK';
 ```
 
 ### Query Ops Stats
 ```sqlite3
 SELECT op, COUNT(*) "count", ROUND(AVG(milli),1) avg_ms, MAX(milli) max_ms, SUM(milli) total_ms,
        ns, _index "index", SUM(reslen) "reslen", filter "query pattern"
-    FROM mongod
+    FROM mongod_1b3d5f7
     WHERE op != "" GROUP BY op, ns, filter ORDER BY avg_ms DESC;
 ```
 
 ```sqlite3
 SELECT SUBSTR(date, 1, 16), COUNT(op), op, ns, filter 
-    FROM mongod where op != ''
+    FROM mongod_1b3d5f7 where op != ''
     GROUP by SUBSTR(date, 1, 16), op, ns, filter;
 ```
 
 ```sqlite3
 SELECT SUBSTR(date, 1, 16), COUNT(op), op, ns
-    FROM mongod where op != ''
+    FROM mongod_1b3d5f7 where op != ''
     GROUP by SUBSTR(date, 1, 16), op, ns;
 ```
 
@@ -75,7 +75,7 @@ Different drivers are supported for most popular programming languages including
 ## Export TSV File
 Export data to a TVS file and import it to a spreadsheet software.  Here is an example:
 ```bash
-sqlite3 -header -separator $'\t' ./data/hatchet.db "SELECT * FROM mongod;" > mongod.tsv
+sqlite3 -header -separator $'\t' ./data/hatchet.db "SELECT * FROM mongod_1b3d5f7;" > mongod_1b3d5f7.tsv
 ```
 
 ## Hatchet API

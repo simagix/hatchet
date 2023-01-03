@@ -1,5 +1,5 @@
-# Hatchet - MongoDB JSON Log Analyzer
-Hatchet is a MongoDB JSON Log Analyzer and it stores processed data in an embedded SQLite3 database to support RESTful APIs and a web interface.  With an embedded database, Hatchet provides an interactive users experience to navigate reports and charts.
+# Hatchet - MongoDB JSON Log Analyzer and Viewer
+Hatchet is a MongoDB JSON logs analyzer and viewer.  It stores processed and aggregated data in an embedded SQLite3 database to support RESTful APIs and a web interface.  With an embedded database, Hatchet provides an interactive users experience to search logs and to navigate reports and charts.
 
 ## Build
 Clone and run the *build.sh* script; *gcc* is required to support CGO.

@@ -44,6 +44,7 @@ type Logv2 struct {
 	testing    bool //test mode
 	totalLines int
 	verbose    bool
+	version    string
 }
 
 // Logv2Info stores logv2 struct

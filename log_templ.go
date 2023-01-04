@@ -2,8 +2,10 @@
 package hatchet
 
 import (
+	"fmt"
 	"html/template"
 	"regexp"
+	"strings"
 )
 
 // GetLogsTemplate returns HTML
@@ -24,6 +26,31 @@ func GetLegacyLogTemplate() (*template.Template, error) {
 	return template.New("hatchet").Funcs(template.FuncMap{
 		"add": func(a int, b int) int {
 			return a + b
+		},
+		"getComponentOptions": func(item string) template.HTML {
+			arr := []string{}
+			comps := []string{"ACCESS", "ASIO", "COMMAND", "CONNPOOL", "CONTROL", "ELECTION", "FTDC", "INDEX", "INITSYNC", "NETWORK",
+				"QUERY", "RECOVERY", "REPL", "SHARDING", "STORAGE", "WRITE"}
+			for _, v := range comps {
+				selected := ""
+				if v == item {
+					selected = "SELECTED"
+				}
+				arr = append(arr, fmt.Sprintf("<option value='%v' %v>%v</option>", v, selected, v))
+			}
+			return template.HTML(strings.Join(arr, "\n"))
+		},
+		"getSeverityOptions": func(item string) template.HTML {
+			arr := []string{}
+			servs := [][2]string{{"FATAL", "F"}, {"ERROR", "E"}, {"WARN", "W"}, {"INFO", "I"}, {"DEBUG", "D"}, {"DEBUG2", "D2"}}
+			for _, v := range servs {
+				selected := ""
+				if v[1] == item {
+					selected = "SELECTED"
+				}
+				arr = append(arr, fmt.Sprintf("<option value='%v' %v>%v</option>", v[1], selected, v[0]))
+			}
+			return template.HTML(strings.Join(arr, "\n"))
 		},
 		"highligtLog": func(log string) template.HTML {
 			return template.HTML(highlightLog(log))
@@ -62,41 +89,32 @@ func getLogsTable() string {
 
 func getLegacyLogTable() string {
 	template := `
-<div align='center' width='100%'>
-	<select id='component' class="btn2" style="float: left;">
+<br/>
+<div style="float: left;">
+	<label>component: </label>
+	<select id='component'>
 		<option value=''>select a component</option>
-		<option value='ACCESS'>ACCESS</option>
-		<option value='ASIO'>ASIO</option>
-		<option value='COMMAND'>COMMAND</option>
-		<option value='CONNPOOL'>CONNPOOL</option>
-		<option value='CONTROL'>CONTROL</option>
-		<option value='ELECTION'>ELECTION</option>
-		<option value='FTDC'>FTDC</option>
-		<option value='INDEX'>INDEX</option>
-		<option value='INITSYNC'>INITSYNC</option>
-		<option value='NETWORK'>NETWORK</option>
-		<option value='QUERY'>QUERY</option>
-		<option value='RECOVERY'>RECOVERY</option>
-		<option value='REPL'>REPL</option>
-		<option value='SHARDING'>SHARDING</option>
-		<option value='STORAGE'>STORAGE</option>
-		<option value='WRITE'>WRITE</option>
+		{{getComponentOptions .Component}}
 	</select>
-
-	<select id='severity' class="btn2" style="float: center;">
-		<option value=''>select a severity</option>
-		<option value='F'>Fatal</option>
-		<option value='E'>Error</option>
-		<option value='W'>Warn</option>
-		<option value='I'>Info</option>
-	</select>
-
-	<button id="find" onClick="findLogs()" class="btn" style="float: right;">Find</button>
-	<input id='context' type='text' class="btn2" style="float: right;" size='25'/>
-	<label class="btn2" style="float: right;">context: </label>
 </div>
-<p/>
-<div align='center'>
+
+<div style="float: left; padding: 0px 0px 0px 20px;">
+	<label>&nbsp;severity: </label>
+	<select id='severity'>
+		<option value=''>select a severity</option>
+		{{getSeverityOptions .Severity}}
+	</select>
+</div>
+
+<div style="float: left; padding: 0px 0px 0px 20px;">
+	<label>&nbsp;context: </label>
+	<input id='context' type='text' value='{{.Context}}' size='25'/>
+	<button id="find" onClick="findLogs()" class="button" style="float: right;">Find</button>
+</div>
+
+<br/><h4 align='left'>{{.Summary}}</h4>
+<div>
+{{ if gt .LogLength 0 }}
 	<table width='100%'>
 		<tr>
 			<th>#</th>
@@ -106,7 +124,7 @@ func getLegacyLogTable() string {
 			<th>context</th>
 			<th>message</th>
 		</tr>
-{{range $n, $value := .Logs}}
+	{{range $n, $value := .Logs}}
 		<tr>
 			<td align='right'>{{ add $n 1 }}</td>
 			<td>{{ $value.Timestamp }}</td>
@@ -115,8 +133,9 @@ func getLegacyLogTable() string {
 			<td>{{ $value.Context }}</td>
 			<td>{{ highligtLog $value.Message }}</td>
 		</tr>
-{{end}}
+	{{end}}
 	</table>
+{{end}}
 </div>
 
 <script>

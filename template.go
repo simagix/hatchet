@@ -60,7 +60,7 @@ const headers = `<!DOCTYPE html>
       font-size: 11px;
     }
     th {
-      background-color: #ddd;
+      background-color: #fff;
       font-weight:bold;
     }
     tr:nth-child(even) {background-color: #f2f2f2;}
@@ -83,24 +83,28 @@ const headers = `<!DOCTYPE html>
     }
     .btn2 {
       background-color: #f2f2f2;
-      color: #000;
-      padding: 5px;
+      color: #4285F4;
       cursor: pointer;
-      font-size: 14px;
+      font-size: .8em;
+      padding: 5px;
       border-radius: .25em;
     }
     .btn2:hover {
       color: #DB4437;
-	  cursor: hand;
+	    cursor: hand;
     }
     .button {
-      background-color: #f2f2f2;
-      border: none;
+      font-family: "Trebuchet MS";
+      background-color: #4285F4;
+      border: none; 
       outline:none;
-      color: #000;
-      padding: 5px 5px;
+      color: #f2f2f2;
+      padding: 5px 15px;
+      margin: 2px 10px;
       cursor: pointer;
-      font-size: 16px;
+      font-size: 1em;
+      font-weight: bold;
+      border-radius: .25em;
     }
     h1 {
       font-family: "Trebuchet MS";
@@ -130,13 +134,11 @@ const headers = `<!DOCTYPE html>
 	  color: #000;
 	  text-align: center;
 	}
-	select {
-	  appearance: auto;
+	input, select, textarea {
       font-family: "Trebuchet MS";
-	  background-color: #4285F4;
-	  color: #f2f2f2;
-	  outline: 0;
-	  border: 0;
+	  appearance: auto;
+	  background-color: #fff;
+	  color: #4285F4;
 	  cursor: pointer;
       border-radius: .25em;
       font-size: 1em;
@@ -171,6 +173,14 @@ const menuHTML = `
 	}
 </script>
 <div align='center'>
+	<button id="stats" onClick="javascript:location.href='/tables/{{.Table}}/stats/slowops'; return false;"
+		class="btn" style="float: left;"><i class="fa fa-info"></i> Stats</button>
+	<button id="logs" onClick="javascript:location.href='/tables/{{.Table}}/logs/slowops'; return false;"
+		class="btn" style="float: left;"><i class="fa fa-list"></i> Top N</button>
+
+	<button id="title" onClick="javascript:location.href='/'; return false;"
+		class="btn" style="float: center;"><i class="fa fa-home"></i> Hatchet</button>
+
 	<button id="search" onClick="javascript:location.href='/tables/{{.Table}}/logs?component=NONE'; return false;"
 		class="btn" style="float: right;"><i class="fa fa-search"></i></button>
 	<select id='nextChart' style="float: right;" onchange='gotoChart()'>
@@ -181,12 +191,7 @@ const menuHTML = `
 		<option value='/tables/{{.Table}}/charts/connections?type=time'>conns by time</option>
 		<option value='/tables/{{.Table}}/charts/connections?type=total'>conns by total</option>
 	</select>
-	<button id="title" onClick="javascript:location.href='/'; return false;"
-		class="btn" style="float: center;"><i class="fa fa-home"></i> Hatchet</button>
-	<button id="stats" onClick="javascript:location.href='/tables/{{.Table}}/stats/slowops'; return false;"
-		class="btn" style="float: left;"><i class="fa fa-info"></i> Stats</button>
-	<button id="logs" onClick="javascript:location.href='/tables/{{.Table}}/logs/slowops'; return false;"
-		class="btn" style="float: left;"><i class="fa fa-list"></i> Top N</button>
+	<button class="btn" style="float: right;"><i class="fa fa-bar-chart"></i></button>
 </div>
 `
 

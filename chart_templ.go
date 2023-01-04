@@ -12,21 +12,41 @@ type NameValue struct {
 	Value int
 }
 
-func getFooter() string {
-	str := fmt.Sprintf(`<div class="footer"><img width='32' valign="middle" src='data:image/png;base64,%v'>Hatchet</img></div>`,
+func getFooter(attr string, chartType string) string {
+	str := fmt.Sprintf(`
+<script>
+	function setChartType() {
+		var sel = document.getElementById('nextChart')
+		var attr = '%v';
+		var chartType = '%v';
+
+		if(attr == "slowops" && (chartType == "" || chartType == "stats")) {
+			sel.selectedIndex = 1;
+		} else if(attr == "pieChart" && chartType == "counts") {
+			sel.selectedIndex = 2;
+		} else if(attr == "pieChart" && chartType == "accepted") {
+			sel.selectedIndex = 3;
+		} else if(attr == "connections" && chartType == "time") {
+			sel.selectedIndex = 4;
+		} else if(attr == "connections" && chartType == "total") {
+			sel.selectedIndex = 5;
+		}
+	}
+</script>`, attr, chartType);
+	str += fmt.Sprintf(`<div class="footer"><img width='32' valign="middle" src='data:image/png;base64,%v'>Hatchet</img></div>`,
 		hatchetImage)
 	return str
 }
 
 // GetChartTemplate returns HTML
-func GetChartTemplate(attr string) (*template.Template, error) {
+func GetChartTemplate(attr string, chartType string) (*template.Template, error) {
 	var html string
 	if attr == "connections" {
-		html = headers + menuHTML + getFooter() + getConnectionsChart() + "</body></html>"
+		html = headers + menuHTML + getFooter(attr, chartType) + getConnectionsChart() + "</body></html>"
 	} else if attr == "pieChart" {
-		html = headers + menuHTML + getFooter() + getPieChart() + "</body></html>"
+		html = headers + menuHTML + getFooter(attr, chartType) + getPieChart() + "</body></html>"
 	} else {
-		html = headers + menuHTML + getFooter() + getOpCountsChart() + "</body></html>"
+		html = headers + menuHTML + getFooter(attr, chartType) + getOpCountsChart() + "</body></html>"
 	}
 	return template.New("hatchet").Funcs(template.FuncMap{
 		"epoch": func(d string, s string) int64 {
@@ -39,6 +59,7 @@ func GetChartTemplate(attr string) (*template.Template, error) {
 func getOpCountsChart() string {
 	template := `
 <script>
+	setChartType();
 	google.charts.load('current', {'packages':['corechart']});
 	google.charts.setOnLoadCallback(drawChart);
 
@@ -76,6 +97,7 @@ func getOpCountsChart() string {
 func getPieChart() string {
 	template := `
 <script>
+	setChartType();
 	google.charts.load('current', {'packages':['corechart']});
 	google.charts.setOnLoadCallback(drawChart);
 
@@ -108,6 +130,7 @@ func getPieChart() string {
 func getConnectionsChart() string {
 	template := `
 <script>
+	setChartType();
 	google.charts.load('current', {'packages':['corechart']});
 	google.charts.setOnLoadCallback(drawChart);
 

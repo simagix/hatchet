@@ -49,12 +49,13 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
 			}
-			templ, err := GetChartTemplate(attr)
+			templ, err := GetChartTemplate(attr, chartType)
 			if err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
 			}
-			doc := map[string]interface{}{"Table": tableName, "OpCounts": docs, "Summary": summary}
+			doc := map[string]interface{}{"Table": tableName, "OpCounts": docs,
+				"Summary": summary, "Attr": attr, "Chart": chartType}
 			if err = templ.Execute(w, doc); err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
@@ -66,12 +67,13 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
 			}
-			templ, err := GetChartTemplate("pieChart")
+			templ, err := GetChartTemplate("pieChart", chartType)
 			if err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
 			}
-			doc := map[string]interface{}{"Table": tableName, "NameValues": docs, "Title": "Ops Counts", "Summary": summary}
+			doc := map[string]interface{}{"Table": tableName, "NameValues": docs, "Title": "Ops Counts",
+				"Summary": summary, "Attr": attr, "Chart": chartType}
 			if err = templ.Execute(w, doc); err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
@@ -88,12 +90,13 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
 			}
-			templ, err := GetChartTemplate("pieChart")
+			templ, err := GetChartTemplate("pieChart", chartType)
 			if err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
 			}
-			doc := map[string]interface{}{"Table": tableName, "NameValues": docs, "Title": "Accepted Connections", "Summary": summary}
+			doc := map[string]interface{}{"Table": tableName, "NameValues": docs, "Title": "Accepted Connections",
+				"Summary": summary, "Attr": attr, "Chart": chartType}
 			if err = templ.Execute(w, doc); err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
@@ -105,7 +108,7 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
 			}
-			templ, err := GetChartTemplate(attr)
+			templ, err := GetChartTemplate(attr, chartType)
 			if err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
@@ -113,13 +116,13 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 			if len(docs) == 0 {
 				docs = []Remote{{IP: "No data", Accepted: 0, Ended: 0}}
 			}
-			doc := map[string]interface{}{"Table": tableName, "Remote": docs, "Summary": summary}
+			doc := map[string]interface{}{"Table": tableName, "Remote": docs,
+				"Summary": summary, "Attr": attr, "Chart": chartType}
 			if err = templ.Execute(w, doc); err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
 			}
 			return
-
 		}
 	} else if category == "logs" && attr == "slowops" {
 		topN := ToInt(r.URL.Query().Get("topN"))
@@ -197,7 +200,9 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return
 		}
-		doc := map[string]interface{}{"Table": tableName, "Logs": logs}
+		summary := getTableSummary(tableName)
+		doc := map[string]interface{}{"Table": tableName, "Logs": logs, "LogLength": len(logs),
+			"Summary": summary, "Context": context, "Component": component, "Severity": severity}
 		if err = templ.Execute(w, doc); err != nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return

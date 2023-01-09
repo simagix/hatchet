@@ -53,16 +53,18 @@ const headers = `<!DOCTYPE html>
     }
     table, th, td {
       border: 1px solid gray;
-      vertical-align: top;
-    }
-    th, td {
-      padding:2px;
-      vertical-align: top;
-      font-size: 11px;
+      vertical-align: middle;
     }
     th {
-      background-color: #fff;
-      font-weight:bold;
+      background-color: #888;
+      color: #fff;
+      vertical-align: middle;
+      font-size: .9em;
+    }
+    td {
+      padding:2px;
+      vertical-align: middle;
+      font-size: 11px;
     }
     tr:nth-child(even) {background-color: #f2f2f2;}
     tr:nth-child(odd) {background-color: #fff;}
@@ -157,6 +159,9 @@ const headers = `<!DOCTYPE html>
       -o-transform: rotate(45deg);
       -ms-transform: rotate(45deg);
       transform: rotate(45deg);
+    }
+    input[type="checkbox"] {
+      accent-color: red;
     }
   </style>
 </head>

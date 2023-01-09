@@ -8,21 +8,15 @@ import (
 	"strings"
 )
 
-// GetLogsTemplate returns HTML
-func GetLogsTemplate() (*template.Template, error) {
-	html := getContentHTML("", "") + getLogsTable() + "</body>"
-	return template.New("hatchet").Funcs(template.FuncMap{
-		"add": func(a int, b int) int {
-			return a + b
-		},
-		"highligtLog": func(log string) template.HTML {
-			return template.HTML(highlightLog(log))
-		}}).Parse(html)
-}
-
-// GetLegacyLogTemplate returns HTML
-func GetLegacyLogTemplate() (*template.Template, error) {
-	html := getContentHTML("", "") + getLegacyLogTable() + "</body>"
+// GetLogTableTemplate returns HTML
+func GetLogTableTemplate(attr string) (*template.Template, error) {
+	html := getContentHTML("", "")
+	if attr == "slowops" {
+		html += getSlowOpsLogsTable()
+	} else {
+		html += getLegacyLogsTable()
+	}
+	html += "</body></html>"
 	return template.New("hatchet").Funcs(template.FuncMap{
 		"add": func(a int, b int) int {
 			return a + b
@@ -66,7 +60,7 @@ func highlightLog(log string) string {
 	return re.ReplaceAllString(log, "<mark>$1</mark>")
 }
 
-func getLogsTable() string {
+func getSlowOpsLogsTable() string {
 	template := ` 
 <p/>
 <div align='center'>
@@ -87,7 +81,7 @@ func getLogsTable() string {
 	return template
 }
 
-func getLegacyLogTable() string {
+func getLegacyLogsTable() string {
 	template := `
 <br/>
 <div style="float: left;">

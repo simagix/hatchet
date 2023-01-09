@@ -20,14 +20,16 @@ func getFooter() string {
 
 // GetChartTemplate returns HTML
 func GetChartTemplate(attr string, chartType string) (*template.Template, error) {
-	var html string
+	html := getContentHTML(attr, chartType)
 	if attr == "connections" {
-		html = getContentHTML(attr, chartType) + getConnectionsChart() + "</body></html>"
+		html += getConnectionsChart()
 	} else if attr == "pieChart" {
-		html = getContentHTML(attr, chartType) + getPieChart() + "</body></html>"
+		html += getPieChart()
 	} else {
-		html = getContentHTML(attr, chartType) + getOpCountsChart() + "</body></html>"
+		html += getOpStatsChart()
 	}
+	html += "<p/><div id='hatchetChart' align='center' width='100%'/>"
+	html += "</body></html>"
 	return template.New("hatchet").Funcs(template.FuncMap{
 		"epoch": func(d string, s string) int64 {
 			sdt, _ := time.Parse("2006-01-02T15:04:05", s+":00")
@@ -36,8 +38,8 @@ func GetChartTemplate(attr string, chartType string) (*template.Template, error)
 		}}).Parse(html)
 }
 
-func getOpCountsChart() string {
-	template := `
+func getOpStatsChart() string {
+	return `
 <script>
 	setChartType();
 	google.charts.load('current', {'packages':['corechart']});
@@ -67,15 +69,11 @@ func getOpCountsChart() string {
 		var chart = new google.visualization.BubbleChart(document.getElementById('hatchetChart'));
 		chart.draw(data, options);
 	}
-</script>
-<p/>
-<div id="hatchetChart" align='center' width='100%'/>
-`
-	return template
+</script>`
 }
 
 func getPieChart() string {
-	template := `
+	return `
 <script>
 	setChartType();
 	google.charts.load('current', {'packages':['corechart']});
@@ -98,15 +96,11 @@ func getPieChart() string {
 		var chart = new google.visualization.PieChart(document.getElementById('hatchetChart'));
 		chart.draw(data, options);
 	}
-</script>
-<p/>
-<div id="hatchetChart" align='center' width='100%'/>
-`
-	return template
+</script>`
 }
 
 func getConnectionsChart() string {
-	template := `
+	return `
 <script>
 	setChartType();
 	google.charts.load('current', {'packages':['corechart']});
@@ -131,9 +125,5 @@ func getConnectionsChart() string {
 		var chart = new google.visualization.ColumnChart(document.getElementById('hatchetChart'));
 		chart.draw(data, options);
 	}
-</script>
-<p/>
-<div id="hatchetChart" align='center' width='100%'/>
-`
-	return template
+</script>`
 }

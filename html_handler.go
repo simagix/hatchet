@@ -135,7 +135,7 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		summary := getTableSummary(tableName)
-		templ, err := GetLogsTemplate()
+		templ, err := GetLogTableTemplate(attr)
 		if err != nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return
@@ -172,7 +172,7 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return
 		}
-		templ, err := GetStatsTemplate()
+		templ, err := GetStatsTableTemplate(collscan, orderBy)
 		if err != nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return
@@ -195,7 +195,7 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return
 		}
-		templ, err := GetLegacyLogTemplate()
+		templ, err := GetLogTableTemplate(attr)
 		if err != nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return

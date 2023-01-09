@@ -2,15 +2,16 @@
 package hatchet
 
 import (
+	"fmt"
 	"html/template"
 
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 )
 
-// GetStatsTemplate returns HTML
-func GetStatsTemplate() (*template.Template, error) {
-	html := getContentHTML("", "") + getStatsTable() + "</body>"
+// GetStatsTableTemplate returns HTML
+func GetStatsTableTemplate(collscan bool, orderBy string) (*template.Template, error) {
+	html := getContentHTML("", "") + getStatsTable(collscan, orderBy) + "</body></html>"
 	return template.New("hatchet").Funcs(template.FuncMap{
 		"add": func(a int, b int) int {
 			return a + b
@@ -21,22 +22,29 @@ func GetStatsTemplate() (*template.Template, error) {
 		}}).Parse(html)
 }
 
-func getStatsTable() string {
-	template := ` 
-<p/>
-<div align='left'>
-	<table width='100%'>
-		<tr>
-			<th>#</th>
-			<th>op <a href='/tables/{{.Table}}/stats/slowops?orderBy=op'><i class='fa fa-sort-asc'/></th>
-			<th>namespace <a href='/tables/{{.Table}}/stats/slowops?orderBy=ns&order=ASC'><i class='fa fa-sort-asc'/></th>
-			<th>count <a href='/tables/{{.Table}}/stats/slowops?orderBy=count'><i class='fa fa-sort-desc'/></th>
-			<th>avg ms <a href='/tables/{{.Table}}/stats/slowops?orderBy=avg_ms'><i class='fa fa-sort-desc'/></th>
-			<th>max ms <a href='/tables/{{.Table}}/stats/slowops?orderBy=max_ms'><i class='fa fa-sort-desc'/></th>
-			<th>total ms <a href='/tables/{{.Table}}/stats/slowops?orderBy=total_ms'><i class='fa fa-sort-desc'/></th>
-			<th>reslen <a href='/tables/{{.Table}}/stats/slowops?orderBy=reslen'><i class='fa fa-sort-desc'/></th>
-			<th>index</th>
-			<th>query pattern</th>
+func getStatsTable(collscan bool, orderBy string) string {
+	checked := ""
+	if collscan {
+		checked = "checked"
+	}
+	html := fmt.Sprintf(`
+<script>
+	function getSlowopsStats() {
+		var b = document.getElementById('collscan').checked;
+		window.location.href = '/tables/{{.Table}}/stats/slowops?orderBy=%v&COLLSCAN=' + b;
+	}
+</script>
+<p/>`, orderBy)
+	html += `<div align='left'><table width='100%'><tr><th>#</th>`
+	html += fmt.Sprintf(`<th>op <a href='/tables/{{.Table}}/stats/slowops?orderBy=op&COLLSCAN=%v'><i class='fa fa-sort-asc'/></th>`, collscan)
+	html += fmt.Sprintf(`<th>namespace <a href='/tables/{{.Table}}/stats/slowops?orderBy=ns&order=ASC&COLLSCAN=%v'><i class='fa fa-sort-asc'/></th>`, collscan)
+	html += fmt.Sprintf(`<th>count <a href='/tables/{{.Table}}/stats/slowops?orderBy=count&COLLSCAN=%v'><i class='fa fa-sort-desc'/></th>`, collscan)
+	html += fmt.Sprintf(`<th>avg ms <a href='/tables/{{.Table}}/stats/slowops?orderBy=avg_ms&COLLSCAN=%v'><i class='fa fa-sort-desc'/></th>`, collscan)
+	html += fmt.Sprintf(`<th>max ms <a href='/tables/{{.Table}}/stats/slowops?orderBy=max_ms&COLLSCAN=%v'><i class='fa fa-sort-desc'/></th>`, collscan)
+	html += fmt.Sprintf(`<th>total ms <a href='/tables/{{.Table}}/stats/slowops?orderBy=total_ms&COLLSCAN=%v'><i class='fa fa-sort-desc'/></th>`, collscan)
+	html += fmt.Sprintf(`<th>reslen <a href='/tables/{{.Table}}/stats/slowops?orderBy=reslen&COLLSCAN=%v'><i class='fa fa-sort-desc'/></th>`, collscan)
+	html += fmt.Sprintf(`<th valign='middle'>index <input type='checkbox' id='collscan' onchange='getSlowopsStats(); return false;' %v></th>`, checked)
+	html += `<th>query pattern</th>
 		</tr>
 {{range $n, $value := .Ops}}
 		<tr>
@@ -49,7 +57,7 @@ func getStatsTable() string {
 			<td align='right'>{{ numPrinter $value.TotalMilli }}</td>
 			<td align='right'>{{ numPrinter $value.Reslen }}</td>
 		{{ if ( eq $value.Index "COLLSCAN" ) }}
-			<td><span style="color:red;">{{ $value.Index }}</span></td>
+			<td><span style='color:red;'>{{ $value.Index }}</span></td>
 		{{else}}
 			<td>{{ $value.Index }}</td>
 		{{end}}
@@ -58,7 +66,6 @@ func getStatsTable() string {
 {{end}}
 	</table>
 </div>
-<p/>
-`
-	return template
+<p/>`
+	return html
 }

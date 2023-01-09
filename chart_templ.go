@@ -12,41 +12,21 @@ type NameValue struct {
 	Value int
 }
 
-func getFooter(attr string, chartType string) string {
-	str := fmt.Sprintf(`
-<script>
-	function setChartType() {
-		var sel = document.getElementById('nextChart')
-		var attr = '%v';
-		var chartType = '%v';
-
-		if(attr == "slowops" && (chartType == "" || chartType == "stats")) {
-			sel.selectedIndex = 1;
-		} else if(attr == "pieChart" && chartType == "counts") {
-			sel.selectedIndex = 2;
-		} else if(attr == "pieChart" && chartType == "accepted") {
-			sel.selectedIndex = 3;
-		} else if(attr == "connections" && chartType == "time") {
-			sel.selectedIndex = 4;
-		} else if(attr == "connections" && chartType == "total") {
-			sel.selectedIndex = 5;
-		}
-	}
-</script>`, attr, chartType);
-	str += fmt.Sprintf(`<div class="footer"><img width='32' valign="middle" src='data:image/png;base64,%v'>Hatchet</img></div>`,
-		hatchetImage)
-	return str
+func getFooter() string {
+	summary := "{{.Summary}}"
+	return fmt.Sprintf(`<div class="footer"><img width='32' valign="middle" src='data:image/png;base64,%v'> %v</img></div>`,
+		hatchetImage, summary)
 }
 
 // GetChartTemplate returns HTML
 func GetChartTemplate(attr string, chartType string) (*template.Template, error) {
 	var html string
 	if attr == "connections" {
-		html = headers + menuHTML + getFooter(attr, chartType) + getConnectionsChart() + "</body></html>"
+		html = getContentHTML(attr, chartType) + getConnectionsChart() + "</body></html>"
 	} else if attr == "pieChart" {
-		html = headers + menuHTML + getFooter(attr, chartType) + getPieChart() + "</body></html>"
+		html = getContentHTML(attr, chartType) + getPieChart() + "</body></html>"
 	} else {
-		html = headers + menuHTML + getFooter(attr, chartType) + getOpCountsChart() + "</body></html>"
+		html = getContentHTML(attr, chartType) + getOpCountsChart() + "</body></html>"
 	}
 	return template.New("hatchet").Funcs(template.FuncMap{
 		"epoch": func(d string, s string) int64 {
@@ -79,7 +59,7 @@ func getOpCountsChart() string {
 			'title': 'Ops Stats',
 			'hAxis': { textPosition: 'none' },
 			'vAxis': {title: 'Count', minValue: 0},
-			'height': 400,
+			'height': 480,
 			'titleTextStyle': {'fontSize': 20},
 			'chartArea': {'width': '90%', 'height': '80%'},
 			'legend': { 'position': 'none' } };
@@ -88,7 +68,7 @@ func getOpCountsChart() string {
 		chart.draw(data, options);
 	}
 </script>
-<div><p/>{{.Summary}}</div>
+<p/>
 <div id="hatchetChart" align='center' width='100%'/>
 `
 	return template
@@ -111,17 +91,15 @@ func getPieChart() string {
 		// Set chart options
 		var options = {
 			'title': '{{.Title}}',
-			'hAxis': { slantedText:true, slantedTextAngle:15 },
-			'vAxis': {title: 'Count', minValue: 0},
-			'height': 400,
+			'height': 480,
 			'titleTextStyle': {'fontSize': 20},
-			'legend': { 'position': 'right' } };
+			'legend': { 'position': 'left' } };
 		// Instantiate and draw our chart, passing in some options.
 		var chart = new google.visualization.PieChart(document.getElementById('hatchetChart'));
 		chart.draw(data, options);
 	}
 </script>
-<div><p/>{{.Summary}}</div>
+<p/>
 <div id="hatchetChart" align='center' width='100%'/>
 `
 	return template
@@ -146,7 +124,7 @@ func getConnectionsChart() string {
 			'title': 'Accepted vs Ended Connections',
 			'hAxis': { slantedText:true, slantedTextAngle:15 },
 			'vAxis': {title: 'Count', minValue: 0},
-			'height': 400,
+			'height': 480,
 			'titleTextStyle': {'fontSize': 20},
 			'legend': { 'position': 'right' } };
 		// Instantiate and draw our chart, passing in some options.
@@ -154,7 +132,7 @@ func getConnectionsChart() string {
 		chart.draw(data, options);
 	}
 </script>
-<div><p/>{{.Summary}}</div>
+<p/>
 <div id="hatchetChart" align='center' width='100%'/>
 `
 	return template

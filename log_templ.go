@@ -10,7 +10,7 @@ import (
 
 // GetLogsTemplate returns HTML
 func GetLogsTemplate() (*template.Template, error) {
-	html := headers + menuHTML + getLogsTable() + "</body>"
+	html := getContentHTML("", "") + getLogsTable() + "</body>"
 	return template.New("hatchet").Funcs(template.FuncMap{
 		"add": func(a int, b int) int {
 			return a + b
@@ -22,7 +22,7 @@ func GetLogsTemplate() (*template.Template, error) {
 
 // GetLegacyLogTemplate returns HTML
 func GetLegacyLogTemplate() (*template.Template, error) {
-	html := headers + menuHTML + getLegacyLogTable() + "</body>"
+	html := getContentHTML("", "") + getLegacyLogTable() + "</body>"
 	return template.New("hatchet").Funcs(template.FuncMap{
 		"add": func(a int, b int) int {
 			return a + b
@@ -67,8 +67,8 @@ func highlightLog(log string) string {
 }
 
 func getLogsTable() string {
-	template := `
-<div><p/>{{.Summary}}</div>
+	template := ` 
+<p/>
 <div align='center'>
 	<table width='100%'>
 		<tr>
@@ -112,7 +112,7 @@ func getLegacyLogTable() string {
 	<button id="find" onClick="findLogs()" class="button" style="float: right;">Find</button>
 </div>
 
-<br/><h4 align='left'>{{.Summary}}</h4>
+<p/>
 <div>
 {{ if gt .LogLength 0 }}
 	<table width='100%'>
@@ -137,7 +137,7 @@ func getLegacyLogTable() string {
 	</table>
 {{end}}
 </div>
-
+<p/>
 <script>
 	var input = document.getElementById("context");
 	input.addEventListener("keypress", function(event) {

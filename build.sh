@@ -25,6 +25,10 @@ if [ "$1" == "docker" ]; then
   fi
   docker build --no-cache -f Dockerfile -t ${TAG}:${BR} .
   # docker rmi -f $(docker images -f "dangling=true" -q) > /dev/null 2>&1
+elif [ "$1" == "dist" ]; then
+  [[ "$(which uname)" = "" ]] && die "uname command not found"
+  ofile="./dist/hatchet-$(uname|tr '[:upper:]' '[:lower:]')-$(uname -m)"
+  go build -ldflags "$LDFLAGS" -o ${ofile} main/hatchet.go
 else
   rm -f ./dist/hatchet
   go build -ldflags "$LDFLAGS" -o ./dist/hatchet main/hatchet.go

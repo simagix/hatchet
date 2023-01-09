@@ -2,6 +2,7 @@
 package hatchet
 
 import (
+	"fmt"
 	"html/template"
 )
 
@@ -125,43 +126,47 @@ const headers = `<!DOCTYPE html>
       font-family: "Trebuchet MS";
       font-size: 1em;
       font-weight: bold;
-    }    
-	.footer {
-	  position: fixed;
-	  left: 0;
-	  bottom: 0;
-	  width: 100%;
-	  color: #000;
-	  text-align: center;
-	}
-	input, select, textarea {
+    }
+    .footer {
+      background-color: #4285F4;
+      opacity: .8;
+      position: fixed;
+      left: 0;
+      bottom: 0;
+      width: 100%;
+      color: #fff;
+      text-align: center;
+    }
+    input, select, textarea {
       font-family: "Trebuchet MS";
-	  appearance: auto;
-	  background-color: #fff;
-	  color: #4285F4;
-	  cursor: pointer;
+      appearance: auto;
+      background-color: #fff;
+      color: #4285F4;
+      cursor: pointer;
       border-radius: .25em;
       font-size: 1em;
-	  padding: 5px 5px;
-	}
-	.hatchet-sel {
+      padding: 5px 5px;
+    }
+    .hatchet-sel {
       font-size: 1.25em;
-	  padding: 10px 20px;
-	}
-	.rotate45:hover {
-	  -webkit-transform: rotate(45deg);
-	  -moz-transform: rotate(45deg);
-	  -o-transform: rotate(45deg);
-	  -ms-transform: rotate(45deg);
-	  transform: rotate(45deg);
-	}
+      padding: 10px 20px;
+    }
+    .rotate45:hover {
+      -webkit-transform: rotate(45deg);
+      -moz-transform: rotate(45deg);
+      -o-transform: rotate(45deg);
+      -ms-transform: rotate(45deg);
+      transform: rotate(45deg);
+    }
   </style>
 </head>
 
 <body>
 `
 
-const menuHTML = `
+func getContentHTML(attr string, chartType string) string {
+	html := headers
+	html += fmt.Sprintf(`
 <script>
 	function gotoChart() {
 		var sel = document.getElementById('nextChart')
@@ -193,7 +198,29 @@ const menuHTML = `
 	</select>
 	<button class="btn" style="float: right;"><i class="fa fa-bar-chart"></i></button>
 </div>
-`
+<p/>
+<script>
+function setChartType() {
+  var sel = document.getElementById('nextChart')
+  var attr = '%v';
+  var chartType = '%v';
+
+  if(attr == "slowops" && (chartType == "" || chartType == "stats")) {
+    sel.selectedIndex = 1;
+  } else if(attr == "pieChart" && chartType == "counts") {
+    sel.selectedIndex = 2;
+  } else if(attr == "pieChart" && chartType == "accepted") {
+    sel.selectedIndex = 3;
+  } else if(attr == "connections" && chartType == "time") {
+    sel.selectedIndex = 4;
+  } else if(attr == "connections" && chartType == "total") {
+    sel.selectedIndex = 5;
+  }
+}
+</script>`, attr, chartType)
+	html += getFooter()
+	return html
+}
 
 func getMainPage() string {
 	template := `

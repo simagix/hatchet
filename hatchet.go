@@ -21,7 +21,7 @@ func Run(fullVersion string) {
 	port := flag.Int("port", 3721, "web server port number")
 	ver := flag.Bool("version", false, "print version number")
 	verbose := flag.Bool("verbose", false, "turn on verbose")
-	web := flag.Bool("web", false, "test mode")
+	web := flag.Bool("web", false, "starts a web server")
 	flag.Parse()
 	flagset := make(map[string]bool)
 	flag.Visit(func(f *flag.Flag) { flagset[f.Name] = true })
@@ -40,6 +40,9 @@ func Run(fullVersion string) {
 		}
 	}
 	if *legacy || !*web {
+		if len(flag.Args()) == 0 {
+			flag.PrintDefaults()
+		}
 		return
 	}
 

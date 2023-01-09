@@ -10,7 +10,7 @@ import (
 
 // GetStatsTemplate returns HTML
 func GetStatsTemplate() (*template.Template, error) {
-	html := headers + menuHTML + getStatsTable() + "</body>"
+	html := getContentHTML("", "") + getStatsTable() + "</body>"
 	return template.New("hatchet").Funcs(template.FuncMap{
 		"add": func(a int, b int) int {
 			return a + b
@@ -22,8 +22,8 @@ func GetStatsTemplate() (*template.Template, error) {
 }
 
 func getStatsTable() string {
-	template := `
-<div><p/>{{.Summary}}</div>
+	template := ` 
+<p/>
 <div align='left'>
 	<table width='100%'>
 		<tr>
@@ -58,6 +58,7 @@ func getStatsTable() string {
 {{end}}
 	</table>
 </div>
+<p/>
 `
 	return template
 }

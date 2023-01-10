@@ -11,14 +11,18 @@ import (
 // getHatchetInitStmt returns init statement
 func getHatchetInitStmt(tableName string) string {
 	return fmt.Sprintf(`
-			CREATE TABLE IF NOT EXISTS hatchet ( name string not null primary key,
-				version string, module string, arch string, os string);
+			CREATE TABLE IF NOT EXISTS hatchet ( name text not null primary key,
+				version text, module text, arch text, os text, start text, end text);
 
 			DROP TABLE IF EXISTS %v;
 			CREATE TABLE %v (
 				id integer not null primary key, date text, severity text, component text, context text,
 				msg text, plan text, type text, ns text, message text,
 				op text, filter text, _index text, milli integer, reslen integer);
+
+			DROP TABLE IF EXISTS %v_ops;
+			CREATE TABLE %v_ops ( op, count, avg_ms, max_ms, total_ms, ns, _index, reslen, filter);
+
 			CREATE INDEX IF NOT EXISTS %v_idx_component ON %v (component);
 			CREATE INDEX IF NOT EXISTS %v_idx_context ON %v (context);
 			CREATE INDEX IF NOT EXISTS %v_idx_severity ON %v (severity);
@@ -29,7 +33,7 @@ func getHatchetInitStmt(tableName string) string {
 				id integer not null primary key, ip text, port text, conns integer, accepted integer, ended integer)`,
 		tableName, tableName, tableName, tableName, tableName,
 		tableName, tableName, tableName, tableName, tableName,
-		tableName, tableName)
+		tableName, tableName, tableName, tableName)
 }
 
 // getHatchetPreparedStmt returns prepared statement of log table
@@ -70,14 +74,13 @@ func getSlowOps(tableName string, orderBy string, order string, collscan bool) (
 }
 
 func getSlowOpsQuery(tableName string, orderBy string, order string, collscan bool) string {
-	query := fmt.Sprintf(`SELECT op, COUNT(*) "count", ROUND(AVG(milli),1) avg_ms, MAX(milli) max_ms,
-			SUM(milli) total_ms, ns, _index "index", SUM(reslen) "reslen", filter "query pattern"
-			FROM %v WHERE op != "" GROUP BY op, ns, filter ORDER BY %v %v`, tableName, orderBy, order)
+	query := fmt.Sprintf(`SELECT op, count, avg_ms, max_ms,
+			total_ms, ns, _index "index", reslen, filter "query pattern"
+			FROM %v_ops ORDER BY %v %v`, tableName, orderBy, order)
 	if collscan {
-		query = fmt.Sprintf(`SELECT op, COUNT(*) "count", ROUND(AVG(milli),1) avg_ms, MAX(milli) max_ms,
-				SUM(milli) total_ms, ns, _index "index", SUM(reslen) "reslen", filter "query pattern"
-				FROM %v WHERE op != "" AND _index = "COLLSCAN" GROUP BY op, ns, filter ORDER BY %v %v`,
-			tableName, orderBy, order)
+		query = fmt.Sprintf(`SELECT op, count, avg_ms, max_ms,
+				total_ms, ns, _index "index", reslen, filter "query pattern"
+				FROM %v_ops WHERE _index = "COLLSCAN" ORDER BY %v %v`, tableName, orderBy, order)
 	}
 	return query
 }

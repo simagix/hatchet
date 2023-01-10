@@ -152,6 +152,7 @@ func (ptr *Logv2) Analyze(filename string) error {
 	var db *sql.DB
 	var pstmt, cstmt *sql.Stmt
 	var tx *sql.Tx
+	var start, end string
 
 	if !ptr.legacy {
 		db, err = sql.Open("sqlite3", ptr.dbfile)
@@ -225,7 +226,11 @@ func (ptr *Logv2) Analyze(filename string) error {
 			stat = OpStat{}
 		}
 		if !ptr.legacy {
-			if _, err = pstmt.Exec(index, doc.Timestamp.Format(time.RFC3339), doc.Severity, doc.Component, doc.Context,
+			end =  doc.Timestamp.Format(time.RFC3339);
+			if start == "" {
+				start = end
+			}
+			if _, err = pstmt.Exec(index, end, doc.Severity, doc.Component, doc.Context,
 				doc.Msg, doc.Attributes.PlanSummary, doc.Attr.Map()["type"], doc.Attr.Map()["ns"], doc.Message,
 				stat.Op, stat.QueryPattern, stat.Index, doc.Attributes.Milli, doc.Attributes.Reslen); err != nil {
 				return err
@@ -244,8 +249,8 @@ func (ptr *Logv2) Analyze(filename string) error {
 	if err = tx.Commit(); err != nil {
 		return err
 	}
-	instr := fmt.Sprintf(`INSERT INTO hatchet (name, version, module, arch, os)
-				VALUES ('%v', '', '', '', '');`, ptr.tableName)
+	instr := fmt.Sprintf(`INSERT INTO hatchet (name, version, module, arch, os, start, end)
+				VALUES ('%v', '', '', '', '', '%v', '%v');`, ptr.tableName, start, end)
 	if ptr.buildInfo != nil {
 		var arch, os string
 		b := ptr.buildInfo
@@ -260,11 +265,17 @@ func (ptr *Logv2) Analyze(filename string) error {
 				module = modules[0]
 			}
 		}
-		instr = fmt.Sprintf(`INSERT INTO hatchet (name, version, module, arch, os)
-			VALUES ('%v', '%v', '%v', '%v', '%v');`, ptr.tableName, b["version"], module, arch, os)
+		instr = fmt.Sprintf(`INSERT INTO hatchet (name, version, module, arch, os, start, end)
+			VALUES ('%v', '%v', '%v', '%v', '%v', '%v', '%v');`, ptr.tableName, b["version"], module, arch, os, start, end)
 	}
 	delstr := fmt.Sprintf("DELETE FROM hatchet WHERE name = '%v';", ptr.tableName)
 	db.Exec(delstr)
+	if _, err = db.Exec(instr); err != nil {
+		return err
+	}
+	instr = fmt.Sprintf(`INSERT INTO %v_ops
+			SELECT op, COUNT(*), ROUND(AVG(milli),1), MAX(milli), SUM(milli), ns, _index, SUM(reslen), filter
+				FROM %v WHERE op != "" GROUP BY op, ns, filter`, ptr.tableName, ptr.tableName)
 	if _, err = db.Exec(instr); err != nil {
 		return err
 	}

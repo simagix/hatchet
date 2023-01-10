@@ -36,13 +36,13 @@ func getStatsTable(collscan bool, orderBy string) string {
 </script>
 <p/>`, orderBy)
 	html += `<div align='left'><table width='100%'><tr><th>#</th>`
-	html += fmt.Sprintf(`<th>op <a href='/tables/{{.Table}}/stats/slowops?orderBy=op&COLLSCAN=%v'><i class='fa fa-sort-asc'/></th>`, collscan)
-	html += fmt.Sprintf(`<th>namespace <a href='/tables/{{.Table}}/stats/slowops?orderBy=ns&order=ASC&COLLSCAN=%v'><i class='fa fa-sort-asc'/></th>`, collscan)
-	html += fmt.Sprintf(`<th>count <a href='/tables/{{.Table}}/stats/slowops?orderBy=count&COLLSCAN=%v'><i class='fa fa-sort-desc'/></th>`, collscan)
-	html += fmt.Sprintf(`<th>avg ms <a href='/tables/{{.Table}}/stats/slowops?orderBy=avg_ms&COLLSCAN=%v'><i class='fa fa-sort-desc'/></th>`, collscan)
-	html += fmt.Sprintf(`<th>max ms <a href='/tables/{{.Table}}/stats/slowops?orderBy=max_ms&COLLSCAN=%v'><i class='fa fa-sort-desc'/></th>`, collscan)
-	html += fmt.Sprintf(`<th>total ms <a href='/tables/{{.Table}}/stats/slowops?orderBy=total_ms&COLLSCAN=%v'><i class='fa fa-sort-desc'/></th>`, collscan)
-	html += fmt.Sprintf(`<th>reslen <a href='/tables/{{.Table}}/stats/slowops?orderBy=reslen&COLLSCAN=%v'><i class='fa fa-sort-desc'/></th>`, collscan)
+	html += fmt.Sprintf(`<th>op <a class='sort' href='/tables/{{.Table}}/stats/slowops?orderBy=op&COLLSCAN=%v'><i class='fa fa-sort-asc'/></th>`, collscan)
+	html += fmt.Sprintf(`<th>namespace <a class='sort' href='/tables/{{.Table}}/stats/slowops?orderBy=ns&order=ASC&COLLSCAN=%v'><i class='fa fa-sort-asc'/></th>`, collscan)
+	html += fmt.Sprintf(`<th>count <a class='sort' href='/tables/{{.Table}}/stats/slowops?orderBy=count&COLLSCAN=%v'><i class='fa fa-sort-desc'/></th>`, collscan)
+	html += fmt.Sprintf(`<th>avg ms <a class='sort' href='/tables/{{.Table}}/stats/slowops?orderBy=avg_ms&COLLSCAN=%v'><i class='fa fa-sort-desc'/></th>`, collscan)
+	html += fmt.Sprintf(`<th>max ms <a class='sort' href='/tables/{{.Table}}/stats/slowops?orderBy=max_ms&COLLSCAN=%v'><i class='fa fa-sort-desc'/></th>`, collscan)
+	html += fmt.Sprintf(`<th>total ms <a class='sort' href='/tables/{{.Table}}/stats/slowops?orderBy=total_ms&COLLSCAN=%v'><i class='fa fa-sort-desc'/></th>`, collscan)
+	html += fmt.Sprintf(`<th>reslen <a class='sort' href='/tables/{{.Table}}/stats/slowops?orderBy=reslen&COLLSCAN=%v'><i class='fa fa-sort-desc'/></th>`, collscan)
 	html += fmt.Sprintf(`<th valign='middle'>index <input type='checkbox' id='collscan' onchange='getSlowopsStats(); return false;' %v></th>`, checked)
 	html += `<th>query pattern</th>
 		</tr>

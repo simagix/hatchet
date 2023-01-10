@@ -163,6 +163,13 @@ const headers = `<!DOCTYPE html>
     input[type="checkbox"] {
       accent-color: red;
     }
+    .sort {
+      color: #fff;
+    }
+    .sort:hover {
+      color: #DB4437;
+	  cursor: hand;
+    }
   </style>
 </head>
 

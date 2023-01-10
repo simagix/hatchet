@@ -34,7 +34,7 @@ The database file is *data/hatchet.db*; use the *sqlite3* command as below:
 sqlite3 ./data/hatchet.db
 ```
 
-After a log file is processed, 2 tables are created in the SQLite3 database.  Part of the table name are from the processed log file.  For example, a table *mongod*_<hex> (e.g., mongod_1b3d5f7) is created after a log file $HOME/Downloads/**mongod**.log.gz is processed.  The other table, mongod_<hex>_rmt, stores remote clients information.  A few SQL commands follow.
+After a log file is processed, 3 tables are created in the SQLite3 database.  Part of the table name are from the processed log file.  For example, a table *mongod*_<hex> (e.g., mongod_1b3d5f7) is created after a log file $HOME/Downloads/**mongod**.log.gz is processed.  The other 2 tables are 1) mongod_<hex>_ops stores stats of slow ops and 2) mongod_<hex>_rmt stores remote clients information.  A few SQL commands follow.
 
 ### Query All Data
 ```sqlite3

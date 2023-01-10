@@ -31,6 +31,14 @@ func GetChartTemplate(attr string, chartType string) (*template.Template, error)
 	html += "<p/><div id='hatchetChart' align='center' width='100%'/>"
 	html += "</body></html>"
 	return template.New("hatchet").Funcs(template.FuncMap{
+		"descr": func(v OpCount) string {
+			s := "2016-01-23T00:00:00"
+			d := v.Date + s[len(v.Date):] 
+			return fmt.Sprintf("%v %v %v %v", v.Op, d, v.Namespace, v.Filter)
+		},
+		"substr": func(str string, n int) string {
+			return str[:n]
+		},
 		"epoch": func(d string, s string) int64 {
 			sdt, _ := time.Parse("2006-01-02T15:04:05", s+":00")
 			dt, _ := time.Parse("2006-01-02T15:04:05", d+":00")
@@ -47,13 +55,13 @@ func getOpStatsChart() string {
 
 	function drawChart() {
 		var data = google.visualization.arrayToDataTable([
-			['op', 'secs+', 'count', 'op detail', 'count'],
+			['op', 'secs from origin', 'count', 'op detail'],
 {{$sdate := ""}}
 {{range $i, $v := .OpCounts}}
 {{if eq $i 0}}
 	{{$sdate = $v.Date}}
 {{end}}
-			['{{$v.Op}}', {{epoch $v.Date $sdate}}, {{$v.Count}}, '{{$v.Date}} {{$v.Namespace}} {{$v.Filter}}', {{$v.Count}}],
+			['', {{epoch $v.Date $sdate}}, {{$v.Count}}, {{descr $v}}],
 {{end}}
 		]);
 		// Set chart options
@@ -61,8 +69,9 @@ func getOpStatsChart() string {
 			'title': 'Ops Stats',
 			'hAxis': { textPosition: 'none' },
 			'vAxis': {title: 'Count', minValue: 0},
-			'height': 480,
+			'height': 600,
 			'titleTextStyle': {'fontSize': 20},
+			'sizeAxis': {minValue: 0, minSize: 3, maxSize: 3},
 			'chartArea': {'width': '90%', 'height': '80%'},
 			'legend': { 'position': 'none' } };
 		// Instantiate and draw our chart, passing in some options.

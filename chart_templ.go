@@ -32,16 +32,17 @@ func GetChartTemplate(attr string, chartType string) (*template.Template, error)
 	html += "</body></html>"
 	return template.New("hatchet").Funcs(template.FuncMap{
 		"descr": func(v OpCount) string {
-			s := "2016-01-23T00:00:00"
-			d := v.Date + s[len(v.Date):] 
+			dfmt := "2016-01-02T23:59:59"
+			d := v.Date + dfmt[len(v.Date):]
 			return fmt.Sprintf("%v %v %v %v", v.Op, d, v.Namespace, v.Filter)
 		},
 		"substr": func(str string, n int) string {
 			return str[:n]
 		},
 		"epoch": func(d string, s string) int64 {
-			sdt, _ := time.Parse("2006-01-02T15:04:05", s+":00")
-			dt, _ := time.Parse("2006-01-02T15:04:05", d+":00")
+			dfmt := "2016-01-02T23:59:59"
+			sdt, _ := time.Parse("2006-01-02T15:04:05", s+dfmt[len(s):])
+			dt, _ := time.Parse("2006-01-02T15:04:05", d+dfmt[len(d):])
 			return dt.Unix() - sdt.Unix()
 		}}).Parse(html)
 }

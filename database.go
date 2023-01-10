@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 )
 
 // getHatchetInitStmt returns init statement
@@ -164,16 +165,67 @@ type OpCount struct {
 	Filter    string
 }
 
-func getOpCounts(tableName string) ([]OpCount, error) {
+func getSubStringFromTable(tableName string) string {
+	substr := "SUBSTR(date, 1, 16)"
+	query := fmt.Sprintf(`SELECT start, end FROM hatchet WHERE name = '%v'`, tableName)
+	db, err := sql.Open("sqlite3", GetLogv2().dbfile)
+	if err != nil {
+		return substr
+	}
+	defer db.Close()
+	rows, err := db.Query(query)
+	if err != nil {
+		return substr
+	}
+	defer rows.Close()
+	if rows.Next() {
+		var start, end string
+		if err = rows.Scan(&start, &end); err != nil {
+			return substr
+		}
+		return getDateSubString(start, end)
+	}
+	return substr
+}
+
+func getDateSubString(start string, end string) string {
+	var err error
+	substr := "SUBSTR(date, 1, 16)"
+	var stime, etime time.Time
+	if stime, err = time.Parse(time.RFC3339, start); err != nil {
+		return substr
+	}
+	if etime, err = time.Parse(time.RFC3339, end); err != nil {
+		return substr
+	}
+	minutes := etime.Sub(stime).Minutes()
+	if minutes < 1440 {
+		return substr
+	} else if minutes < 10000 {
+		return "SUBSTR(date, 1, 15)||'9'"
+	} else if minutes < 20000 {
+		return "SUBSTR(date, 1, 13)||':59'"
+	} else {
+		return "SUBSTR(date, 1, 10)"
+	}
+}
+
+func getOpsStats(tableName string, duration string) ([]OpCount, error) {
 	docs := []OpCount{}
-	query := fmt.Sprintf(`SELECT SUBSTR(date, 1, 16), COUNT(op), op, ns, filter 
-		FROM %v WHERE op != ''
-		GROUP by SUBSTR(date, 1, 16), op, ns, filter;`, tableName)
 	db, err := sql.Open("sqlite3", GetLogv2().dbfile)
 	if err != nil {
 		return docs, err
 	}
 	defer db.Close()
+	substr := getSubStringFromTable(tableName)
+	durcond := ""
+	if duration != "" {
+		toks := strings.Split(duration, ",")
+		durcond = fmt.Sprintf("AND date BETWEEN '%v' AND '%v'", toks[0], toks[1])
+		substr = getDateSubString(toks[0], toks[1])
+	}
+	query := fmt.Sprintf(`SELECT %v, COUNT(op), op, ns, filter FROM %v 
+		WHERE op != '' %v GROUP by %v, op, ns, filter;`, substr, tableName, durcond, substr)
 	rows, err := db.Query(query)
 	if err != nil {
 		return docs, err
@@ -275,15 +327,21 @@ func getAcceptedConnsCounts(tableName string) ([]NameValue, error) {
 }
 
 // getConnectionStats returns stats data of accepted and ended
-func getConnectionStats(tableName string, chartType string) ([]Remote, error) {
+func getConnectionStats(tableName string, chartType string, duration string) ([]Remote, error) {
 	docs := []Remote{}
 	query := fmt.Sprintf(`SELECT ip, SUM(accepted), SUM(ended)
 		FROM %v_rmt GROUP by ip ORDER BY accepted DESC;`, tableName)
 	if chartType == "time" {
-		// aggregated in a 10-minute bucket
-		query = fmt.Sprintf(`SELECT SUBSTR(a.date, 1, 15)||'0' dt, SUM(b.accepted), SUM(b.ended)
-			FROM %v a, %v_rmt b WHERE a.id = b.id GROUP by dt ORDER BY dt;`,
-			tableName, tableName)
+		durcond := ""
+		substr := "SUBSTR(date, 1, 16)"
+		if duration != "" {
+			toks := strings.Split(duration, ",")
+			durcond = fmt.Sprintf("AND date BETWEEN '%v' AND '%v'", toks[0], toks[1])
+			substr = getDateSubString(toks[0], toks[1])
+		}
+		query = fmt.Sprintf(`SELECT %v dt, SUM(b.accepted), SUM(b.ended)
+			FROM %v a, %v_rmt b WHERE a.id = b.id %v GROUP by dt ORDER BY dt;`,
+			substr, tableName, tableName, durcond)
 	}
 	db, err := sql.Open("sqlite3", GetLogv2().dbfile)
 	if err != nil {

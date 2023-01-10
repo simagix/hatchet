@@ -42,9 +42,10 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 	if category == "charts" && attr == "slowops" {
 		summary := getTableSummary(tableName)
 		chartType := r.URL.Query().Get("type")
+		duration := r.URL.Query().Get("duration")
 		if chartType == "" || chartType == "stats" {
 			chartType = "stats"
-			docs, err := getOpCounts(tableName)
+			docs, err := getOpsStats(tableName, duration)
 			if err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
@@ -83,6 +84,7 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 	} else if category == "charts" && attr == "connections" {
 		summary := getTableSummary(tableName)
 		chartType := r.URL.Query().Get("type")
+		duration := r.URL.Query().Get("duration")
 		if chartType == "" || chartType == "accepted" {
 			chartType = "accepted"
 			docs, err := getAcceptedConnsCounts(tableName)
@@ -102,8 +104,8 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			return
-		} else {
-			docs, err := getConnectionStats(tableName, chartType)
+		} else { // type is time or total
+			docs, err := getConnectionStats(tableName, chartType, duration)
 			if err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return

@@ -45,7 +45,12 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 		duration := r.URL.Query().Get("duration")
 		if chartType == "" || chartType == "stats" {
 			chartType = "stats"
+			var start, end string
 			docs, err := getOpsStats(tableName, duration)
+			if len(docs) > 0 {
+				start = docs[0].Date
+				end = docs[len(docs)-1].Date
+			}
 			if err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
@@ -56,7 +61,7 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			doc := map[string]interface{}{"Table": tableName, "OpCounts": docs,
-				"Summary": summary, "Attr": attr, "Chart": chartType}
+				"Summary": summary, "Attr": attr, "Chart": chartType, "Start": start, "End": end}
 			if err = templ.Execute(w, doc); err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
@@ -106,6 +111,11 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		} else { // type is time or total
 			docs, err := getConnectionStats(tableName, chartType, duration)
+			var start, end string
+			if len(docs) > 0 {
+				start = docs[0].IP
+				end = docs[len(docs)-1].IP
+			}
 			if err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
@@ -119,7 +129,7 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 				docs = []Remote{{IP: "No data", Accepted: 0, Ended: 0}}
 			}
 			doc := map[string]interface{}{"Table": tableName, "Remote": docs,
-				"Summary": summary, "Attr": attr, "Chart": chartType}
+				"Summary": summary, "Attr": attr, "Chart": chartType, "Start": start, "End": end}
 			if err = templ.Execute(w, doc); err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return

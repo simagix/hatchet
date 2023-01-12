@@ -79,7 +79,16 @@ func getOpStatsChart() string {
 		var chart = new google.visualization.BubbleChart(document.getElementById('hatchetChart'));
 		chart.draw(data, options);
 	}
-</script>`
+
+	function refreshOpsStatsChart() {
+		sd = document.getElementById('start').value;
+		ed = document.getElementById('end').value;
+		window.location.href = '/tables/{{.Table}}/charts/slowops?duration=' + sd + 'Z,' + ed + 'Z';
+	}
+</script>
+<input type='datetime-local' id='start' value='{{.Start}}'></input>
+<input type='datetime-local' id='end' value='{{.End}}'></input>
+<button onClick="refreshOpsStatsChart(); return false;" class="button">Refresh</button>`
 }
 
 func getPieChart() string {
@@ -135,5 +144,16 @@ func getConnectionsChart() string {
 		var chart = new google.visualization.ColumnChart(document.getElementById('hatchetChart'));
 		chart.draw(data, options);
 	}
-</script>`
+
+	function refreshConnsTimeChart() {
+		sd = document.getElementById('start').value;
+		ed = document.getElementById('end').value;
+		window.location.href = '/tables/{{.Table}}/charts/connections?type=time&duration=' + sd + 'Z,' + ed + 'Z';
+	}
+</script>
+{{ if eq .Chart "time" }}
+	<input type='datetime-local' id='start' value='{{.Start}}'></input>
+	<input type='datetime-local' id='end' value='{{.End}}'></input>
+	<button onClick="refreshConnsTimeChart(); return false;" class="button">Refresh</button>
+{{ end }}`
 }

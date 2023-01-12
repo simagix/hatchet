@@ -199,14 +199,18 @@ func getDateSubString(start string, end string) string {
 		return substr
 	}
 	minutes := etime.Sub(stime).Minutes()
-	if minutes < 1440 {
-		return substr
-	} else if minutes < 10000 {
-		return "SUBSTR(date, 1, 15)||'9'"
-	} else if minutes < 20000 {
-		return "SUBSTR(date, 1, 13)||':59'"
+	if minutes < 30 {
+		return "SUBSTR(date, 1, 19)"
+	} else if minutes < 300 {
+		return "SUBSTR(date, 1, 18)||'9'"
+	} else if minutes < 1800 {
+		return "SUBSTR(date, 1, 16)||':59'"
+	} else if minutes < 18000 {
+		return "SUBSTR(date, 1, 15)||'9:59'"
+	} else if minutes < 108000 {
+		return "SUBSTR(date, 1, 13)||':59:59'"
 	} else {
-		return "SUBSTR(date, 1, 10)"
+		return "SUBSTR(date, 1, 10)||'T23:59:59'"
 	}
 }
 

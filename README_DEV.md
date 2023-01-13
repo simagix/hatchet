@@ -25,6 +25,7 @@ The easiest way is to go to the home page `http://localhost:3721` and following 
   - duration (begin_datetime,end_datetime)
   - severity
 - `/tables/{table}/charts/connections[?type={}]` views connections charts
+- `/tables/{table}/charts/ops` views average ops time chart
 - `/tables/{table}/charts/slowops[?type={}]` views ops counts chart
 ```
 

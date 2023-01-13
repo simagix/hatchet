@@ -39,14 +39,40 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 		attr = "slowops"
 	}
 
-	if category == "charts" && attr == "slowops" {
+	if category == "charts" && attr == "ops" {
+		summary := getTableSummary(tableName)
+		duration := r.URL.Query().Get("duration")
+		chartType := "ops"
+		var start, end string
+		docs, err := getAverageOpTime(tableName, duration)
+		if len(docs) > 0 {
+			start = docs[0].Date
+			end = docs[len(docs)-1].Date
+		}
+		if err != nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+			return
+		}
+		templ, err := GetChartTemplate(attr, "chartType")
+		if err != nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+			return
+		}
+		doc := map[string]interface{}{"Table": tableName, "OpCounts": docs, "Title": "Average Operation Time",
+			"Summary": summary, "Attr": attr, "Chart": chartType, "Start": start, "End": end, "VAxisLabel": "seconds"}
+		if err = templ.Execute(w, doc); err != nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+			return
+		}
+		return
+	} else if category == "charts" && attr == "slowops" {
 		summary := getTableSummary(tableName)
 		chartType := r.URL.Query().Get("type")
 		duration := r.URL.Query().Get("duration")
 		if chartType == "" || chartType == "stats" {
 			chartType = "stats"
 			var start, end string
-			docs, err := getOpsStats(tableName, duration)
+			docs, err := getSlowOpsCounts(tableName, duration)
 			if len(docs) > 0 {
 				start = docs[0].Date
 				end = docs[len(docs)-1].Date
@@ -60,8 +86,8 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
 			}
-			doc := map[string]interface{}{"Table": tableName, "OpCounts": docs,
-				"Summary": summary, "Attr": attr, "Chart": chartType, "Start": start, "End": end}
+			doc := map[string]interface{}{"Table": tableName, "OpCounts": docs, "Title": "Slow Operation Counts",
+				"Summary": summary, "Attr": attr, "Chart": chartType, "Start": start, "End": end, "VAxisLabel": "count"}
 			if err = templ.Execute(w, doc); err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return

@@ -5,6 +5,7 @@ package hatchet
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 )
@@ -58,6 +59,9 @@ func getSlowOps(tableName string, orderBy string, order string, collscan bool) (
 	}
 	defer db.Close()
 	query := getSlowOpsQuery(tableName, orderBy, order, collscan)
+	if GetLogv2().verbose {
+		log.Println(query)
+	}
 	rows, err := db.Query(query)
 	if err != nil {
 		return ops, err
@@ -116,6 +120,9 @@ func getLogs(tableName string, opts ...string) ([]LegacyLog, error) {
 		return docs, err
 	}
 	defer db.Close()
+	if GetLogv2().verbose {
+		log.Println(query)
+	}
 	rows, err := db.Query(query)
 	if err != nil {
 		return docs, err
@@ -140,6 +147,9 @@ func getSlowestLogs(tableName string, topN int) ([]string, error) {
 		return logstrs, err
 	}
 	defer db.Close()
+	if GetLogv2().verbose {
+		log.Println(query)
+	}
 	rows, err := db.Query(query)
 	if err != nil {
 		return logstrs, err
@@ -160,6 +170,7 @@ func getSlowestLogs(tableName string, topN int) ([]string, error) {
 type OpCount struct {
 	Date      string
 	Count     int
+	Milli     float64
 	Op        string
 	Namespace string
 	Filter    string
@@ -173,6 +184,9 @@ func getSubStringFromTable(tableName string) string {
 		return substr
 	}
 	defer db.Close()
+	if GetLogv2().verbose {
+		log.Println(query)
+	}
 	rows, err := db.Query(query)
 	if err != nil {
 		return substr
@@ -214,7 +228,41 @@ func getDateSubString(start string, end string) string {
 	}
 }
 
-func getOpsStats(tableName string, duration string) ([]OpCount, error) {
+func getAverageOpTime(tableName string, duration string) ([]OpCount, error) {
+	docs := []OpCount{}
+	db, err := sql.Open("sqlite3", GetLogv2().dbfile)
+	if err != nil {
+		return docs, err
+	}
+	defer db.Close()
+	substr := getSubStringFromTable(tableName)
+	durcond := ""
+	if duration != "" {
+		toks := strings.Split(duration, ",")
+		durcond = fmt.Sprintf("AND date BETWEEN '%v' AND '%v'", toks[0], toks[1])
+		substr = getDateSubString(toks[0], toks[1])
+	}
+	query := fmt.Sprintf(`SELECT %v, AVG(milli), COUNT(*), op, ns, filter FROM %v 
+		WHERE op != '' %v GROUP by %v, op, ns, filter;`, substr, tableName, durcond, substr)
+	if GetLogv2().verbose {
+		log.Println(query)
+	}
+	rows, err := db.Query(query)
+	if err != nil {
+		return docs, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var doc OpCount
+		if err = rows.Scan(&doc.Date, &doc.Milli, &doc.Count, &doc.Op, &doc.Namespace, &doc.Filter); err != nil {
+			return docs, err
+		}
+		docs = append(docs, doc)
+	}
+	return docs, err
+}
+
+func getSlowOpsCounts(tableName string, duration string) ([]OpCount, error) {
 	docs := []OpCount{}
 	db, err := sql.Open("sqlite3", GetLogv2().dbfile)
 	if err != nil {
@@ -230,6 +278,9 @@ func getOpsStats(tableName string, duration string) ([]OpCount, error) {
 	}
 	query := fmt.Sprintf(`SELECT %v, COUNT(op), op, ns, filter FROM %v 
 		WHERE op != '' %v GROUP by %v, op, ns, filter;`, substr, tableName, durcond, substr)
+	if GetLogv2().verbose {
+		log.Println(query)
+	}
 	rows, err := db.Query(query)
 	if err != nil {
 		return docs, err
@@ -288,6 +339,9 @@ func getTables() ([]string, error) {
 		return tables, err
 	}
 	defer db.Close()
+	if GetLogv2().verbose {
+		log.Println(query)
+	}
 	rows, err := db.Query(query)
 	if err != nil {
 		return tables, err
@@ -313,6 +367,9 @@ func getAcceptedConnsCounts(tableName string) ([]NameValue, error) {
 		return docs, err
 	}
 	defer db.Close()
+	if GetLogv2().verbose {
+		log.Println(query)
+	}
 	rows, err := db.Query(query)
 	if err != nil {
 		return docs, err
@@ -352,6 +409,9 @@ func getConnectionStats(tableName string, chartType string, duration string) ([]
 		return docs, err
 	}
 	defer db.Close()
+	if GetLogv2().verbose {
+		log.Println(query)
+	}
 	rows, err := db.Query(query)
 	if err != nil {
 		return docs, err
@@ -381,6 +441,9 @@ func getOpsCounts(tableName string) ([]NameValue, error) {
 		return docs, err
 	}
 	defer db.Close()
+	if GetLogv2().verbose {
+		log.Println(query)
+	}
 	rows, err := db.Query(query)
 	if err != nil {
 		return docs, err

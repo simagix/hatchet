@@ -202,6 +202,7 @@ func getContentHTML(attr string, chartType string) string {
 		class="btn" style="float: right;"><i class="fa fa-search"></i></button>
 	<select id='nextChart' style="float: right;" onchange='gotoChart()'>
 		<option value=''>select a chart</option>
+		<option value='/tables/{{.Table}}/charts/ops'>avg op time</option>
 		<option value='/tables/{{.Table}}/charts/slowops'>ops stats</option>
 		<option value='/tables/{{.Table}}/charts/slowops?type=counts'>ops counts</option>
 		<option value='/tables/{{.Table}}/charts/connections?type=accepted'>conns accepted</option>
@@ -217,16 +218,18 @@ function setChartType() {
   var attr = '%v';
   var chartType = '%v';
 
-  if(attr == "slowops" && (chartType == "" || chartType == "stats")) {
+  if(attr == "ops") {
     sel.selectedIndex = 1;
-  } else if(attr == "pieChart" && chartType == "counts") {
+  } else if(attr == "slowops" && (chartType == "" || chartType == "stats")) {
     sel.selectedIndex = 2;
-  } else if(attr == "pieChart" && chartType == "accepted") {
+  } else if(attr == "pieChart" && chartType == "counts") {
     sel.selectedIndex = 3;
-  } else if(attr == "connections" && chartType == "time") {
+  } else if(attr == "pieChart" && chartType == "accepted") {
     sel.selectedIndex = 4;
-  } else if(attr == "connections" && chartType == "total") {
+  } else if(attr == "connections" && chartType == "time") {
     sel.selectedIndex = 5;
+  } else if(attr == "connections" && chartType == "total") {
+    sel.selectedIndex = 6;
   }
 }
 </script>`, attr, chartType)

@@ -36,6 +36,9 @@ func GetChartTemplate(attr string, chartType string) (*template.Template, error)
 			d := v.Date + dfmt[len(v.Date):]
 			return fmt.Sprintf("%v %v %v %v", v.Op, d, v.Namespace, v.Filter)
 		},
+		"toSeconds": func(n float64) float64 {
+			return n / 1000
+		},
 		"substr": func(str string, n int) string {
 			return str[:n]
 		},
@@ -56,39 +59,58 @@ func getOpStatsChart() string {
 
 	function drawChart() {
 		var data = google.visualization.arrayToDataTable([
-			['op', 'secs from origin', 'count', 'op detail'],
+{{if eq .Attr "ops"}}
+			['op', 'secs from origin', 'avg seconds', 'detail', '#ops'],
+{{else}}
+			['op', 'secs from origin', 'count', 'detail'],
+{{end}}
+
 {{$sdate := ""}}
+{{$ctype := .Attr}}
 {{range $i, $v := .OpCounts}}
 {{if eq $i 0}}
 	{{$sdate = $v.Date}}
 {{end}}
+
+{{if eq $ctype "ops"}}
+			['', {{epoch $v.Date $sdate}}, {{toSeconds $v.Milli}}, {{descr $v}}, {{$v.Count}}],
+{{else}}
 			['', {{epoch $v.Date $sdate}}, {{$v.Count}}, {{descr $v}}],
+{{end}}
 {{end}}
 		]);
 		// Set chart options
 		var options = {
-			'title': 'Ops Stats',
+			'title': '{{.Title}}',
 			'hAxis': { textPosition: 'none' },
-			'vAxis': {title: 'Count', minValue: 0},
+			'vAxis': {title: '{{.VAxisLabel}}', minValue: 0},
 			'height': 600,
 			'titleTextStyle': {'fontSize': 20},
+{{if eq $ctype "ops"}}
+			'sizeAxis': {minValue: 0, minSize: 3, maxSize: 23},
+{{else}}
 			'sizeAxis': {minValue: 0, minSize: 3, maxSize: 3},
-			'chartArea': {'width': '90%', 'height': '80%'},
+{{end}}
+			'chartArea': {'width': '85%', 'height': '80%'},
 			'legend': { 'position': 'none' } };
 		// Instantiate and draw our chart, passing in some options.
 		var chart = new google.visualization.BubbleChart(document.getElementById('hatchetChart'));
 		chart.draw(data, options);
 	}
 
-	function refreshOpsStatsChart() {
-		sd = document.getElementById('start').value;
-		ed = document.getElementById('end').value;
-		window.location.href = '/tables/{{.Table}}/charts/slowops?duration=' + sd + 'Z,' + ed + 'Z';
+	function refreshOpsStatsChart(attr) {
+		var sd = document.getElementById('start').value;
+		var ed = document.getElementById('end').value;
+		var url = '/tables/{{.Table}}/charts/slowops?duration=' + sd + 'Z,' + ed + 'Z';
+		if(attr == 'ops') {
+			url = '/tables/{{.Table}}/charts/ops?duration=' + sd + 'Z,' + ed + 'Z';
+		}
+		window.location.href = url;
 	}
 </script>
 <input type='datetime-local' id='start' value='{{.Start}}'></input>
 <input type='datetime-local' id='end' value='{{.End}}'></input>
-<button onClick="refreshOpsStatsChart(); return false;" class="button">Refresh</button>`
+<button onClick="refreshOpsStatsChart('{{.Attr}}'); return false;" class="button">Refresh</button>`
 }
 
 func getPieChart() string {

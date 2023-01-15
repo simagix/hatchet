@@ -213,15 +213,15 @@ func getDateSubString(start string, end string) string {
 		return substr
 	}
 	minutes := etime.Sub(stime).Minutes()
-	if minutes < 30 {
+	if minutes < 10 {
 		return "SUBSTR(date, 1, 19)"
-	} else if minutes < 300 {
+	} else if minutes < 30 {
 		return "SUBSTR(date, 1, 18)||'9'"
-	} else if minutes < 1800 {
+	} else if minutes < 180 {
 		return "SUBSTR(date, 1, 16)||':59'"
-	} else if minutes < 18000 {
+	} else if minutes < 1800 {
 		return "SUBSTR(date, 1, 15)||'9:59'"
-	} else if minutes < 108000 {
+	} else if minutes < 10800 {
 		return "SUBSTR(date, 1, 13)||':59:59'"
 	} else {
 		return "SUBSTR(date, 1, 10)||'T23:59:59'"
@@ -296,22 +296,22 @@ func getSlowOpsCounts(tableName string, duration string) ([]OpCount, error) {
 	return docs, err
 }
 
-func getTableSummary(tableName string) string {
-	query := fmt.Sprintf("SELECT name, version, module, os, arch FROM hatchet WHERE name = '%v'", tableName)
+func getTableSummary(tableName string) (string, string, string) {
+	query := fmt.Sprintf("SELECT name, version, module, os, arch, start, end FROM hatchet WHERE name = '%v'", tableName)
 	db, err := sql.Open("sqlite3", GetLogv2().dbfile)
 	if err != nil {
-		return ""
+		return "", "", ""
 	}
 	defer db.Close()
 	rows, err := db.Query(query)
 	if err != nil {
-		return ""
+		return "", "", ""
 	}
 	defer rows.Close()
 	if rows.Next() {
-		var table, version, module, os, arch string
-		if err = rows.Scan(&table, &version, &module, &os, &arch); err != nil {
-			return ""
+		var table, version, module, os, arch, start, end string
+		if err = rows.Scan(&table, &version, &module, &os, &arch, &start, &end); err != nil {
+			return "", "", ""
 		}
 		arr := []string{}
 		if module == "" {
@@ -326,9 +326,9 @@ func getTableSummary(tableName string) string {
 		if arch != "" {
 			arr = append(arr, "arch: "+arch)
 		}
-		return table + strings.Join(arr, ", ")
+		return table + strings.Join(arr, ", "), start, end
 	}
-	return ""
+	return "", "", ""
 }
 
 func getTables() ([]string, error) {
@@ -358,10 +358,15 @@ func getTables() ([]string, error) {
 }
 
 // getAcceptedConnsCounts returns opened connection counts
-func getAcceptedConnsCounts(tableName string) ([]NameValue, error) {
+func getAcceptedConnsCounts(tableName string, duration string) ([]NameValue, error) {
 	docs := []NameValue{}
-	query := fmt.Sprintf(`SELECT ip, SUM(accepted)
-		FROM %v_rmt WHERE accepted = 1 GROUP by ip ORDER BY accepted DESC;`, tableName)
+	var durcond string
+	if duration != "" {
+		toks := strings.Split(duration, ",")
+		durcond = fmt.Sprintf("AND date BETWEEN '%v' AND '%v'", toks[0], toks[1])
+	}
+	query := fmt.Sprintf(`SELECT b.ip, SUM(b.accepted)
+		FROM %v a, %v_rmt b WHERE a.id = b.id AND b.accepted = 1 %v GROUP by ip ORDER BY accepted DESC;`, tableName, tableName, durcond)
 	db, err := sql.Open("sqlite3", GetLogv2().dbfile)
 	if err != nil {
 		return docs, err
@@ -390,19 +395,20 @@ func getAcceptedConnsCounts(tableName string) ([]NameValue, error) {
 // getConnectionStats returns stats data of accepted and ended
 func getConnectionStats(tableName string, chartType string, duration string) ([]Remote, error) {
 	docs := []Remote{}
-	query := fmt.Sprintf(`SELECT ip, SUM(accepted), SUM(ended)
-		FROM %v_rmt GROUP by ip ORDER BY accepted DESC;`, tableName)
+	var query, durcond string
+	substr := getSubStringFromTable(tableName)
+	if duration != "" {
+		toks := strings.Split(duration, ",")
+		durcond = fmt.Sprintf("AND date BETWEEN '%v' AND '%v'", toks[0], toks[1])
+		substr = getDateSubString(toks[0], toks[1])
+	}
 	if chartType == "time" {
-		durcond := ""
-		substr := "SUBSTR(date, 1, 16)"
-		if duration != "" {
-			toks := strings.Split(duration, ",")
-			durcond = fmt.Sprintf("AND date BETWEEN '%v' AND '%v'", toks[0], toks[1])
-			substr = getDateSubString(toks[0], toks[1])
-		}
 		query = fmt.Sprintf(`SELECT %v dt, SUM(b.accepted), SUM(b.ended)
 			FROM %v a, %v_rmt b WHERE a.id = b.id %v GROUP by dt ORDER BY dt;`,
 			substr, tableName, tableName, durcond)
+	} else if chartType == "total" {
+		query = fmt.Sprintf(`SELECT b.ip, SUM(b.accepted), SUM(b.ended)
+			FROM %v a, %v_rmt b WHERE a.id = b.id %v GROUP by ip ORDER BY accepted DESC;`, tableName, tableName, durcond)
 	}
 	db, err := sql.Open("sqlite3", GetLogv2().dbfile)
 	if err != nil {
@@ -432,10 +438,15 @@ func getConnectionStats(tableName string, chartType string, duration string) ([]
 }
 
 // getOpsCounts returns opened connection counts
-func getOpsCounts(tableName string) ([]NameValue, error) {
+func getOpsCounts(tableName string, duration string) ([]NameValue, error) {
 	docs := []NameValue{}
+	var durcond string
+	if duration != "" {
+		toks := strings.Split(duration, ",")
+		durcond = fmt.Sprintf("AND date BETWEEN '%v' AND '%v'", toks[0], toks[1])
+	}
 	query := fmt.Sprintf(`SELECT op, COUNT(op) counts
-		FROM %v WHERE op != '' GROUP by op ORDER BY counts DESC;`, tableName)
+		FROM %v WHERE op != '' %v GROUP by op ORDER BY counts DESC;`, tableName, durcond)
 	db, err := sql.Open("sqlite3", GetLogv2().dbfile)
 	if err != nil {
 		return docs, err

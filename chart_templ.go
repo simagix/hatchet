@@ -19,17 +19,21 @@ func getFooter() string {
 }
 
 // GetChartTemplate returns HTML
-func GetChartTemplate(attr string, chartType string) (*template.Template, error) {
-	html := getContentHTML(attr, chartType)
-	if attr == "connections" {
-		html += getConnectionsChart()
-	} else if attr == "pieChart" {
-		html += getPieChart()
-	} else {
+func GetChartTemplate(chartType string) (*template.Template, error) {
+	html := getContentHTML()
+	if chartType == "ops" || chartType == "slowops" {
 		html += getOpStatsChart()
+	} else if chartType == "slowops-counts" || chartType == "connections-accepted" {
+		html += getPieChart()
+	} else if chartType == "connections-time" || chartType == "connections-total" {
+		html += getConnectionsChart()
 	}
-	html += "<p/><div id='hatchetChart' align='center' width='100%'/>"
-	html += "</body></html>"
+	html += `
+		<input type='datetime-local' id='start' value='{{.Start}}'></input>
+		<input type='datetime-local' id='end' value='{{.End}}'></input>
+		<button onClick="refreshChart(); return false;" class="button">Refresh</button>
+		<div id='hatchetChart' align='center' width='100%'/>
+		</body></html>`
 	return template.New("hatchet").Funcs(template.FuncMap{
 		"descr": func(v OpCount) string {
 			dfmt := "2016-01-02T23:59:59"
@@ -59,14 +63,14 @@ func getOpStatsChart() string {
 
 	function drawChart() {
 		var data = google.visualization.arrayToDataTable([
-{{if eq .Attr "ops"}}
+{{if eq .Type "ops"}}
 			['op', 'secs from origin', 'avg seconds', 'detail', '#ops'],
 {{else}}
 			['op', 'secs from origin', 'count', 'detail'],
 {{end}}
 
 {{$sdate := ""}}
-{{$ctype := .Attr}}
+{{$ctype := .Type}}
 {{range $i, $v := .OpCounts}}
 {{if eq $i 0}}
 	{{$sdate = $v.Date}}
@@ -81,7 +85,7 @@ func getOpStatsChart() string {
 		]);
 		// Set chart options
 		var options = {
-			'title': '{{.Title}}',
+			'title': '{{.Chart.Title}}',
 			'hAxis': { textPosition: 'none' },
 			'vAxis': {title: '{{.VAxisLabel}}', minValue: 0},
 			'height': 600,
@@ -97,20 +101,7 @@ func getOpStatsChart() string {
 		var chart = new google.visualization.BubbleChart(document.getElementById('hatchetChart'));
 		chart.draw(data, options);
 	}
-
-	function refreshOpsStatsChart(attr) {
-		var sd = document.getElementById('start').value;
-		var ed = document.getElementById('end').value;
-		var url = '/tables/{{.Table}}/charts/slowops?duration=' + sd + 'Z,' + ed + 'Z';
-		if(attr == 'ops') {
-			url = '/tables/{{.Table}}/charts/ops?duration=' + sd + 'Z,' + ed + 'Z';
-		}
-		window.location.href = url;
-	}
-</script>
-<input type='datetime-local' id='start' value='{{.Start}}'></input>
-<input type='datetime-local' id='end' value='{{.End}}'></input>
-<button onClick="refreshOpsStatsChart('{{.Attr}}'); return false;" class="button">Refresh</button>`
+</script>`
 }
 
 func getPieChart() string {
@@ -129,7 +120,7 @@ func getPieChart() string {
 		]);
 		// Set chart options
 		var options = {
-			'title': '{{.Title}}',
+			'title': '{{.Chart.Title}}',
 			'height': 480,
 			'titleTextStyle': {'fontSize': 20},
 			'legend': { 'position': 'left' } };
@@ -156,26 +147,15 @@ func getConnectionsChart() string {
 		]);
 		// Set chart options
 		var options = {
-			'title': 'Accepted vs Ended Connections',
+			'title': '{{.Chart.Title}}',
 			'hAxis': { slantedText:true, slantedTextAngle:15 },
 			'vAxis': {title: 'Count', minValue: 0},
 			'height': 480,
 			'titleTextStyle': {'fontSize': 20},
-			'legend': { 'position': 'right' } };
+			'legend': { 'position': 'bottom' } };
 		// Instantiate and draw our chart, passing in some options.
 		var chart = new google.visualization.ColumnChart(document.getElementById('hatchetChart'));
 		chart.draw(data, options);
 	}
-
-	function refreshConnsTimeChart() {
-		sd = document.getElementById('start').value;
-		ed = document.getElementById('end').value;
-		window.location.href = '/tables/{{.Table}}/charts/connections?type=time&duration=' + sd + 'Z,' + ed + 'Z';
-	}
-</script>
-{{ if eq .Chart "time" }}
-	<input type='datetime-local' id='start' value='{{.Start}}'></input>
-	<input type='datetime-local' id='end' value='{{.End}}'></input>
-	<button onClick="refreshConnsTimeChart(); return false;" class="button">Refresh</button>
-{{ end }}`
+</script>`
 }

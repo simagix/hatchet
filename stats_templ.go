@@ -11,7 +11,7 @@ import (
 
 // GetStatsTableTemplate returns HTML
 func GetStatsTableTemplate(collscan bool, orderBy string) (*template.Template, error) {
-	html := getContentHTML("", "") + getStatsTable(collscan, orderBy) + "</body></html>"
+	html := getContentHTML() + getStatsTable(collscan, orderBy) + "</body></html>"
 	return template.New("hatchet").Funcs(template.FuncMap{
 		"add": func(a int, b int) int {
 			return a + b

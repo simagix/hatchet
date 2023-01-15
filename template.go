@@ -4,6 +4,7 @@ package hatchet
 import (
 	"fmt"
 	"html/template"
+	"sort"
 )
 
 const hatchetImage = `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`
@@ -176,9 +177,9 @@ const headers = `<!DOCTYPE html>
 <body>
 `
 
-func getContentHTML(attr string, chartType string) string {
+func getContentHTML() string {
 	html := headers
-	html += fmt.Sprintf(`
+	html += `
 <script>
 	function gotoChart() {
 		var sel = document.getElementById('nextChart')
@@ -200,39 +201,40 @@ func getContentHTML(attr string, chartType string) string {
 
 	<button id="search" onClick="javascript:location.href='/tables/{{.Table}}/logs?component=NONE'; return false;"
 		class="btn" style="float: right;"><i class="fa fa-search"></i></button>
-	<select id='nextChart' style="float: right;" onchange='gotoChart()'>
-		<option value=''>select a chart</option>
-		<option value='/tables/{{.Table}}/charts/ops'>avg op time</option>
-		<option value='/tables/{{.Table}}/charts/slowops'>ops stats</option>
-		<option value='/tables/{{.Table}}/charts/slowops?type=counts'>ops counts</option>
-		<option value='/tables/{{.Table}}/charts/connections?type=accepted'>conns accepted</option>
-		<option value='/tables/{{.Table}}/charts/connections?type=time'>conns by time</option>
-		<option value='/tables/{{.Table}}/charts/connections?type=total'>conns by total</option>
-	</select>
+	<select id='nextChart' style="float: right;" onchange='gotoChart()'>`
+	items := []Chart{}
+	for _, chart := range charts {
+		items = append(items, chart)
+	}
+	sort.Slice(items, func(i int, j int) bool {
+		return items[i].Index < items[j].Index
+	})
+
+	html += "<option value=''>select a chart</option>"
+	for i, item := range items {
+		if i == 0 {
+			continue
+		}
+		html += fmt.Sprintf("<option value='/tables/{{.Table}}/charts%v'>%v</option>", item.URL, item.Label)
+	}
+
+	html += `</select>
 	<button class="btn" style="float: right;"><i class="fa fa-bar-chart"></i></button>
 </div>
 <p/>
 <script>
-function setChartType() {
-  var sel = document.getElementById('nextChart')
-  var attr = '%v';
-  var chartType = '%v';
+	function setChartType() {
+		var sel = document.getElementById('nextChart')
+		sel.selectedIndex = {{.Chart.Index}};
+	}
 
-  if(attr == "ops") {
-    sel.selectedIndex = 1;
-  } else if(attr == "slowops" && (chartType == "" || chartType == "stats")) {
-    sel.selectedIndex = 2;
-  } else if(attr == "pieChart" && chartType == "counts") {
-    sel.selectedIndex = 3;
-  } else if(attr == "pieChart" && chartType == "accepted") {
-    sel.selectedIndex = 4;
-  } else if(attr == "connections" && chartType == "time") {
-    sel.selectedIndex = 5;
-  } else if(attr == "connections" && chartType == "total") {
-    sel.selectedIndex = 6;
-  }
-}
-</script>`, attr, chartType)
+	function refreshChart() {
+		var sd = document.getElementById('start').value;
+		var ed = document.getElementById('end').value;
+		window.location.href = '/tables/{{.Table}}/charts{{.Chart.URL}}&duration=' + sd + 'Z,' + ed + 'Z';
+	}
+</script>
+`
 	html += getFooter()
 	return html
 }
@@ -277,6 +279,7 @@ func getMainPage() string {
 	<li>/api/hatchet/v1.0/tables/{table}/logs/slowops[?topN={int}]</li>
 	<li>/api/hatchet/v1.0/tables/{table}/stats/slowops[?COLLSCAN={bool}&orderBy={str}]</li>
 </ul>
+<div class="footer">created by Ken Chen (https://github.com/simagix/hatchet)</div>
 `
 	return template
 }

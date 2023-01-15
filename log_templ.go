@@ -10,7 +10,7 @@ import (
 
 // GetLogTableTemplate returns HTML
 func GetLogTableTemplate(attr string) (*template.Template, error) {
-	html := getContentHTML("", "")
+	html := getContentHTML()
 	if attr == "slowops" {
 		html += getSlowOpsLogsTable()
 	} else {

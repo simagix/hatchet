@@ -97,3 +97,5 @@ Hatchet provides a number of APIs to output JSON data. They work similarly to th
 ./dist/hatchet -legacy testdata/mongod.log.gz > mongod_legacy.log
 ```
 
+## Docker Build
+See https://hub.docker.com/repository/docker/simagix/hatchet/general for details.

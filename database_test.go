@@ -31,21 +31,21 @@ func TestGetSubStringFromTable(t *testing.T) {
 }
 
 func TestGetDateSubString(t *testing.T) {
-	value := getDateSubString("2023-01-01T12:11:02Z", "2023-01-01T17:35:20Z")
-	if value != "SUBSTR(date, 1, 16)" {
-		t.Fatal("expected", "SUBSTR(date, 1, 16)", "but got", value)
+	value := getDateSubString("2023-01-01T12:11:02Z", "2023-01-01T14:35:20Z")
+	if value != "SUBSTR(date, 1, 16)||':59'" {
+		t.Fatal("expected", "SUBSTR(date, 1, 16)||':59'", "but got", value)
 	}
 	t.Log(value)
 
-	value = getDateSubString("2023-01-01T12:11:02Z", "2023-01-10T12:34:20Z")
-	if value != "SUBSTR(date, 1, 13)||':59'" {
-		t.Fatal("expected", "SUBSTR(date, 1, 13)||':59'", "but got", value)
+	value = getDateSubString("2023-01-01T12:11:02Z", "2023-01-02T12:34:20Z")
+	if value != "SUBSTR(date, 1, 15)||'9:59'" {
+		t.Fatal("expected", "SUBSTR(date, 1, 15)||'9:59'", "but got", value)
 	}
 	t.Log(value)
 
 	value = getDateSubString("2023-01-01T12:11:02Z", "2023-02-10T12:34:20Z")
-	if value != "SUBSTR(date, 1, 10)" {
-		t.Fatal("expected", "SUBSTR(date, 1, 10)", "but got", value)
+	if value != "SUBSTR(date, 1, 10)||'T23:59:59'" {
+		t.Fatal("expected", "SUBSTR(date, 1, 13)||':59:59'", "but got", value)
 	}
 	t.Log(value)
 }

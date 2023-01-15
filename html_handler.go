@@ -5,9 +5,27 @@ package hatchet
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 )
+
+type Chart struct {
+	Index int
+	Label string
+	Title string
+	URL   string
+}
+
+var charts = map[string]Chart{
+	"instruction":          {0, "select a chart", "", ""},
+	"ops":                  {1, "avg op time", "Average Operation Time", "/ops?type=stats"},
+	"slowops":              {2, "ops stats", "Slow Operation Counts", "/slowops?type=stats"},
+	"slowops-counts":       {3, "ops counts", "Operation Counts", "/slowops?type=counts"},
+	"connections-accepted": {4, "conns accepted", "Accepted Connections", "/connections?type=accepted"},
+	"connections-time":     {5, "conns by time", "Accepted vs Ended Connections", "/connections?type=time"},
+	"connections-total":    {6, "conns by total", "Accepted vs Ended Connections by IP", "/connections?type=total"},
+}
 
 // htmlHandler responds to API calls
 func htmlHandler(w http.ResponseWriter, r *http.Request) {
@@ -18,6 +36,9 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 	 * /tables/{table}/logs/slowops
 	 * /tables/{table}/stats/slowops
 	 */
+	if GetLogv2().verbose {
+		log.Println(r.URL.Path)
+	}
 	htmlPrefix := "/tables/"
 	tokens := strings.Split(r.URL.Path[len(htmlPrefix):], "/")
 	var tableName, category, attr string
@@ -38,12 +59,16 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 		category = "stats"
 		attr = "slowops"
 	}
+	summary, start, end := getTableSummary(tableName)
+	duration := r.URL.Query().Get("duration")
+	if duration != "" {
+		start, end = getStartEndDates(duration)
+	}
+	start = strings.Trim(start, "Z")
+	end = strings.Trim(end, "Z")
 
 	if category == "charts" && attr == "ops" {
-		summary := getTableSummary(tableName)
-		duration := r.URL.Query().Get("duration")
 		chartType := "ops"
-		var start, end string
 		docs, err := getAverageOpTime(tableName, duration)
 		if len(docs) > 0 {
 			start = docs[0].Date
@@ -53,25 +78,25 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return
 		}
-		templ, err := GetChartTemplate(attr, "chartType")
+		templ, err := GetChartTemplate(chartType)
 		if err != nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return
 		}
-		doc := map[string]interface{}{"Table": tableName, "OpCounts": docs, "Title": "Average Operation Time",
-			"Summary": summary, "Attr": attr, "Chart": chartType, "Start": start, "End": end, "VAxisLabel": "seconds"}
+		doc := map[string]interface{}{"Table": tableName, "OpCounts": docs, "Chart": charts[chartType],
+			"Type": chartType, "Summary": summary, "Start": start, "End": end, "VAxisLabel": "seconds"}
 		if err = templ.Execute(w, doc); err != nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return
 		}
 		return
 	} else if category == "charts" && attr == "slowops" {
-		summary := getTableSummary(tableName)
 		chartType := r.URL.Query().Get("type")
-		duration := r.URL.Query().Get("duration")
+		if GetLogv2().verbose {
+			log.Println("type", chartType, "duration", duration)
+		}
 		if chartType == "" || chartType == "stats" {
-			chartType = "stats"
-			var start, end string
+			chartType = "slowops"
 			docs, err := getSlowOpsCounts(tableName, duration)
 			if len(docs) > 0 {
 				start = docs[0].Date
@@ -81,31 +106,32 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
 			}
-			templ, err := GetChartTemplate(attr, chartType)
+			templ, err := GetChartTemplate(chartType)
 			if err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
 			}
-			doc := map[string]interface{}{"Table": tableName, "OpCounts": docs, "Title": "Slow Operation Counts",
-				"Summary": summary, "Attr": attr, "Chart": chartType, "Start": start, "End": end, "VAxisLabel": "count"}
+			doc := map[string]interface{}{"Table": tableName, "OpCounts": docs, "Chart": charts[chartType],
+				"Summary": summary, "Start": start, "End": end, "VAxisLabel": "count"}
 			if err = templ.Execute(w, doc); err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
 			}
 			return
 		} else if chartType == "counts" {
-			docs, err := getOpsCounts(tableName)
+			chartType = "slowops-counts"
+			docs, err := getOpsCounts(tableName, duration)
 			if err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
 			}
-			templ, err := GetChartTemplate("pieChart", chartType)
+			templ, err := GetChartTemplate(chartType)
 			if err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
 			}
-			doc := map[string]interface{}{"Table": tableName, "NameValues": docs, "Title": "Ops Counts",
-				"Summary": summary, "Attr": attr, "Chart": chartType}
+			doc := map[string]interface{}{"Table": tableName, "NameValues": docs, "Chart": charts[chartType],
+				"Summary": summary, "Start": start, "End": end}
 			if err = templ.Execute(w, doc); err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
@@ -113,23 +139,24 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else if category == "charts" && attr == "connections" {
-		summary := getTableSummary(tableName)
 		chartType := r.URL.Query().Get("type")
-		duration := r.URL.Query().Get("duration")
+		if GetLogv2().verbose {
+			log.Println("type", chartType, "duration", duration)
+		}
 		if chartType == "" || chartType == "accepted" {
-			chartType = "accepted"
-			docs, err := getAcceptedConnsCounts(tableName)
+			chartType = "connections-accepted"
+			docs, err := getAcceptedConnsCounts(tableName, duration)
 			if err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
 			}
-			templ, err := GetChartTemplate("pieChart", chartType)
+			templ, err := GetChartTemplate(chartType)
 			if err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
 			}
-			doc := map[string]interface{}{"Table": tableName, "NameValues": docs, "Title": "Accepted Connections",
-				"Summary": summary, "Attr": attr, "Chart": chartType}
+			doc := map[string]interface{}{"Table": tableName, "NameValues": docs, "Chart": charts[chartType],
+				"Summary": summary, "Start": start, "End": end}
 			if err = templ.Execute(w, doc); err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
@@ -137,16 +164,12 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		} else { // type is time or total
 			docs, err := getConnectionStats(tableName, chartType, duration)
-			var start, end string
-			if len(docs) > 0 {
-				start = docs[0].IP
-				end = docs[len(docs)-1].IP
-			}
 			if err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
 			}
-			templ, err := GetChartTemplate(attr, chartType)
+			chartType = "connections-" + chartType
+			templ, err := GetChartTemplate(chartType)
 			if err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
@@ -154,8 +177,8 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 			if len(docs) == 0 {
 				docs = []Remote{{IP: "No data", Accepted: 0, Ended: 0}}
 			}
-			doc := map[string]interface{}{"Table": tableName, "Remote": docs,
-				"Summary": summary, "Attr": attr, "Chart": chartType, "Start": start, "End": end}
+			doc := map[string]interface{}{"Table": tableName, "Remote": docs, "Chart": charts[chartType],
+				"Summary": summary, "Start": start, "End": end}
 			if err = templ.Execute(w, doc); err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
@@ -172,7 +195,6 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return
 		}
-		summary := getTableSummary(tableName)
 		templ, err := GetLogTableTemplate(attr)
 		if err != nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
@@ -204,7 +226,6 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 				order = "DESC"
 			}
 		}
-		summary := getTableSummary(tableName)
 		ops, err := getSlowOps(tableName, orderBy, order, collscan)
 		if err != nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
@@ -226,7 +247,6 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 		component := r.URL.Query().Get("component")
 		context := r.URL.Query().Get("context")
 		severity := r.URL.Query().Get("severity")
-		duration := r.URL.Query().Get("duration")
 		logs, err := getLogs(tableName, fmt.Sprintf("component=%v", component),
 			fmt.Sprintf("context=%v", context), fmt.Sprintf("severity=%v", severity), fmt.Sprintf("duration=%v", duration))
 		if err != nil {
@@ -238,7 +258,6 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return
 		}
-		summary := getTableSummary(tableName)
 		doc := map[string]interface{}{"Table": tableName, "Logs": logs, "LogLength": len(logs),
 			"Summary": summary, "Context": context, "Component": component, "Severity": severity}
 		if err = templ.Execute(w, doc); err != nil {
@@ -258,4 +277,12 @@ func getSlowOpsStats(tableName string, orderBy string) ([]byte, error) {
 		return nil, err
 	}
 	return json.Marshal(ops)
+}
+
+func getStartEndDates(duration string) (string, string) {
+	toks := strings.Split(duration, ",")
+	if len(toks) == 2 {
+		return toks[0], toks[1]
+	}
+	return "", ""
 }

@@ -75,6 +75,8 @@ func AnalyzeSlowOp(doc *Logv2Info) (OpStat, error) {
 	}
 	if stat.Op == cmdInsert || stat.Op == cmdCreateIndexes {
 		stat.QueryPattern = ""
+	} else if doc.Attributes.PlanSummary == "" {
+		return stat, errors.New("no planSummary found")
 	} else if stat.QueryPattern == "" &&
 		(stat.Op == cmdFind || stat.Op == cmdUpdate || stat.Op == cmdRemove || stat.Op == cmdDelete) {
 		var query interface{}
@@ -82,6 +84,8 @@ func AnalyzeSlowOp(doc *Logv2Info) (OpStat, error) {
 			query = command["q"]
 		} else if command["query"] != nil {
 			query = command["query"]
+		} else if command["filter"] != nil {
+			query = command["filter"]
 		}
 
 		if query != nil {
@@ -158,8 +162,8 @@ func AnalyzeSlowOp(doc *Logv2Info) (OpStat, error) {
 	}
 	re := regexp.MustCompile(`\[1(,1)*\]`)
 	stat.QueryPattern = re.ReplaceAllString(stat.QueryPattern, `[...]`)
-	re = regexp.MustCompile(`\[{\S+}(,{\S+})*\]`) // matches repeated doc {"base64":1,"subType":1}}
-	stat.QueryPattern = re.ReplaceAllString(stat.QueryPattern, `[...]`)
+	// re = regexp.MustCompile(`\[{\S+}(,{\S+})*\]`) // matches repeated doc {"base64":1,"subType":1}}
+	// stat.QueryPattern = re.ReplaceAllString(stat.QueryPattern, `[...]`)
 	re = regexp.MustCompile(`^{("\$match"|"\$sort"):(\S+)}$`)
 	stat.QueryPattern = re.ReplaceAllString(stat.QueryPattern, `$2`)
 	re = regexp.MustCompile(`^{("(\$facet")):\S+}$`)

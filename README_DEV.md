@@ -98,4 +98,4 @@ Hatchet provides a number of APIs to output JSON data. They work similarly to th
 ```
 
 ## Docker Build
-See https://hub.docker.com/repository/docker/simagix/hatchet/general for details.
+See https://hub.docker.com/r/simagix/hatchet for details.

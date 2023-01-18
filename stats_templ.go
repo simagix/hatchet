@@ -64,7 +64,9 @@ func getStatsTable(collscan bool, orderBy string) string {
 			<td><span style='color:red;'>{{ $value.Index }}</span></td>
 		{{ else if (hasPrefix $value.Index "ErrMsg:") }}
 			<td align='center'>
-				<button class="exclamation" title="{{$value.Index}}"><i class="fa fa-exclamation"></i></button></td>
+				<div class='tooltip'><button class="exclamation"><i class="fa fa-exclamation"></i></button>
+					<span class="tooltiptext">{{$value.Index}}</span></div>
+				</td>
 		{{else}}
 			<td>{{ $value.Index }}</td>
 		{{end}}

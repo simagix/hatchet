@@ -230,7 +230,7 @@ func (ptr *Logv2) Analyze(filename string) error {
 				start = end
 			}
 			if _, err = pstmt.Exec(index, end, doc.Severity, doc.Component, doc.Context,
-				doc.Msg, doc.Attributes.PlanSummary, doc.Attr.Map()["type"], doc.Attr.Map()["ns"], doc.Message,
+				doc.Msg, doc.Attributes.PlanSummary, doc.Attr.Map()["type"], doc.Attributes.NS, doc.Message,
 				stat.Op, stat.QueryPattern, stat.Index, doc.Attributes.Milli, doc.Attributes.Reslen); err != nil {
 				return err
 			}

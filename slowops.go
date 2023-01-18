@@ -47,6 +47,16 @@ func AnalyzeSlowOp(doc *Logv2Info) (OpStat, error) {
 		//		return stat, errors.New("system database")
 	} else if strings.HasSuffix(stat.Namespace, ".$cmd") {
 		stat.Op = DOLLAR_CMD
+		if commands, ok := doc.Attr.Map()["command"].(bson.D); ok {
+			for _, elem := range commands {
+				stat.Op = elem.Key
+				doc.Attributes.NS, _ = elem.Value.(string)
+				break
+			}
+		}
+		if doc.Attributes.ErrMsg != "" {
+			stat.Index = "ErrMsg: " + doc.Attributes.ErrMsg
+		}
 		return stat, errors.New("system command")
 	}
 

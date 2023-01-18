@@ -36,9 +36,11 @@ func GetChartTemplate(chartType string) (*template.Template, error) {
 		</body></html>`
 	return template.New("hatchet").Funcs(template.FuncMap{
 		"descr": func(v OpCount) string {
-			dfmt := "2016-01-02T23:59:59"
-			d := v.Date + dfmt[len(v.Date):]
-			return fmt.Sprintf("%v %v %v %v", v.Op, d, v.Namespace, v.Filter)
+			if v.Filter == "" {
+				return v.Namespace
+			}
+			str := fmt.Sprintf("%v: %v", v.Namespace, v.Filter)
+			return str
 		},
 		"toSeconds": func(n float64) float64 {
 			return n / 1000
@@ -64,9 +66,9 @@ func getOpStatsChart() string {
 	function drawChart() {
 		var data = google.visualization.arrayToDataTable([
 {{if eq .Type "ops"}}
-			['op', 'secs from origin', 'avg seconds', 'detail', '#ops'],
+			['op', 'time', 'avg seconds', 'ns/filter', 'counts'],
 {{else}}
-			['op', 'secs from origin', 'count', 'detail'],
+			['op', 'time', 'count', 'ns/filter'],
 {{end}}
 
 {{$sdate := ""}}
@@ -77,9 +79,9 @@ func getOpStatsChart() string {
 {{end}}
 
 {{if eq $ctype "ops"}}
-			['', {{epoch $v.Date $sdate}}, {{toSeconds $v.Milli}}, {{descr $v}}, {{$v.Count}}],
+			[{{$v.Op}}, new Date("{{$v.Date}}"), {{toSeconds $v.Milli}}, '{{descr $v}}', {{$v.Count}}],
 {{else}}
-			['', {{epoch $v.Date $sdate}}, {{$v.Count}}, {{descr $v}}],
+			[{{$v.Op}}, new Date("{{$v.Date}}"), {{$v.Count}}, '{{descr $v}}'],
 {{end}}
 {{end}}
 		]);
@@ -91,11 +93,12 @@ func getOpStatsChart() string {
 			'height': 600,
 			'titleTextStyle': {'fontSize': 20},
 {{if eq $ctype "ops"}}
-			'sizeAxis': {minValue: 0, minSize: 3, maxSize: 23},
+			'sizeAxis': {minValue: 0, minSize: 5, maxSize: 15},
 {{else}}
-			'sizeAxis': {minValue: 0, minSize: 3, maxSize: 3},
+			'sizeAxis': {minValue: 0, minSize: 5, maxSize: 5},
 {{end}}
 			'chartArea': {'width': '85%', 'height': '80%'},
+			'tooltip': { 'isHtml': false },
 			'legend': { 'position': 'none' } };
 		// Instantiate and draw our chart, passing in some options.
 		var chart = new google.visualization.BubbleChart(document.getElementById('hatchetChart'));

@@ -101,7 +101,7 @@ const headers = `<!DOCTYPE html>
       font-family: "Trebuchet MS";
       background-color: #4285F4;
       border: none; 
-      outline:none;
+      outline: none;
       color: #f2f2f2;
       padding: 5px 15px;
       margin: 2px 10px;
@@ -109,6 +109,19 @@ const headers = `<!DOCTYPE html>
       font-size: 1em;
       font-weight: bold;
       border-radius: .25em;
+    }
+    .exclamation {
+      background-color: red;
+      color: white;
+      border: none;
+      outline:none;
+      padding: 5px 5px;
+      margin: 2px 2px;
+      font-size: 1em;
+      border-radius: .25em;
+    }
+    .exclamation:hover {
+      color: yellow;
     }
     h1 {
       font-family: "Trebuchet MS";

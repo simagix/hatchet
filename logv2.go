@@ -64,6 +64,7 @@ type Logv2Info struct {
 
 type Attributes struct {
 	Command            map[string]interface{} `json:"command" bson:"command"`
+	ErrMsg             string                 `json:"errMsg" bson:"errMsg"`
 	Milli              int                    `json:"durationMillis" bson:"durationMillis"`
 	NS                 string                 `json:"ns" bson:"ns"`
 	OriginatingCommand map[string]interface{} `json:"originatingCommand" bson:"originatingCommand"`
@@ -222,11 +223,9 @@ func (ptr *Logv2) Analyze(filename string) error {
 			}
 			continue
 		}
-		if stat, err = AnalyzeSlowOp(&doc); err != nil {
-			stat = OpStat{}
-		}
+		stat, _ = AnalyzeSlowOp(&doc)
 		if !ptr.legacy {
-			end =  doc.Timestamp.Format(time.RFC3339);
+			end = doc.Timestamp.Format(time.RFC3339)
 			if start == "" {
 				start = end
 			}
@@ -275,7 +274,7 @@ func (ptr *Logv2) Analyze(filename string) error {
 	}
 	instr = fmt.Sprintf(`INSERT INTO %v_ops
 			SELECT op, COUNT(*), ROUND(AVG(milli),1), MAX(milli), SUM(milli), ns, _index, SUM(reslen), filter
-				FROM %v WHERE op != "" GROUP BY op, ns, filter`, ptr.tableName, ptr.tableName)
+				FROM %v WHERE op != "" GROUP BY op, ns, filter, _index`, ptr.tableName, ptr.tableName)
 	if _, err = db.Exec(instr); err != nil {
 		return err
 	}

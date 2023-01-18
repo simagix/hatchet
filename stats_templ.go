@@ -4,6 +4,7 @@ package hatchet
 import (
 	"fmt"
 	"html/template"
+	"strings"
 
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
@@ -15,6 +16,9 @@ func GetStatsTableTemplate(collscan bool, orderBy string) (*template.Template, e
 	return template.New("hatchet").Funcs(template.FuncMap{
 		"add": func(a int, b int) int {
 			return a + b
+		},
+		"hasPrefix": func(str string, pre string) bool {
+			return strings.HasPrefix(str, pre)
 		},
 		"numPrinter": func(n interface{}) string {
 			printer := message.NewPrinter(language.English)
@@ -56,8 +60,13 @@ func getStatsTable(collscan bool, orderBy string) string {
 			<td align='right'>{{ numPrinter $value.MaxMilli }}</td>
 			<td align='right'>{{ numPrinter $value.TotalMilli }}</td>
 			<td align='right'>{{ numPrinter $value.Reslen }}</td>
-		{{ if ( eq $value.Index "COLLSCAN" ) }}
+		{{ if or (eq $value.Index "COLLSCAN") }}
 			<td><span style='color:red;'>{{ $value.Index }}</span></td>
+		{{ else if (hasPrefix $value.Index "ErrMsg:") }}
+			<td align='center'>
+				<div class='tooltip'><button class="exclamation"><i class="fa fa-exclamation"></i></button>
+					<span class="tooltiptext">{{$value.Index}}</span></div>
+				</td>
 		{{else}}
 			<td>{{ $value.Index }}</td>
 		{{end}}

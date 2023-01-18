@@ -52,7 +52,7 @@ func GetLogTableTemplate(attr string) (*template.Template, error) {
 }
 
 func highlightLog(log string) string {
-	re := regexp.MustCompile(`("?planSummary"?:\s?"?\w+"?)`)
+	re := regexp.MustCompile(`("?(planSummary|errMsg)"?:\s?"?\w+"?)`)
 	log = re.ReplaceAllString(log, "<mark>$1</mark>")
 	re = regexp.MustCompile(`((\d+ms$))`)
 	log = re.ReplaceAllString(log, "<mark>$1</mark>")

@@ -263,7 +263,8 @@ func getContentHTML() string {
 	}
 
 	html += `</select>
-	<button class="btn" style="float: right;"><i class="fa fa-bar-chart"></i></button>
+	<button id="chart" onClick="javascript:location.href='/tables/{{.Table}}/charts/ops?type=stats'; return false;" 
+    class="btn" style="float: right;"><i class="fa fa-bar-chart"></i></button>
 </div>
 <p/>
 <script>

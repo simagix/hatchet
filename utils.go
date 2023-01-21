@@ -37,12 +37,13 @@ func getHatchetName(filename string) string {
 	temp := filepath.Base(filename)
 	tableName := replaceSpecialChars(temp)
 	i := strings.LastIndex(tableName, "_log")
-	if i >= 0 {
+	if i >= 0 && i >= len(temp)-len(".log.gz") {
 		tableName = replaceSpecialChars(tableName[0:i])
 	}
 	if len(tableName) > MAX_SIZE {
 		tableName = tableName[:MAX_SIZE-TAIL_SIZE]
 	}
+	tableName = strings.Trim(tableName, "_gz")
 	rand.Seed(time.Now().UnixNano())
 	b := make([]byte, TAIL_SIZE)
 	rand.Read(b)

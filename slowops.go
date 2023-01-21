@@ -42,16 +42,15 @@ func AnalyzeSlowOp(doc *Logv2Info) (OpStat, error) {
 	stat.Namespace = doc.Attributes.NS
 	if stat.Namespace == "" {
 		return stat, errors.New("no namespace found")
-		//	} else if strings.HasPrefix(stat.Namespace, "admin.") || strings.HasPrefix(stat.Namespace, "config.") || strings.HasPrefix(stat.Namespace, "local.") {
-		//		stat.Op = DOLLAR_CMD
-		//		return stat, errors.New("system database")
 	} else if strings.HasSuffix(stat.Namespace, ".$cmd") {
 		stat.Op = DOLLAR_CMD
 		if commands, ok := doc.Attr.Map()["command"].(bson.D); ok {
-			for _, elem := range commands {
+			if len(commands) > 0 {
+				elem := commands[0]
 				stat.Op = elem.Key
-				doc.Attributes.NS, _ = elem.Value.(string)
-				break
+				if doc.Attributes.NS, ok = elem.Value.(string); !ok {
+					doc.Attributes.NS = stat.Namespace
+				}
 			}
 		}
 		if doc.Attributes.ErrMsg != "" {
@@ -59,7 +58,6 @@ func AnalyzeSlowOp(doc *Logv2Info) (OpStat, error) {
 		}
 		return stat, errors.New("system command")
 	}
-
 	if doc.Attributes.PlanSummary != "" { // not insert
 		plan := doc.Attributes.PlanSummary
 		if strings.HasPrefix(plan, "IXSCAN") {
@@ -128,7 +126,14 @@ func AnalyzeSlowOp(doc *Logv2Info) (OpStat, error) {
 			} else {
 				stat.QueryPattern = "{}"
 			}
-			if !strings.Contains(stat.QueryPattern, "$match") && !strings.Contains(stat.QueryPattern, "$sort") &&
+			if strings.Contains(stat.QueryPattern, "$changeStream") {
+				if len(pipeline) > 1 {
+					buf, _ := json.Marshal(pipeline[1])
+					stat.QueryPattern = string(buf)
+				} else {
+					stat.QueryPattern = "{}"
+				}
+			} else if !strings.Contains(stat.QueryPattern, "$match") && !strings.Contains(stat.QueryPattern, "$sort") &&
 				!strings.Contains(stat.QueryPattern, "$facet") && !strings.Contains(stat.QueryPattern, "$indexStats") {
 				stat.QueryPattern = "{}"
 			}
@@ -170,16 +175,14 @@ func AnalyzeSlowOp(doc *Logv2Info) (OpStat, error) {
 	if stat.Op == "" {
 		return stat, nil
 	}
-	re := regexp.MustCompile(`\[1(,1)*\]`)
-	stat.QueryPattern = re.ReplaceAllString(stat.QueryPattern, `[...]`)
-	// re = regexp.MustCompile(`\[{\S+}(,{\S+})*\]`) // matches repeated doc {"base64":1,"subType":1}}
-	// stat.QueryPattern = re.ReplaceAllString(stat.QueryPattern, `[...]`)
-	re = regexp.MustCompile(`^{("\$match"|"\$sort"):(\S+)}$`)
+	re := regexp.MustCompile(`^{("\$match"|"\$sort"):(\S+)}$`)
 	stat.QueryPattern = re.ReplaceAllString(stat.QueryPattern, `$2`)
 	re = regexp.MustCompile(`^{("(\$facet")):\S+}$`)
 	stat.QueryPattern = re.ReplaceAllString(stat.QueryPattern, `{$1:...}`)
 	re = regexp.MustCompile(`{"\$oid":1}`)
 	stat.QueryPattern = re.ReplaceAllString(stat.QueryPattern, `1`)
+	re = regexp.MustCompile(`("\$n?in"):\[\S+(,\s?\S+)*\]`)
+	stat.QueryPattern = re.ReplaceAllString(stat.QueryPattern, `$1:[...]`)
 	if isGetMore {
 		stat.Op = cmdGetMore
 	}

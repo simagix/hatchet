@@ -35,12 +35,12 @@ func GetChartTemplate(chartType string) (*template.Template, error) {
 		<div id='hatchetChart' align='center' width='100%'/>
 		</body></html>`
 	return template.New("hatchet").Funcs(template.FuncMap{
-		"descr": func(v OpCount) string {
+		"descr": func(v OpCount) template.HTML {
 			if v.Filter == "" {
-				return v.Namespace
+				return template.HTML(v.Namespace)
 			}
-			str := fmt.Sprintf("%v: %v", v.Namespace, v.Filter)
-			return str
+			str := fmt.Sprintf("%v, QP: %v", v.Namespace, v.Filter)
+			return template.HTML(str)
 		},
 		"toSeconds": func(n float64) float64 {
 			return n / 1000
@@ -66,9 +66,9 @@ func getOpStatsChart() string {
 	function drawChart() {
 		var data = google.visualization.arrayToDataTable([
 {{if eq .Type "ops"}}
-			['op', 'time', 'avg seconds', 'ns/filter', 'counts'],
+			['op', 'date/time', 'duration (seconds)', 'ns', 'counts'],
 {{else}}
-			['op', 'time', 'count', 'ns/filter'],
+			['op', 'date/time', 'count', 'ns/filter'],
 {{end}}
 
 {{$sdate := ""}}

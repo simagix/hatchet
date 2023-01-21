@@ -185,7 +185,7 @@ func (ptr *Logv2) Analyze(filename string) error {
 	}
 
 	for {
-		if !ptr.testing && !ptr.legacy && index%50 == 0 {
+		if !ptr.testing && !ptr.legacy && index%50 == 0 && ptr.totalLines > 0 {
 			fmt.Fprintf(os.Stderr, "\r%3d%% \r", (100*index)/ptr.totalLines)
 		}
 		if buf, isPrefix, err = reader.ReadLine(); err != nil { // 0x0A separator = newline

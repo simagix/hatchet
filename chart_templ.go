@@ -93,7 +93,7 @@ func getOpStatsChart() string {
 			'height': 600,
 			'titleTextStyle': {'fontSize': 20},
 {{if eq $ctype "ops"}}
-			'sizeAxis': {minValue: 0, minSize: 5, maxSize: 15},
+			'sizeAxis': {minValue: 0, minSize: 5, maxSize: 30},
 {{else}}
 			'sizeAxis': {minValue: 0, minSize: 5, maxSize: 5},
 {{end}}

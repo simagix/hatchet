@@ -61,6 +61,7 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	summary, start, end := getTableSummary(tableName)
 	duration := r.URL.Query().Get("duration")
+	download := r.URL.Query().Get("download")
 	if duration != "" {
 		start, end = getStartEndDates(duration)
 	}
@@ -231,7 +232,7 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return
 		}
-		templ, err := GetStatsTableTemplate(collscan, orderBy)
+		templ, err := GetStatsTableTemplate(collscan, orderBy, download)
 		if err != nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return

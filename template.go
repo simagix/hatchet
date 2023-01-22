@@ -60,12 +60,17 @@ const headers = `<!DOCTYPE html>
       background-color: #888;
       color: #fff;
       vertical-align: middle;
-      font-size: .9em;
+      font-size: .8em;
     }
     td {
-      padding:2px;
       vertical-align: middle;
-      font-size: 11px;
+      font-size: .8em;
+    }
+    .break {
+      vertical-align: middle;
+      font-size: .8em;
+//      inline-size: 100px;
+      word-break: break-all;
     }
     tr:nth-child(even) {background-color: #f2f2f2;}
     tr:nth-child(odd) {background-color: #fff;}

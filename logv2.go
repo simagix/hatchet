@@ -148,7 +148,7 @@ func (ptr *Logv2) Analyze(filename string) error {
 	}
 
 	var isPrefix bool
-	var stat OpStat
+	var stat *OpStat
 	index := 0
 	var db *sql.DB
 	var pstmt, cstmt *sql.Stmt

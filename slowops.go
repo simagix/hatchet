@@ -27,10 +27,19 @@ const cmdInsert = "insert"
 const cmdRemove = "remove"
 const cmdUpdate = "update"
 
+// AnalyzeLog analyzes slow op log
+func AnalyzeLog(str string) (*OpStat, error) {
+	doc := Logv2Info{}
+	if err := bson.UnmarshalExtJSON([]byte(str), false, &doc); err != nil {
+		return nil, err
+	}
+	return AnalyzeSlowOp(&doc)
+}
+
 // AnalyzeSlowOp analyzes slow ops
-func AnalyzeSlowOp(doc *Logv2Info) (OpStat, error) {
+func AnalyzeSlowOp(doc *Logv2Info) (*OpStat, error) {
 	var err error
-	var stat = OpStat{}
+	stat := &OpStat{}
 
 	c := doc.Component
 	if c != "COMMAND" && c != "QUERY" && c != "WRITE" {
@@ -62,6 +71,7 @@ func AnalyzeSlowOp(doc *Logv2Info) (OpStat, error) {
 		plan := doc.Attributes.PlanSummary
 		if strings.HasPrefix(plan, "IXSCAN") {
 			stat.Index = plan[len("IXSCAN")+1:]
+			stat.Index = strings.ReplaceAll(stat.Index, ": ", ":")
 		} else {
 			stat.Index = plan
 		}

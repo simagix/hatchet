@@ -50,7 +50,8 @@ func apiHandler(w http.ResponseWriter, r *http.Request) {
 		context := r.URL.Query().Get("context")
 		severity := r.URL.Query().Get("severity")
 		duration := r.URL.Query().Get("duration")
-		logs, err := getLogs(tableName, fmt.Sprintf("component=%v", component),
+		limit := r.URL.Query().Get("limit")
+		logs, err := getLogs(tableName, fmt.Sprintf("component=%v", component), fmt.Sprintf("limit=%v", limit),
 			fmt.Sprintf("context=%v", context), fmt.Sprintf("severity=%v", severity), fmt.Sprintf("duration=%v", duration))
 		if err != nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})

@@ -18,7 +18,12 @@ The easiest way is to go to the home page `http://localhost:3721` and following 
 - `/tables/{table}/stats/slowops?COLLSCAN=true&orderBy=count` views stats summary of COLLSCAN logs and sorted by *count*
 - `/tables/{table}/logs/slowops` views top 25 slowest ops logs
 - `/tables/{table}/logs/slowops?topN=100` views top 100 slowest ops logs
-- `/tables/{table}/logs` views all logs, but limit to first 1,000
+- `/tables/{table}/logs` views all logs, and available query string parameters are:
+  - component
+  - context
+  - duration (begin_datetime,end_datetime)
+  - limit ([offset,]limit)
+  - severity
 - `/tables/{table}/logs?component=NETWORK` searches logs where *component* = *NETWORK*.  Available option are:
   - component
   - context

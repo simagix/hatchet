@@ -248,7 +248,8 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 		component := r.URL.Query().Get("component")
 		context := r.URL.Query().Get("context")
 		severity := r.URL.Query().Get("severity")
-		logs, err := getLogs(tableName, fmt.Sprintf("component=%v", component),
+		limit := r.URL.Query().Get("limit")
+		logs, err := getLogs(tableName, fmt.Sprintf("component=%v", component), fmt.Sprintf("limit=%v", limit),
 			fmt.Sprintf("context=%v", context), fmt.Sprintf("severity=%v", severity), fmt.Sprintf("duration=%v", duration))
 		if err != nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
@@ -259,7 +260,12 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return
 		}
-		doc := map[string]interface{}{"Table": tableName, "Logs": logs, "LogLength": len(logs),
+		toks := strings.Split(limit, ",")
+		seq := 1
+		if len(toks) > 1 {
+			seq = ToInt(toks[0]) + 1
+		}
+		doc := map[string]interface{}{"Table": tableName, "Logs": logs, "LogLength": len(logs), "Seq": seq,
 			"Summary": summary, "Context": context, "Component": component, "Severity": severity}
 		if err = templ.Execute(w, doc); err != nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})

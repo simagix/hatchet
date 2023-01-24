@@ -71,7 +71,7 @@ func AddLegacyString(doc *Logv2Info) error {
 		if remote.IP != "" {
 			doc.Remote = &remote
 		}
-	} else if doc.Component == "COMMAND" || doc.Component == "WRITE" || doc.Component == "QUERY" || doc.Component == "TXT" {
+	} else {
 		for _, attr := range doc.Attr {
 			if attr.Key == "type" || attr.Key == "ns" {
 				str := attr.Value.(string)

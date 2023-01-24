@@ -10,6 +10,10 @@ import (
 	"time"
 )
 
+const (
+	Q_LIMIT = " LIMIT 100"
+)
+
 // getHatchetInitStmt returns init statement
 func getHatchetInitStmt(tableName string) string {
 	return fmt.Sprintf(`
@@ -92,29 +96,44 @@ func getSlowOpsQuery(tableName string, orderBy string, order string, collscan bo
 
 func getLogs(tableName string, opts ...string) ([]LegacyLog, error) {
 	docs := []LegacyLog{}
-	query := fmt.Sprintf(`SELECT date, severity, component, context, message FROM %v`, tableName)
+	qheader := fmt.Sprintf(`SELECT date, severity, component, context, message FROM %v`, tableName)
+	wheres := []string{}
+	search := ""
+	qlimit := Q_LIMIT
+
 	if len(opts) > 0 {
-		cnt := 0
 		for _, opt := range opts {
 			toks := strings.Split(opt, "=")
 			if len(toks) < 2 || toks[1] == "" {
 				continue
 			}
-			if cnt == 0 {
-				query += " WHERE"
-			} else if cnt > 0 {
-				query += " AND"
-			}
 			if toks[0] == "duration" {
 				dates := strings.Split(toks[1], ",")
-				query += fmt.Sprintf(" date BETWEEN '%v' and '%v'", dates[0], dates[1])
+				wheres = append(wheres, fmt.Sprintf(" date BETWEEN '%v' and '%v'", dates[0], dates[1]))
+			} else if toks[0] == "limit" {
+				qlimit = " LIMIT " + toks[1]
+			} else if toks[0] == "severity" {
+				sevs := []string{}
+				for _, v := range SEVERITIES {
+					sevs = append(sevs, fmt.Sprintf("'%v'", v))
+					if v == toks[1] {
+						break
+					}
+				}
+				wheres = append(wheres, " severity IN (" + strings.Join(sevs, ",") + ")")
 			} else {
-				query += fmt.Sprintf(" %v = '%v'", toks[0], toks[1])
+				wheres = append(wheres, fmt.Sprintf(` %v = "%v"`, toks[0], EscapeString(toks[1])))
+				if toks[0] == "context" {
+					search = toks[1]
+				}
 			}
-			cnt++
 		}
 	}
-	query += " LIMIT 1000"
+	wclause := ""
+	if len(wheres) > 0 {
+		wclause = " WHERE " + strings.Join(wheres, " AND")
+	}
+	query := qheader + wclause + qlimit
 	db, err := sql.Open("sqlite3", GetLogv2().dbfile)
 	if err != nil {
 		return docs, err
@@ -123,6 +142,67 @@ func getLogs(tableName string, opts ...string) ([]LegacyLog, error) {
 	if GetLogv2().verbose {
 		log.Println(query)
 	}
+	rows, err := db.Query(query)
+	if err != nil {
+		return docs, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var doc LegacyLog
+		if err = rows.Scan(&doc.Timestamp, &doc.Severity, &doc.Component, &doc.Context, &doc.Message); err != nil {
+			return docs, err
+		}
+		docs = append(docs, doc)
+	}
+	if len(docs) == 0 && search != "" { // no context found, perform message search
+		return getLogsFromMessage(tableName, opts...)
+	}
+	return docs, err
+}
+
+func getLogsFromMessage(tableName string, opts ...string) ([]LegacyLog, error) {
+	qheader := fmt.Sprintf(`SELECT date, severity, component, context, message FROM %v`, tableName)
+	docs := []LegacyLog{}
+	wheres := []string{}
+	qlimit := Q_LIMIT
+	for _, opt := range opts {
+		toks := strings.Split(opt, "=")
+		if len(toks) < 2 || toks[1] == "" {
+			continue
+		}
+		if toks[0] == "duration" {
+			dates := strings.Split(toks[1], ",")
+			wheres = append(wheres, fmt.Sprintf(" date BETWEEN '%v' and '%v'", dates[0], dates[1]))
+		} else if toks[0] == "limit" {
+			qlimit = " LIMIT " + toks[1]
+		} else if toks[0] == "severity" {
+			sevs := []string{}
+			for _, v := range SEVERITIES {
+				sevs = append(sevs, fmt.Sprintf("'%v'", v))
+				if v == toks[1] {
+					break
+				}
+			}
+			wheres = append(wheres, " severity IN (" + strings.Join(sevs, ",") + ")")
+		} else if toks[0] == "context" {
+			wheres = append(wheres, fmt.Sprintf(` LOWER(message) LIKE "%%%v%%"`, EscapeString(toks[1])))
+		} else {
+			wheres = append(wheres, fmt.Sprintf(` %v = "%v"`, toks[0], EscapeString(toks[1])))
+		}
+	}
+	wclause := ""
+	if len(wheres) > 0 {
+		wclause = " WHERE " + strings.Join(wheres, " AND")
+	}
+	query := qheader + wclause + qlimit
+	if GetLogv2().verbose {
+		log.Println(query)
+	}
+	db, err := sql.Open("sqlite3", GetLogv2().dbfile)
+	if err != nil {
+		return docs, err
+	}
+	defer db.Close()
 	rows, err := db.Query(query)
 	if err != nil {
 		return docs, err
@@ -213,15 +293,15 @@ func getDateSubString(start string, end string) string {
 		return substr
 	}
 	minutes := etime.Sub(stime).Minutes()
-	if minutes < 10 {
+	if minutes < 1 {
 		return "SUBSTR(date, 1, 19)"
-	} else if minutes < 30 {
+	} else if minutes < 10 {
 		return "SUBSTR(date, 1, 18)||'9'"
-	} else if minutes < 180 {
+	} else if minutes < 60 {
 		return "SUBSTR(date, 1, 16)||':59'"
-	} else if minutes < 1800 {
+	} else if minutes < 600 {
 		return "SUBSTR(date, 1, 15)||'9:59'"
-	} else if minutes < 10800 {
+	} else if minutes < 3600 {
 		return "SUBSTR(date, 1, 13)||':59:59'"
 	} else {
 		return "SUBSTR(date, 1, 10)||'T23:59:59'"

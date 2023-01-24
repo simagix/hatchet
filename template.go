@@ -318,14 +318,14 @@ func getMainPage() string {
 	<li>/</li>
 	<li>/tables/{table}</li>
 	<li>/tables/{table}/charts/{chart}[?type={str}]</li>
-	<li>/tables/{table}/logs[?component={str}&context={str}&duration={date},{date}&severity={str}]</li>
+	<li>/tables/{table}/logs[?component={str}&context={str}&duration={date},{date}&severity={str}&limit=[{offset},]{int}]</li>
 	<li>/tables/{table}/logs/slowops[?topN={int}]</li>
 	<li>/tables/{table}/stats/slowops[?COLLSCAN={bool}&orderBy={str}]</li>
 </ul>
 
 <h3>API</h3>
 <ul class="api">
-	<li>/api/hatchet/v1.0/tables/{table}/logs[?component={str}&context={str}&duration={date},{date}&severity={str}]</li>
+	<li>/api/hatchet/v1.0/tables/{table}/logs[?component={str}&context={str}&duration={date},{date}&severity={str}&limit=[{offset},]{int}]</li>
 	<li>/api/hatchet/v1.0/tables/{table}/logs/slowops[?topN={int}]</li>
 	<li>/api/hatchet/v1.0/tables/{table}/stats/slowops[?COLLSCAN={bool}&orderBy={str}]</li>
 </ul>

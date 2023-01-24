@@ -8,6 +8,12 @@ import (
 	"strings"
 )
 
+var (
+	SEVERITIES = []string{"F", "E", "W", "I", "D", "D2"}
+	SEVERITY_M = map[string]string{ "F": "FATAL", "E": "ERROR", "W": "WARN", "I": "INFO",
+			"D": "DEBUG", "D2": "DEBUG2" }
+)
+
 // GetLogTableTemplate returns HTML
 func GetLogTableTemplate(attr string) (*template.Template, error) {
 	html := getContentHTML()
@@ -36,28 +42,32 @@ func GetLogTableTemplate(attr string) (*template.Template, error) {
 		},
 		"getSeverityOptions": func(item string) template.HTML {
 			arr := []string{}
-			servs := [][2]string{{"FATAL", "F"}, {"ERROR", "E"}, {"WARN", "W"}, {"INFO", "I"}, {"DEBUG", "D"}, {"DEBUG2", "D2"}}
-			for _, v := range servs {
+			for _, v := range SEVERITIES {
 				selected := ""
-				if v[1] == item {
+				if v == item {
 					selected = "SELECTED"
 				}
-				arr = append(arr, fmt.Sprintf("<option value='%v' %v>%v</option>", v[1], selected, v[0]))
+				arr = append(arr, fmt.Sprintf("<option value='%v' %v>%v</option>", v, selected, SEVERITY_M[v]))
 			}
 			return template.HTML(strings.Join(arr, "\n"))
 		},
-		"highligtLog": func(log string) template.HTML {
-			return template.HTML(highlightLog(log))
+		"highlightLog": func(log string, params ...string) template.HTML {
+			return template.HTML(highlightLog(log, params...))
 		}}).Parse(html)
 }
 
-func highlightLog(log string) string {
+func highlightLog(log string, params ...string) string {
 	re := regexp.MustCompile(`("?(planSummary|errMsg)"?:\s?"?\w+"?)`)
 	log = re.ReplaceAllString(log, "<mark>$1</mark>")
 	re = regexp.MustCompile(`((\d+ms$))`)
 	log = re.ReplaceAllString(log, "<mark>$1</mark>")
 	re = regexp.MustCompile(`(("?(keysExamined|keysInserted|docsExamined|nreturned|nMatched|nModified|ndeleted|ninserted|reslen)"?:)\d+)`)
-	return re.ReplaceAllString(log, "<mark>$1</mark>")
+	log = re.ReplaceAllString(log, "<mark>$1</mark>")
+	for _, param := range params {
+		re = regexp.MustCompile("(?i)(" + param + ")")
+		log = re.ReplaceAllString(log, "<mark>$1</mark>")
+	}
+	return log
 }
 
 func getSlowOpsLogsTable() string {
@@ -72,7 +82,7 @@ func getSlowOpsLogsTable() string {
 {{range $n, $value := .Logs}}
 		<tr>
 			<td align='right'>{{ add $n 1 }}</td>
-			<td>{{ highligtLog $value }}</td>
+			<td>{{ highlightLog $value }}</td>
 		</tr>
 {{end}}
 	</table>
@@ -85,7 +95,7 @@ func getLegacyLogsTable() string {
 	template := `
 <br/>
 <div style="float: left;">
-	<label>component: </label>
+	<label><i class="fa fa-leaf"></i></label>
 	<select id='component'>
 		<option value=''>select a component</option>
 		{{getComponentOptions .Component}}
@@ -93,7 +103,7 @@ func getLegacyLogsTable() string {
 </div>
 
 <div style="float: left; padding: 0px 0px 0px 20px;">
-	<label>&nbsp;severity: </label>
+	<label><i class="fa fa-exclamation"></i></label>
 	<select id='severity'>
 		<option value=''>select a severity</option>
 		{{getSeverityOptions .Severity}}
@@ -101,8 +111,8 @@ func getLegacyLogsTable() string {
 </div>
 
 <div style="float: left; padding: 0px 0px 0px 20px;">
-	<label>&nbsp;context: </label>
-	<input id='context' type='text' value='{{.Context}}' size='25'/>
+	<label><i class="fa fa-search"></i></label>
+	<input id='context' type='text' value='{{.Context}}' size='30'/>
 	<button id="find" onClick="findLogs()" class="button" style="float: right;">Find</button>
 </div>
 
@@ -118,14 +128,16 @@ func getLegacyLogsTable() string {
 			<th>context</th>
 			<th>message</th>
 		</tr>
+	{{$search := .Context}}
+	{{$seq := .Seq}}
 	{{range $n, $value := .Logs}}
 		<tr>
-			<td align='right'>{{ add $n 1 }}</td>
+			<td align='right'>{{ add $n $seq }}</td>
 			<td>{{ $value.Timestamp }}</td>
 			<td>{{ $value.Severity }}</td>
 			<td>{{ $value.Component }}</td>
 			<td>{{ $value.Context }}</td>
-			<td>{{ highligtLog $value.Message }}</td>
+			<td>{{ highlightLog $value.Message $search }}</td>
 		</tr>
 	{{end}}
 	</table>

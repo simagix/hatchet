@@ -43,10 +43,20 @@ func getHatchetName(filename string) string {
 	if len(tableName) > MAX_SIZE {
 		tableName = tableName[:MAX_SIZE-TAIL_SIZE]
 	}
-	tableName = strings.Trim(tableName, "_gz")
+	if i = strings.LastIndex(tableName, "_gz"); i > 0 {
+		tableName = tableName[:i]
+	}
 	rand.Seed(time.Now().UnixNano())
 	b := make([]byte, TAIL_SIZE)
 	rand.Read(b)
 	tail := fmt.Sprintf("%x", b)[:TAIL_SIZE-1]
 	return fmt.Sprintf("%v_%v", tableName, tail)
+}
+
+func EscapeString(value string) string {
+	replace := map[string]string{"\\": "\\\\", "'": `\'`, "\\0": "\\\\0", "\n": "\\n", "\r": "\\r", `"`: `\"`, "\x1a": "\\Z"}
+	for b, a := range replace {
+		value = strings.Replace(value, b, a, -1)
+	}
+	return value
 }

@@ -3,6 +3,7 @@
 package hatchet
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -59,5 +60,14 @@ func TestGetHatchetName(t *testing.T) {
 	modified := "filesys_shard_00_01_abcde_mongodb_net_2021_07_24T10_12_58_2021_07_25T10_12_58_mongodb"
 	if !strings.HasPrefix(hatchetName, modified) {
 		t.Fatal(modified+"_*", length, "but got", hatchetName)
+	}
+
+	filename = "testdata/demo_errmsg.log.gz"
+	fname := filepath.Base((filename))
+	t.Log(fname)
+	hatchetName = getHatchetName(filename)
+	t.Log(hatchetName)
+	if len(hatchetName) != len(fname) {
+		t.Fatal("expected", len(fname), "but got", len(hatchetName))
 	}
 }

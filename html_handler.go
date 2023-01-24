@@ -36,9 +36,16 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 	 * /tables/{table}/logs/slowops
 	 * /tables/{table}/stats/slowops
 	 */
-	if GetLogv2().verbose {
+	dbase, err := GetDatabase()
+	if err != nil {
+		json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+		return
+	}
+	defer dbase.Close()
+	if dbase.GetVerbose() {
 		log.Println(r.URL.Path)
 	}
+
 	htmlPrefix := "/tables/"
 	tokens := strings.Split(r.URL.Path[len(htmlPrefix):], "/")
 	var tableName, category, attr string
@@ -59,7 +66,7 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 		category = "stats"
 		attr = "slowops"
 	}
-	summary, start, end := getTableSummary(tableName)
+	summary, start, end := dbase.GetTableSummary(tableName)
 	duration := r.URL.Query().Get("duration")
 	download := r.URL.Query().Get("download")
 	if duration != "" {
@@ -70,7 +77,7 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 
 	if category == "charts" && attr == "ops" {
 		chartType := "ops"
-		docs, err := getAverageOpTime(tableName, duration)
+		docs, err := dbase.GetAverageOpTime(tableName, duration)
 		if len(docs) > 0 {
 			start = docs[0].Date
 			end = docs[len(docs)-1].Date
@@ -93,12 +100,12 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	} else if category == "charts" && attr == "slowops" {
 		chartType := r.URL.Query().Get("type")
-		if GetLogv2().verbose {
+		if dbase.GetVerbose() {
 			log.Println("type", chartType, "duration", duration)
 		}
 		if chartType == "" || chartType == "stats" {
 			chartType = "slowops"
-			docs, err := getSlowOpsCounts(tableName, duration)
+			docs, err := dbase.GetSlowOpsCounts(tableName, duration)
 			if len(docs) > 0 {
 				start = docs[0].Date
 				end = docs[len(docs)-1].Date
@@ -113,7 +120,7 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			doc := map[string]interface{}{"Table": tableName, "OpCounts": docs, "Chart": charts[chartType],
-				"Summary": summary, "Start": start, "End": end, "VAxisLabel": "count"}
+				"Type": chartType, "Summary": summary, "Start": start, "End": end, "VAxisLabel": "count"}
 			if err = templ.Execute(w, doc); err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
@@ -121,7 +128,7 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		} else if chartType == "counts" {
 			chartType = "slowops-counts"
-			docs, err := getOpsCounts(tableName, duration)
+			docs, err := dbase.GetOpsCounts(tableName, duration)
 			if err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
@@ -132,7 +139,7 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			doc := map[string]interface{}{"Table": tableName, "NameValues": docs, "Chart": charts[chartType],
-				"Summary": summary, "Start": start, "End": end}
+				"Type": chartType, "Summary": summary, "Start": start, "End": end}
 			if err = templ.Execute(w, doc); err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
@@ -141,12 +148,12 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	} else if category == "charts" && attr == "connections" {
 		chartType := r.URL.Query().Get("type")
-		if GetLogv2().verbose {
+		if dbase.GetVerbose() {
 			log.Println("type", chartType, "duration", duration)
 		}
 		if chartType == "" || chartType == "accepted" {
 			chartType = "connections-accepted"
-			docs, err := getAcceptedConnsCounts(tableName, duration)
+			docs, err := dbase.GetAcceptedConnsCounts(tableName, duration)
 			if err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
@@ -157,14 +164,14 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			doc := map[string]interface{}{"Table": tableName, "NameValues": docs, "Chart": charts[chartType],
-				"Summary": summary, "Start": start, "End": end}
+				"Type": chartType, "Summary": summary, "Start": start, "End": end}
 			if err = templ.Execute(w, doc); err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
 			}
 			return
 		} else { // type is time or total
-			docs, err := getConnectionStats(tableName, chartType, duration)
+			docs, err := dbase.GetConnectionStats(tableName, chartType, duration)
 			if err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
@@ -176,10 +183,10 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if len(docs) == 0 {
-				docs = []Remote{{IP: "No data", Accepted: 0, Ended: 0}}
+				docs = []Remote{{Value: "No data", Accepted: 0, Ended: 0}}
 			}
 			doc := map[string]interface{}{"Table": tableName, "Remote": docs, "Chart": charts[chartType],
-				"Summary": summary, "Start": start, "End": end}
+				"Type": chartType, "Summary": summary, "Start": start, "End": end}
 			if err = templ.Execute(w, doc); err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
@@ -191,7 +198,7 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 		if topN == 0 {
 			topN = 25
 		}
-		logstrs, err := getSlowestLogs(tableName, topN)
+		logstrs, err := dbase.GetSlowestLogs(tableName, topN)
 		if err != nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return
@@ -227,7 +234,7 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 				order = "DESC"
 			}
 		}
-		ops, err := getSlowOps(tableName, orderBy, order, collscan)
+		ops, err := dbase.GetSlowOps(tableName, orderBy, order, collscan)
 		if err != nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return
@@ -249,7 +256,7 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 		context := r.URL.Query().Get("context")
 		severity := r.URL.Query().Get("severity")
 		limit := r.URL.Query().Get("limit")
-		logs, err := getLogs(tableName, fmt.Sprintf("component=%v", component), fmt.Sprintf("limit=%v", limit),
+		logs, err := dbase.GetLogs(tableName, fmt.Sprintf("component=%v", component), fmt.Sprintf("limit=%v", limit),
 			fmt.Sprintf("context=%v", context), fmt.Sprintf("severity=%v", severity), fmt.Sprintf("duration=%v", duration))
 		if err != nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
@@ -273,17 +280,6 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-}
-
-func getSlowOpsStats(tableName string, orderBy string) ([]byte, error) {
-	if orderBy == "" {
-		orderBy = "avg_ms"
-	}
-	ops, err := getSlowOps(tableName, orderBy, "DESC", false)
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(ops)
 }
 
 func getStartEndDates(duration string) (string, string) {

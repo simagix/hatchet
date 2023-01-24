@@ -60,3 +60,29 @@ func EscapeString(value string) string {
 	}
 	return value
 }
+
+func GetDateSubString(start string, end string) string {
+	var err error
+	substr := "SUBSTR(date, 1, 16)"
+	var stime, etime time.Time
+	if stime, err = time.Parse(time.RFC3339, start); err != nil {
+		return substr
+	}
+	if etime, err = time.Parse(time.RFC3339, end); err != nil {
+		return substr
+	}
+	minutes := etime.Sub(stime).Minutes()
+	if minutes < 1 {
+		return "SUBSTR(date, 1, 19)"
+	} else if minutes < 10 {
+		return "SUBSTR(date, 1, 18)||'9'"
+	} else if minutes < 60 {
+		return "SUBSTR(date, 1, 16)||':59'"
+	} else if minutes < 600 {
+		return "SUBSTR(date, 1, 15)||'9:59'"
+	} else if minutes < 3600 {
+		return "SUBSTR(date, 1, 13)||':59:59'"
+	} else {
+		return "SUBSTR(date, 1, 10)||'T23:59:59'"
+	}
+}

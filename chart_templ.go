@@ -88,7 +88,8 @@ func getOpStatsChart() string {
 		// Set chart options
 		var options = {
 			'title': '{{.Chart.Title}}',
-			'hAxis': { textPosition: 'none' },
+			// 'hAxis': { textPosition: 'none' },
+			'hAxis': { slantedText: true, slantedTextAngle: 30 },
 			'vAxis': {title: '{{.VAxisLabel}}', minValue: 0},
 			'height': 600,
 			'titleTextStyle': {'fontSize': 20},
@@ -142,16 +143,26 @@ func getConnectionsChart() string {
 	google.charts.setOnLoadCallback(drawChart);
 
 	function drawChart() {
+{{$ctype := .Type}}
 		var data = google.visualization.arrayToDataTable([
+{{if eq $ctype "connections-time"}}
+			['Date/Time', 'Accepted', 'Ended'],
+{{else}}
 			['IP', 'Accepted', 'Ended'],
+{{end}}
+
 {{range $i, $v := .Remote}}
-			['{{$v.IP}}', {{$v.Accepted}}, {{$v.Ended}}],
+	{{if eq $ctype "connections-time"}}
+			[new Date("{{$v.Value}}"), {{$v.Accepted}}, {{$v.Ended}}],
+	{{else}}
+			['{{$v.Value}}', {{$v.Accepted}}, {{$v.Ended}}],
+	{{end}}
 {{end}}
 		]);
 		// Set chart options
 		var options = {
 			'title': '{{.Chart.Title}}',
-			'hAxis': { slantedText:true, slantedTextAngle:15 },
+			'hAxis': { slantedText: true, slantedTextAngle: 30 },
 			'vAxis': {title: 'Count', minValue: 0},
 			'height': 480,
 			'titleTextStyle': {'fontSize': 20},

@@ -71,3 +71,23 @@ func TestGetHatchetName(t *testing.T) {
 		t.Fatal("expected", len(fname), "but got", len(hatchetName))
 	}
 }
+
+func TestGetDateSubString(t *testing.T) {
+	value := GetDateSubString("2023-01-01T12:11:02Z", "2023-01-01T14:35:20Z")
+	if value != "SUBSTR(date, 1, 15)||'9:59'" {
+		t.Fatal("expected", "SUBSTR(date, 1, 15)||'9:59'", "but got", value)
+	}
+	t.Log(value)
+
+	value = GetDateSubString("2023-01-01T12:11:02Z", "2023-01-02T12:34:20Z")
+	if value != "SUBSTR(date, 1, 13)||':59:59'" {
+		t.Fatal("expected", "SUBSTR(date, 1, 13)||':59:59'", "but got", value)
+	}
+	t.Log(value)
+
+	value = GetDateSubString("2023-01-01T12:11:02Z", "2023-02-10T12:34:20Z")
+	if value != "SUBSTR(date, 1, 10)||'T23:59:59'" {
+		t.Fatal("expected", "SUBSTR(date, 1, 13)||':59:59'", "but got", value)
+	}
+	t.Log(value)
+}

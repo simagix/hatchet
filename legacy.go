@@ -47,7 +47,7 @@ func AddLegacyString(doc *Logv2Info) error {
 		for _, attr := range doc.Attr {
 			if attr.Key == "remote" {
 				toks := strings.Split(attr.Value.(string), ":")
-				remote.IP = toks[0]
+				remote.Value = toks[0]
 				remote.Port = toks[1]
 				if doc.Msg == "Connection ended" {
 					remote.Ended = 1
@@ -68,7 +68,7 @@ func AddLegacyString(doc *Logv2Info) error {
 				arr = append(arr, string(b))
 			}
 		}
-		if remote.IP != "" {
+		if remote.Value != "" {
 			doc.Remote = &remote
 		}
 	} else {

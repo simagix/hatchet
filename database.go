@@ -113,14 +113,14 @@ func getLogs(tableName string, opts ...string) ([]LegacyLog, error) {
 			} else if toks[0] == "limit" {
 				qlimit = " LIMIT " + toks[1]
 			} else if toks[0] == "severity" {
-				sevs := []string{}
+				severities := []string{}
 				for _, v := range SEVERITIES {
-					sevs = append(sevs, fmt.Sprintf("'%v'", v))
+					severities = append(severities, fmt.Sprintf("'%v'", v))
 					if v == toks[1] {
 						break
 					}
 				}
-				wheres = append(wheres, " severity IN (" + strings.Join(sevs, ",") + ")")
+				wheres = append(wheres, " severity IN ("+strings.Join(severities, ",")+")")
 			} else {
 				wheres = append(wheres, fmt.Sprintf(` %v = "%v"`, toks[0], EscapeString(toks[1])))
 				if toks[0] == "context" {
@@ -183,7 +183,7 @@ func getLogsFromMessage(tableName string, opts ...string) ([]LegacyLog, error) {
 					break
 				}
 			}
-			wheres = append(wheres, " severity IN (" + strings.Join(sevs, ",") + ")")
+			wheres = append(wheres, " severity IN ("+strings.Join(sevs, ",")+")")
 		} else if toks[0] == "context" {
 			wheres = append(wheres, fmt.Sprintf(` LOWER(message) LIKE "%%%v%%"`, EscapeString(toks[1])))
 		} else {
@@ -507,7 +507,7 @@ func getConnectionStats(tableName string, chartType string, duration string) ([]
 		var doc Remote
 		var accepted float64
 		var ended float64
-		if err = rows.Scan(&doc.IP, &accepted, &ended); err != nil {
+		if err = rows.Scan(&doc.Value, &accepted, &ended); err != nil {
 			return docs, err
 		}
 		doc.Accepted = int(accepted)

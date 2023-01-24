@@ -5,7 +5,6 @@ package hatchet
 import (
 	"bufio"
 	"bytes"
-	"database/sql"
 	"errors"
 	"fmt"
 	"log"
@@ -77,8 +76,8 @@ type Remote struct {
 	Accepted int    `json:"accepted"`
 	Conns    int    `json:"conns"`
 	Ended    int    `json:"ended"`
-	IP       string `json:"ip"`
 	Port     string `json:"port"`
+	Value    string `json:"value"`
 }
 
 // OpStat stores performance data
@@ -100,6 +99,15 @@ type LegacyLog struct {
 	Component string `json:"component"`
 	Context   string `json:"context"`
 	Message   string `json:"message"` // remaining legacy message
+}
+
+type HatchetInfo struct {
+	Arch    string
+	End     string
+	Module  string
+	OS      string
+	Start   string
+	Version string
 }
 
 // Analyze analyzes logs from a file
@@ -150,38 +158,17 @@ func (ptr *Logv2) Analyze(filename string) error {
 	var isPrefix bool
 	var stat *OpStat
 	index := 0
-	var db *sql.DB
-	var pstmt, cstmt *sql.Stmt
-	var tx *sql.Tx
 	var start, end string
+	var sqlite *SQLite3DB
 
 	if !ptr.legacy {
-		db, err = sql.Open("sqlite3", ptr.dbfile)
-		if err != nil {
+		if sqlite, err = NewSQLite3DB(ptr.dbfile, ptr.tableName); err != nil {
 			return err
 		}
-		defer db.Close()
-
-		log.Println("creating table", ptr.tableName)
-		stmts := getHatchetInitStmt(ptr.tableName)
-		if ptr.verbose {
-			log.Println(stmts)
-		}
-		if _, err = db.Exec(stmts); err != nil {
+		defer sqlite.Close()
+		if err = sqlite.Begin(); err != nil {
 			return err
 		}
-
-		if tx, err = db.Begin(); err != nil {
-			return err
-		}
-		if pstmt, err = tx.Prepare(getHatchetPreparedStmt(ptr.tableName)); err != nil {
-			return err
-		}
-		defer pstmt.Close()
-		if cstmt, err = tx.Prepare(getClientPreparedStmt(ptr.tableName)); err != nil {
-			return err
-		}
-		defer cstmt.Close()
 	}
 
 	for {
@@ -229,53 +216,36 @@ func (ptr *Logv2) Analyze(filename string) error {
 			if start == "" {
 				start = end
 			}
-			if _, err = pstmt.Exec(index, end, doc.Severity, doc.Component, doc.Context,
-				doc.Msg, doc.Attributes.PlanSummary, doc.Attr.Map()["type"], doc.Attributes.NS, doc.Message,
-				stat.Op, stat.QueryPattern, stat.Index, doc.Attributes.Milli, doc.Attributes.Reslen); err != nil {
-				return err
-			}
+			sqlite.InsertLog(index, end, &doc, stat)
 			if doc.Remote != nil {
-				rmt := doc.Remote
-				if _, err = cstmt.Exec(index, rmt.IP, rmt.Port, rmt.Conns, rmt.Accepted, rmt.Ended); err != nil {
-					return err
-				}
+				sqlite.InsertClientConn(index, *doc.Remote)
 			}
 		}
 	}
 	if ptr.legacy {
 		return nil
 	}
-	if err = tx.Commit(); err != nil {
+	if err = sqlite.Commit(); err != nil {
 		return err
 	}
-	instr := fmt.Sprintf(`INSERT INTO hatchet (name, version, module, arch, os, start, end)
-				VALUES ('%v', '', '', '', '', '%v', '%v');`, ptr.tableName, start, end)
+	info := HatchetInfo{Start: start, End: end}
 	if ptr.buildInfo != nil {
-		var arch, os string
-		b := ptr.buildInfo
 		if ptr.buildInfo["environment"] != nil {
 			env := ptr.buildInfo["environment"].(bson.D).Map()
-			arch, _ = env["distarch"].(string)
-			os, _ = env["distmod"].(string)
+			info.Arch, _ = env["distarch"].(string)
+			info.OS, _ = env["distmod"].(string)
 		}
-		var module interface{}
-		if modules, ok := b["modules"].(bson.A); ok {
+		if modules, ok := ptr.buildInfo["modules"].(bson.A); ok {
 			if len(modules) > 0 {
-				module = modules[0]
+				info.Module, _ = modules[0].(string)
 			}
 		}
-		instr = fmt.Sprintf(`INSERT INTO hatchet (name, version, module, arch, os, start, end)
-			VALUES ('%v', '%v', '%v', '%v', '%v', '%v', '%v');`, ptr.tableName, b["version"], module, arch, os, start, end)
+		info.Version, _ = ptr.buildInfo["version"].(string)
 	}
-	delstr := fmt.Sprintf("DELETE FROM hatchet WHERE name = '%v';", ptr.tableName)
-	db.Exec(delstr)
-	if _, err = db.Exec(instr); err != nil {
+	if err = sqlite.UpdateHatchetInfo(info); err != nil {
 		return err
 	}
-	instr = fmt.Sprintf(`INSERT INTO %v_ops
-			SELECT op, COUNT(*), ROUND(AVG(milli),1), MAX(milli), SUM(milli), ns, _index, SUM(reslen), filter
-				FROM %v WHERE op != "" GROUP BY op, ns, filter, _index`, ptr.tableName, ptr.tableName)
-	if _, err = db.Exec(instr); err != nil {
+	if err = sqlite.InsertOps(); err != nil {
 		return err
 	}
 	if !ptr.testing && !ptr.legacy {

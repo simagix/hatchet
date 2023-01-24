@@ -113,7 +113,7 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			doc := map[string]interface{}{"Table": tableName, "OpCounts": docs, "Chart": charts[chartType],
-				"Summary": summary, "Start": start, "End": end, "VAxisLabel": "count"}
+				"Type": chartType, "Summary": summary, "Start": start, "End": end, "VAxisLabel": "count"}
 			if err = templ.Execute(w, doc); err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
@@ -132,7 +132,7 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			doc := map[string]interface{}{"Table": tableName, "NameValues": docs, "Chart": charts[chartType],
-				"Summary": summary, "Start": start, "End": end}
+				"Type": chartType, "Summary": summary, "Start": start, "End": end}
 			if err = templ.Execute(w, doc); err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
@@ -157,7 +157,7 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			doc := map[string]interface{}{"Table": tableName, "NameValues": docs, "Chart": charts[chartType],
-				"Summary": summary, "Start": start, "End": end}
+				"Type": chartType, "Summary": summary, "Start": start, "End": end}
 			if err = templ.Execute(w, doc); err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
@@ -176,10 +176,10 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if len(docs) == 0 {
-				docs = []Remote{{IP: "No data", Accepted: 0, Ended: 0}}
+				docs = []Remote{{Value: "No data", Accepted: 0, Ended: 0}}
 			}
 			doc := map[string]interface{}{"Table": tableName, "Remote": docs, "Chart": charts[chartType],
-				"Summary": summary, "Start": start, "End": end}
+				"Type": chartType, "Summary": summary, "Start": start, "End": end}
 			if err = templ.Execute(w, doc); err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return

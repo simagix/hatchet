@@ -4,12 +4,22 @@ package hatchet
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 )
 
-// htmlHandler responds to API calls
+// handler responds to API calls
 func handler(w http.ResponseWriter, r *http.Request) {
-	tables, err := getTables()
+	dbase, err := GetDatabase()
+	if err != nil {
+		json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+		return
+	}
+	defer dbase.Close()
+	if dbase.GetVerbose() {
+		log.Println(r.URL.Path)
+	}
+	tables, err := dbase.GetTables()
 	if err != nil {
 		json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 		return

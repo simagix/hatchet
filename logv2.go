@@ -159,14 +159,14 @@ func (ptr *Logv2) Analyze(filename string) error {
 	var stat *OpStat
 	index := 0
 	var start, end string
-	var sqlite *SQLite3DB
+	var dbase Database
 
 	if !ptr.legacy {
-		if sqlite, err = NewSQLite3DB(ptr.dbfile, ptr.tableName); err != nil {
+		if dbase, err = GetDatabase(); err != nil {
 			return err
 		}
-		defer sqlite.Close()
-		if err = sqlite.Begin(); err != nil {
+		defer dbase.Close()
+		if err = dbase.Begin(); err != nil {
 			return err
 		}
 	}
@@ -216,16 +216,16 @@ func (ptr *Logv2) Analyze(filename string) error {
 			if start == "" {
 				start = end
 			}
-			sqlite.InsertLog(index, end, &doc, stat)
+			dbase.InsertLog(index, end, &doc, stat)
 			if doc.Remote != nil {
-				sqlite.InsertClientConn(index, *doc.Remote)
+				dbase.InsertClientConn(index, *doc.Remote)
 			}
 		}
 	}
 	if ptr.legacy {
 		return nil
 	}
-	if err = sqlite.Commit(); err != nil {
+	if err = dbase.Commit(); err != nil {
 		return err
 	}
 	info := HatchetInfo{Start: start, End: end}
@@ -242,10 +242,10 @@ func (ptr *Logv2) Analyze(filename string) error {
 		}
 		info.Version, _ = ptr.buildInfo["version"].(string)
 	}
-	if err = sqlite.UpdateHatchetInfo(info); err != nil {
+	if err = dbase.UpdateHatchetInfo(info); err != nil {
 		return err
 	}
-	if err = sqlite.InsertOps(); err != nil {
+	if err = dbase.InsertOps(); err != nil {
 		return err
 	}
 	if !ptr.testing && !ptr.legacy {
@@ -274,8 +274,11 @@ func (ptr *Logv2) GetSlowOpsStats() (string, error) {
 	buffer.WriteString("\r+----------+--------+------+--------+------+---------------------------------+--------------------------------------------------------------+\n")
 	buffer.WriteString(fmt.Sprintf("| Command  |COLLSCAN|avg ms| max ms | Count| %-32s| %-60s |\n", "Namespace", "Query Pattern"))
 	buffer.WriteString("|----------+--------+------+--------+------+---------------------------------+--------------------------------------------------------------|\n")
-
-	ops, err := getSlowOps(ptr.tableName, "avg_ms", "DESC", false)
+	dbase, err := GetDatabase()
+	if err != nil {
+		return "", err
+	}
+	ops, err := dbase.GetSlowOps(ptr.tableName, "avg_ms", "DESC", false)
 	if err != nil {
 		return "", err
 	}

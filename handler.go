@@ -10,7 +10,7 @@ import (
 
 // handler responds to API calls
 func handler(w http.ResponseWriter, r *http.Request) {
-	dbase, err := GetDatabase()
+	dbase, err := GetDatabase(GetLogv2().hatchetName) // main page
 	if err != nil {
 		json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 		return
@@ -19,7 +19,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	if dbase.GetVerbose() {
 		log.Println(r.URL.Path)
 	}
-	tables, err := dbase.GetTables()
+	hatchets, err := dbase.GetHatchetNames()
 	if err != nil {
 		json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 		return
@@ -29,7 +29,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 		return
 	}
-	doc := map[string]interface{}{"Tables": tables, "Version": GetLogv2().version}
+	doc := map[string]interface{}{"Hatchets": hatchets, "Version": GetLogv2().version}
 	if err = templ.Execute(w, doc); err != nil {
 		json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 		return

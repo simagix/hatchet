@@ -91,3 +91,17 @@ func TestGetDateSubString(t *testing.T) {
 	}
 	t.Log(value)
 }
+
+func TestGetOffsetLimit(t *testing.T) {
+	limit := "100"
+	o, l := GetOffsetLimit(limit)
+	if o != 0 || l != 100 {
+		t.Fatal("expected", 0, 100, "but got", o, l)
+	}
+
+	limit = "100,100"
+	o, l = GetOffsetLimit(limit)
+	if o != 100 || l != 100 {
+		t.Fatal("expected", 100, 100, "but got", o, l)
+	}
+}

@@ -9,13 +9,29 @@ import (
 )
 
 const (
-	Q_LIMIT = " LIMIT 100"
+	LIMIT = 100
 )
 
-func (ptr *SQLite3DB) GetSlowOps(tableName string, orderBy string, order string, collscan bool) ([]OpStat, error) {
+type OpCount struct {
+	Date      string
+	Count     int
+	Milli     float64
+	Op        string
+	Namespace string
+	Filter    string
+}
+
+func (ptr *SQLite3DB) GetSlowOps(orderBy string, order string, collscan bool) ([]OpStat, error) {
 	ops := []OpStat{}
 	db := ptr.db
-	query := ptr.GetSlowOpsQuery(tableName, orderBy, order, collscan)
+	query := fmt.Sprintf(`SELECT op, count, avg_ms, max_ms,
+			total_ms, ns, _index "index", reslen, filter "query pattern"
+			FROM %v_ops ORDER BY %v %v`, ptr.hatchetName, orderBy, order)
+	if collscan {
+		query = fmt.Sprintf(`SELECT op, count, avg_ms, max_ms,
+				total_ms, ns, _index "index", reslen, filter "query pattern"
+				FROM %v_ops WHERE _index = "COLLSCAN" ORDER BY %v %v`, ptr.hatchetName, orderBy, order)
+	}
 	if ptr.verbose {
 		log.Println(query)
 	}
@@ -35,24 +51,13 @@ func (ptr *SQLite3DB) GetSlowOps(tableName string, orderBy string, order string,
 	return ops, err
 }
 
-func (ptr *SQLite3DB) GetSlowOpsQuery(tableName string, orderBy string, order string, collscan bool) string {
-	query := fmt.Sprintf(`SELECT op, count, avg_ms, max_ms,
-			total_ms, ns, _index "index", reslen, filter "query pattern"
-			FROM %v_ops ORDER BY %v %v`, tableName, orderBy, order)
-	if collscan {
-		query = fmt.Sprintf(`SELECT op, count, avg_ms, max_ms,
-				total_ms, ns, _index "index", reslen, filter "query pattern"
-				FROM %v_ops WHERE _index = "COLLSCAN" ORDER BY %v %v`, tableName, orderBy, order)
-	}
-	return query
-}
-
-func (ptr *SQLite3DB) GetLogs(tableName string, opts ...string) ([]LegacyLog, error) {
+func (ptr *SQLite3DB) GetLogs(opts ...string) ([]LegacyLog, error) {
 	docs := []LegacyLog{}
-	qheader := fmt.Sprintf(`SELECT date, severity, component, context, message FROM %v`, tableName)
+	qheader := fmt.Sprintf(`SELECT date, severity, component, context, message FROM %v`, ptr.hatchetName)
 	wheres := []string{}
 	search := ""
-	qlimit := Q_LIMIT
+	qlimit := LIMIT + 1
+	var offset, nlimit int
 
 	if len(opts) > 0 {
 		for _, opt := range opts {
@@ -64,7 +69,8 @@ func (ptr *SQLite3DB) GetLogs(tableName string, opts ...string) ([]LegacyLog, er
 				dates := strings.Split(toks[1], ",")
 				wheres = append(wheres, fmt.Sprintf(" date BETWEEN '%v' and '%v'", dates[0], dates[1]))
 			} else if toks[0] == "limit" {
-				qlimit = " LIMIT " + toks[1]
+				offset, nlimit = GetOffsetLimit(toks[1])
+				qlimit = ToInt(nlimit) + 1
 			} else if toks[0] == "severity" {
 				severities := []string{}
 				for _, v := range SEVERITIES {
@@ -86,7 +92,7 @@ func (ptr *SQLite3DB) GetLogs(tableName string, opts ...string) ([]LegacyLog, er
 	if len(wheres) > 0 {
 		wclause = " WHERE " + strings.Join(wheres, " AND")
 	}
-	query := qheader + wclause + qlimit
+	query := qheader + wclause + fmt.Sprintf(" LIMIT %v,%v", offset, qlimit)
 	db := ptr.db
 	if ptr.verbose {
 		log.Println(query)
@@ -104,16 +110,17 @@ func (ptr *SQLite3DB) GetLogs(tableName string, opts ...string) ([]LegacyLog, er
 		docs = append(docs, doc)
 	}
 	if len(docs) == 0 && search != "" { // no context found, perform message search
-		return ptr.GetLogsFromMessage(tableName, opts...)
+		return ptr.SearchLogs(opts...)
 	}
 	return docs, err
 }
 
-func (ptr *SQLite3DB) GetLogsFromMessage(tableName string, opts ...string) ([]LegacyLog, error) {
-	qheader := fmt.Sprintf(`SELECT date, severity, component, context, message FROM %v`, tableName)
+func (ptr *SQLite3DB) SearchLogs(opts ...string) ([]LegacyLog, error) {
+	qheader := fmt.Sprintf(`SELECT date, severity, component, context, message FROM %v`, ptr.hatchetName)
 	docs := []LegacyLog{}
 	wheres := []string{}
-	qlimit := Q_LIMIT
+	qlimit := LIMIT + 1
+	var offset, nlimit int
 	for _, opt := range opts {
 		toks := strings.Split(opt, "=")
 		if len(toks) < 2 || toks[1] == "" {
@@ -123,7 +130,8 @@ func (ptr *SQLite3DB) GetLogsFromMessage(tableName string, opts ...string) ([]Le
 			dates := strings.Split(toks[1], ",")
 			wheres = append(wheres, fmt.Sprintf(" date BETWEEN '%v' and '%v'", dates[0], dates[1]))
 		} else if toks[0] == "limit" {
-			qlimit = " LIMIT " + toks[1]
+			offset, nlimit = GetOffsetLimit(toks[1])
+			qlimit = ToInt(nlimit) + 1
 		} else if toks[0] == "severity" {
 			sevs := []string{}
 			for _, v := range SEVERITIES {
@@ -143,7 +151,7 @@ func (ptr *SQLite3DB) GetLogsFromMessage(tableName string, opts ...string) ([]Le
 	if len(wheres) > 0 {
 		wclause = " WHERE " + strings.Join(wheres, " AND")
 	}
-	query := qheader + wclause + qlimit
+	query := qheader + wclause + fmt.Sprintf(" LIMIT %v,%v", offset, qlimit)
 	if ptr.verbose {
 		log.Println(query)
 	}
@@ -163,74 +171,44 @@ func (ptr *SQLite3DB) GetLogsFromMessage(tableName string, opts ...string) ([]Le
 	return docs, err
 }
 
-func (ptr *SQLite3DB) GetSlowestLogs(tableName string, topN int) ([]string, error) {
-	logstrs := []string{}
+func (ptr *SQLite3DB) GetSlowestLogs(topN int) ([]LegacyLog, error) {
+	docs := []LegacyLog{}
 	query := fmt.Sprintf(`SELECT date, severity, component, context, message
-			FROM %v WHERE op != "" ORDER BY milli DESC LIMIT %v`, tableName, topN)
+			FROM %v WHERE op != "" ORDER BY milli DESC LIMIT %v`, ptr.hatchetName, topN)
 	db := ptr.db
 	if ptr.verbose {
 		log.Println(query)
 	}
 	rows, err := db.Query(query)
 	if err != nil {
-		return logstrs, err
+		return docs, err
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var doc Logv2Info
-		var date string
-		if err = rows.Scan(&date, &doc.Severity, &doc.Component, &doc.Context, &doc.Message); err != nil {
-			return logstrs, err
+		var doc LegacyLog
+		if err = rows.Scan(&doc.Timestamp, &doc.Severity, &doc.Component, &doc.Context, &doc.Message); err != nil {
+			return docs, err
 		}
-		logstr := fmt.Sprintf("%v %-2s %-8s [%v] %v", date, doc.Severity, doc.Component, doc.Context, doc.Message)
-		logstrs = append(logstrs, logstr)
+		docs = append(docs, doc)
 	}
-	return logstrs, err
+	return docs, err
 }
 
-type OpCount struct {
-	Date      string
-	Count     int
-	Milli     float64
-	Op        string
-	Namespace string
-	Filter    string
-}
-
-func (ptr *SQLite3DB) GetSubStringFromTable(tableName string) string {
-	substr := "SUBSTR(date, 1, 16)"
-	query := fmt.Sprintf(`SELECT start, end FROM hatchet WHERE name = '%v'`, tableName)
-	db := ptr.db
-	if ptr.verbose {
-		log.Println(query)
-	}
-	rows, err := db.Query(query)
-	if err != nil {
-		return substr
-	}
-	defer rows.Close()
-	if rows.Next() {
-		var start, end string
-		if err = rows.Scan(&start, &end); err != nil {
-			return substr
-		}
-		return GetDateSubString(start, end)
-	}
-	return substr
-}
-
-func (ptr *SQLite3DB) GetAverageOpTime(tableName string, duration string) ([]OpCount, error) {
+func (ptr *SQLite3DB) GetAverageOpTime(duration string) ([]OpCount, error) {
 	docs := []OpCount{}
 	db := ptr.db
-	substr := ptr.GetSubStringFromTable(tableName)
 	durcond := ""
+	var substr string
 	if duration != "" {
 		toks := strings.Split(duration, ",")
 		durcond = fmt.Sprintf("AND date BETWEEN '%v' AND '%v'", toks[0], toks[1])
 		substr = GetDateSubString(toks[0], toks[1])
+	} else {
+		info := ptr.GetHatchetInfo()
+		substr = GetDateSubString(info.Start, info.End)
 	}
 	query := fmt.Sprintf(`SELECT %v, AVG(milli), COUNT(*), op, ns, filter FROM %v 
-		WHERE op != '' %v GROUP by %v, op, ns, filter;`, substr, tableName, durcond, substr)
+		WHERE op != '' %v GROUP by %v, op, ns, filter;`, substr, ptr.hatchetName, durcond, substr)
 	if ptr.verbose {
 		log.Println(query)
 	}
@@ -249,18 +227,21 @@ func (ptr *SQLite3DB) GetAverageOpTime(tableName string, duration string) ([]OpC
 	return docs, err
 }
 
-func (ptr *SQLite3DB) GetSlowOpsCounts(tableName string, duration string) ([]OpCount, error) {
+func (ptr *SQLite3DB) GetSlowOpsCounts(duration string) ([]OpCount, error) {
 	docs := []OpCount{}
 	db := ptr.db
-	substr := ptr.GetSubStringFromTable(tableName)
 	durcond := ""
+	var substr string
 	if duration != "" {
 		toks := strings.Split(duration, ",")
 		durcond = fmt.Sprintf("AND date BETWEEN '%v' AND '%v'", toks[0], toks[1])
 		substr = GetDateSubString(toks[0], toks[1])
+	} else {
+		info := ptr.GetHatchetInfo()
+		substr = GetDateSubString(info.Start, info.End)
 	}
 	query := fmt.Sprintf(`SELECT %v, COUNT(op), op, ns, filter FROM %v 
-		WHERE op != '' %v GROUP by %v, op, ns, filter;`, substr, tableName, durcond, substr)
+		WHERE op != '' %v GROUP by %v, op, ns, filter;`, substr, ptr.hatchetName, durcond, substr)
 	if ptr.verbose {
 		log.Println(query)
 	}
@@ -279,39 +260,27 @@ func (ptr *SQLite3DB) GetSlowOpsCounts(tableName string, duration string) ([]OpC
 	return docs, err
 }
 
-func (ptr *SQLite3DB) GetTableSummary(tableName string) (string, string, string) {
-	query := fmt.Sprintf("SELECT name, version, module, os, arch, start, end FROM hatchet WHERE name = '%v'", tableName)
+func (ptr *SQLite3DB) GetHatchetInfo() HatchetInfo {
+	var info HatchetInfo
+	query := fmt.Sprintf("SELECT name, version, module, os, arch, start, end FROM hatchet WHERE name = '%v'",
+		ptr.hatchetName)
 	db := ptr.db
 	rows, err := db.Query(query)
 	if err != nil {
-		return "", "", ""
+		return info
 	}
 	defer rows.Close()
 	if rows.Next() {
-		var table, version, module, os, arch, start, end string
-		if err = rows.Scan(&table, &version, &module, &os, &arch, &start, &end); err != nil {
-			return "", "", ""
+		if err = rows.Scan(&info.Name, &info.Version, &info.Module, &info.OS, &info.Arch,
+			&info.Start, &info.End); err != nil {
+			return info
 		}
-		arr := []string{}
-		if module == "" {
-			module = "community"
-		}
-		if version != "" {
-			arr = append(arr, fmt.Sprintf(": MongoDB v%v (%v)", version, module))
-		}
-		if os != "" {
-			arr = append(arr, "os: "+os)
-		}
-		if arch != "" {
-			arr = append(arr, "arch: "+arch)
-		}
-		return table + strings.Join(arr, ", "), start, end
 	}
-	return "", "", ""
+	return info
 }
 
-func (ptr *SQLite3DB) GetTables() ([]string, error) {
-	tables := []string{}
+func (ptr *SQLite3DB) GetHatchetNames() ([]string, error) {
+	hatchets := []string{}
 	query := "SELECT name, version, module, os, arch FROM hatchet ORDER BY name"
 	db := ptr.db
 	if ptr.verbose {
@@ -319,21 +288,22 @@ func (ptr *SQLite3DB) GetTables() ([]string, error) {
 	}
 	rows, err := db.Query(query)
 	if err != nil {
-		return tables, err
+		return hatchets, err
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var table, version, module, os, arch string
-		if err = rows.Scan(&table, &version, &module, &os, &arch); err != nil {
-			return tables, err
+		var name, version, module, os, arch string
+		if err = rows.Scan(&name, &version, &module, &os, &arch); err != nil {
+			return hatchets, err
 		}
-		tables = append(tables, table)
+		hatchets = append(hatchets, name)
 	}
-	return tables, err
+	return hatchets, err
 }
 
 // GetAcceptedConnsCounts returns opened connection counts
-func (ptr *SQLite3DB) GetAcceptedConnsCounts(tableName string, duration string) ([]NameValue, error) {
+func (ptr *SQLite3DB) GetAcceptedConnsCounts(duration string) ([]NameValue, error) {
+	hatchetName := ptr.hatchetName
 	docs := []NameValue{}
 	var durcond string
 	if duration != "" {
@@ -341,7 +311,8 @@ func (ptr *SQLite3DB) GetAcceptedConnsCounts(tableName string, duration string) 
 		durcond = fmt.Sprintf("AND date BETWEEN '%v' AND '%v'", toks[0], toks[1])
 	}
 	query := fmt.Sprintf(`SELECT b.ip, SUM(b.accepted)
-		FROM %v a, %v_rmt b WHERE a.id = b.id AND b.accepted = 1 %v GROUP by ip ORDER BY accepted DESC;`, tableName, tableName, durcond)
+		FROM %v a, %v_rmt b WHERE a.id = b.id AND b.accepted = 1 %v GROUP by ip ORDER BY accepted DESC;`,
+		hatchetName, hatchetName, durcond)
 	db := ptr.db
 	if ptr.verbose {
 		log.Println(query)
@@ -364,22 +335,26 @@ func (ptr *SQLite3DB) GetAcceptedConnsCounts(tableName string, duration string) 
 }
 
 // GetConnectionStats returns stats data of accepted and ended
-func (ptr *SQLite3DB) GetConnectionStats(tableName string, chartType string, duration string) ([]Remote, error) {
+func (ptr *SQLite3DB) GetConnectionStats(chartType string, duration string) ([]Remote, error) {
+	hatchetName := ptr.hatchetName
 	docs := []Remote{}
 	var query, durcond string
-	substr := ptr.GetSubStringFromTable(tableName)
+	var substr string
 	if duration != "" {
 		toks := strings.Split(duration, ",")
 		durcond = fmt.Sprintf("AND date BETWEEN '%v' AND '%v'", toks[0], toks[1])
 		substr = GetDateSubString(toks[0], toks[1])
+	} else {
+		info := ptr.GetHatchetInfo()
+		substr = GetDateSubString(info.Start, info.End)
 	}
 	if chartType == "time" {
 		query = fmt.Sprintf(`SELECT %v dt, SUM(b.accepted), SUM(b.ended)
 			FROM %v a, %v_rmt b WHERE a.id = b.id %v GROUP by dt ORDER BY dt;`,
-			substr, tableName, tableName, durcond)
+			substr, hatchetName, hatchetName, durcond)
 	} else if chartType == "total" {
 		query = fmt.Sprintf(`SELECT b.ip, SUM(b.accepted), SUM(b.ended)
-			FROM %v a, %v_rmt b WHERE a.id = b.id %v GROUP by ip ORDER BY accepted DESC;`, tableName, tableName, durcond)
+			FROM %v a, %v_rmt b WHERE a.id = b.id %v GROUP by ip ORDER BY accepted DESC;`, hatchetName, hatchetName, durcond)
 	}
 	db := ptr.db
 	if ptr.verbose {
@@ -405,7 +380,7 @@ func (ptr *SQLite3DB) GetConnectionStats(tableName string, chartType string, dur
 }
 
 // GetOpsCounts returns opened connection counts
-func (ptr *SQLite3DB) GetOpsCounts(tableName string, duration string) ([]NameValue, error) {
+func (ptr *SQLite3DB) GetOpsCounts(duration string) ([]NameValue, error) {
 	docs := []NameValue{}
 	var durcond string
 	if duration != "" {
@@ -413,7 +388,7 @@ func (ptr *SQLite3DB) GetOpsCounts(tableName string, duration string) ([]NameVal
 		durcond = fmt.Sprintf("AND date BETWEEN '%v' AND '%v'", toks[0], toks[1])
 	}
 	query := fmt.Sprintf(`SELECT op, COUNT(op) counts
-		FROM %v WHERE op != '' %v GROUP by op ORDER BY counts DESC;`, tableName, durcond)
+		FROM %v WHERE op != '' %v GROUP by op ORDER BY counts DESC;`, ptr.hatchetName, durcond)
 	db := ptr.db
 	if ptr.verbose {
 		log.Println(query)

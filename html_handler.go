@@ -10,6 +10,10 @@ import (
 	"strings"
 )
 
+const (
+	HTML_URL_PREFIX = "/hatchets/"
+)
+
 type Chart struct {
 	Index int
 	Label string
@@ -30,13 +34,31 @@ var charts = map[string]Chart{
 // htmlHandler responds to API calls
 func htmlHandler(w http.ResponseWriter, r *http.Request) {
 	/** APIs
-	 * /tables/{table}
-	 * /tables/{table}/charts/slowops
-	 * /tables/{table}/logs
-	 * /tables/{table}/logs/slowops
-	 * /tables/{table}/stats/slowops
+	 * /hatchets/{hatchet}
+	 * /hatchets/{hatchet}/charts/slowops
+	 * /hatchets/{hatchet}/logs
+	 * /hatchets/{hatchet}/logs/slowops
+	 * /hatchets/{hatchet}/stats/slowops
 	 */
-	dbase, err := GetDatabase()
+	tokens := strings.Split(r.URL.Path[len(HTML_URL_PREFIX):], "/")
+	var hatchetName, category, attr string
+	for i, token := range tokens {
+		if i == 0 {
+			hatchetName = token
+		} else if i == 1 {
+			category = token
+		} else if i == 2 {
+			attr = token
+		}
+	}
+	if hatchetName == "" {
+		json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": "missing hatchet name"})
+		return
+	} else if category == "" && attr == "" { // default to /hatchets/{hatchet}/stats/slowops
+		category = "stats"
+		attr = "slowops"
+	}
+	dbase, err := GetDatabase(hatchetName)
 	if err != nil {
 		json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 		return
@@ -45,28 +67,9 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 	if dbase.GetVerbose() {
 		log.Println(r.URL.Path)
 	}
-
-	htmlPrefix := "/tables/"
-	tokens := strings.Split(r.URL.Path[len(htmlPrefix):], "/")
-	var tableName, category, attr string
-	for i, token := range tokens {
-		if i == 0 {
-			tableName = token
-		} else if i == 1 {
-			category = token
-		} else if i == 2 {
-			attr = token
-		}
-	}
-
-	if tableName == "" {
-		json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": "missing table name"})
-		return
-	} else if category == "" && attr == "" { // default to /table/{table}/stats/slowops
-		category = "stats"
-		attr = "slowops"
-	}
-	summary, start, end := dbase.GetTableSummary(tableName)
+	info := dbase.GetHatchetInfo()
+	summary := GetHatchetSummary(info)
+	start, end := info.Start, info.End
 	duration := r.URL.Query().Get("duration")
 	download := r.URL.Query().Get("download")
 	if duration != "" {
@@ -77,7 +80,7 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 
 	if category == "charts" && attr == "ops" {
 		chartType := "ops"
-		docs, err := dbase.GetAverageOpTime(tableName, duration)
+		docs, err := dbase.GetAverageOpTime(duration)
 		if len(docs) > 0 {
 			start = docs[0].Date
 			end = docs[len(docs)-1].Date
@@ -91,7 +94,7 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return
 		}
-		doc := map[string]interface{}{"Table": tableName, "OpCounts": docs, "Chart": charts[chartType],
+		doc := map[string]interface{}{"Hatchet": hatchetName, "OpCounts": docs, "Chart": charts[chartType],
 			"Type": chartType, "Summary": summary, "Start": start, "End": end, "VAxisLabel": "seconds"}
 		if err = templ.Execute(w, doc); err != nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
@@ -105,7 +108,7 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		if chartType == "" || chartType == "stats" {
 			chartType = "slowops"
-			docs, err := dbase.GetSlowOpsCounts(tableName, duration)
+			docs, err := dbase.GetSlowOpsCounts(duration)
 			if len(docs) > 0 {
 				start = docs[0].Date
 				end = docs[len(docs)-1].Date
@@ -119,7 +122,7 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
 			}
-			doc := map[string]interface{}{"Table": tableName, "OpCounts": docs, "Chart": charts[chartType],
+			doc := map[string]interface{}{"Hatchet": hatchetName, "OpCounts": docs, "Chart": charts[chartType],
 				"Type": chartType, "Summary": summary, "Start": start, "End": end, "VAxisLabel": "count"}
 			if err = templ.Execute(w, doc); err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
@@ -128,7 +131,7 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		} else if chartType == "counts" {
 			chartType = "slowops-counts"
-			docs, err := dbase.GetOpsCounts(tableName, duration)
+			docs, err := dbase.GetOpsCounts(duration)
 			if err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
@@ -138,7 +141,7 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
 			}
-			doc := map[string]interface{}{"Table": tableName, "NameValues": docs, "Chart": charts[chartType],
+			doc := map[string]interface{}{"Hatchet": hatchetName, "NameValues": docs, "Chart": charts[chartType],
 				"Type": chartType, "Summary": summary, "Start": start, "End": end}
 			if err = templ.Execute(w, doc); err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
@@ -153,7 +156,7 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		if chartType == "" || chartType == "accepted" {
 			chartType = "connections-accepted"
-			docs, err := dbase.GetAcceptedConnsCounts(tableName, duration)
+			docs, err := dbase.GetAcceptedConnsCounts(duration)
 			if err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
@@ -163,7 +166,7 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
 			}
-			doc := map[string]interface{}{"Table": tableName, "NameValues": docs, "Chart": charts[chartType],
+			doc := map[string]interface{}{"Hatchet": hatchetName, "NameValues": docs, "Chart": charts[chartType],
 				"Type": chartType, "Summary": summary, "Start": start, "End": end}
 			if err = templ.Execute(w, doc); err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
@@ -171,7 +174,7 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		} else { // type is time or total
-			docs, err := dbase.GetConnectionStats(tableName, chartType, duration)
+			docs, err := dbase.GetConnectionStats(chartType, duration)
 			if err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
@@ -182,10 +185,7 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
 			}
-			if len(docs) == 0 {
-				docs = []Remote{{Value: "No data", Accepted: 0, Ended: 0}}
-			}
-			doc := map[string]interface{}{"Table": tableName, "Remote": docs, "Chart": charts[chartType],
+			doc := map[string]interface{}{"Hatchet": hatchetName, "Remote": docs, "Chart": charts[chartType],
 				"Type": chartType, "Summary": summary, "Start": start, "End": end}
 			if err = templ.Execute(w, doc); err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
@@ -198,7 +198,7 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 		if topN == 0 {
 			topN = 25
 		}
-		logstrs, err := dbase.GetSlowestLogs(tableName, topN)
+		logstrs, err := dbase.GetSlowestLogs(topN)
 		if err != nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return
@@ -208,7 +208,7 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return
 		}
-		doc := map[string]interface{}{"Table": tableName, "Logs": logstrs, "Summary": summary}
+		doc := map[string]interface{}{"Hatchet": hatchetName, "Logs": logstrs, "Summary": summary}
 		if err = templ.Execute(w, doc); err != nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return
@@ -234,7 +234,7 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 				order = "DESC"
 			}
 		}
-		ops, err := dbase.GetSlowOps(tableName, orderBy, order, collscan)
+		ops, err := dbase.GetSlowOps(orderBy, order, collscan)
 		if err != nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return
@@ -244,20 +244,25 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return
 		}
-		doc := map[string]interface{}{"Table": tableName, "Ops": ops, "Summary": summary}
+		doc := map[string]interface{}{"Hatchet": hatchetName, "Ops": ops, "Summary": summary}
 		if err = templ.Execute(w, doc); err != nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return
 		}
 		return
 	} else if category == "logs" && attr == "" {
-		tableName := tokens[0]
+		var hasMore bool
 		component := r.URL.Query().Get("component")
 		context := r.URL.Query().Get("context")
 		severity := r.URL.Query().Get("severity")
 		limit := r.URL.Query().Get("limit")
-		logs, err := dbase.GetLogs(tableName, fmt.Sprintf("component=%v", component), fmt.Sprintf("limit=%v", limit),
-			fmt.Sprintf("context=%v", context), fmt.Sprintf("severity=%v", severity), fmt.Sprintf("duration=%v", duration))
+		if limit == "" {
+			limit = fmt.Sprintf("%v", LIMIT)
+		}
+		offset, nlimit := GetOffsetLimit(limit)
+		logs, err := dbase.GetLogs(fmt.Sprintf("component=%v", component), fmt.Sprintf("limit=%v", limit),
+			fmt.Sprintf("context=%v", context), fmt.Sprintf("severity=%v", severity),
+			fmt.Sprintf("duration=%v", duration))
 		if err != nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return
@@ -272,8 +277,16 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 		if len(toks) > 1 {
 			seq = ToInt(toks[0]) + 1
 		}
-		doc := map[string]interface{}{"Table": tableName, "Logs": logs, "LogLength": len(logs), "Seq": seq,
-			"Summary": summary, "Context": context, "Component": component, "Severity": severity}
+		hasMore = len(logs) > nlimit
+		if hasMore {
+			logs = logs[:len(logs)-1]
+		}
+		limit = fmt.Sprintf("%v,%v", offset+nlimit, nlimit)
+		url := fmt.Sprintf("%v?component=%v&context=%v&severity=%v&duration=%v&limit=%v", r.URL.Path,
+			component, context, severity, duration, limit);
+		doc := map[string]interface{}{"Hatchet": hatchetName, "Logs": logs, "Seq": seq,
+			"Summary": summary, "Context": context, "Component": component, "Severity": severity,
+			"HasMore": hasMore, "URL": url}
 		if err = templ.Execute(w, doc); err != nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return

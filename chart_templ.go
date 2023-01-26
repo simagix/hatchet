@@ -14,8 +14,8 @@ type NameValue struct {
 
 func getFooter() string {
 	summary := "{{.Summary}}"
-	return fmt.Sprintf(`<div class="footer"><img width='32' valign="middle" src='data:image/png;base64,%v'> %v</img></div>`,
-		hatchetImage, summary)
+	return fmt.Sprintf(`<div class="footer"><img valign="middle" src='data:image/png;base64,%v'> %v</img></div>`,
+		CHEN_ICO, summary)
 }
 
 // GetChartTemplate returns HTML
@@ -58,6 +58,7 @@ func GetChartTemplate(chartType string) (*template.Template, error) {
 
 func getOpStatsChart() string {
 	return `
+{{ if .OpCounts }}
 <script>
 	setChartType();
 	google.charts.load('current', {'packages':['corechart']});
@@ -65,25 +66,19 @@ func getOpStatsChart() string {
 
 	function drawChart() {
 		var data = google.visualization.arrayToDataTable([
-{{if eq .Type "ops"}}
+	{{if eq .Type "ops"}}
 			['op', 'date/time', 'duration (seconds)', 'ns', 'counts'],
-{{else}}
+	{{else}}
 			['op', 'date/time', 'count', 'ns/filter'],
-{{end}}
-
-{{$sdate := ""}}
-{{$ctype := .Type}}
-{{range $i, $v := .OpCounts}}
-{{if eq $i 0}}
-	{{$sdate = $v.Date}}
-{{end}}
-
-{{if eq $ctype "ops"}}
+	{{end}}
+	{{$ctype := .Type}}
+	{{range $i, $v := .OpCounts}}
+		{{if eq $ctype "ops"}}
 			[{{$v.Op}}, new Date("{{$v.Date}}"), {{toSeconds $v.Milli}}, '{{descr $v}}', {{$v.Count}}],
-{{else}}
+		{{else}}
 			[{{$v.Op}}, new Date("{{$v.Date}}"), {{$v.Count}}, '{{descr $v}}'],
-{{end}}
-{{end}}
+		{{end}}
+	{{end}}
 		]);
 		// Set chart options
 		var options = {
@@ -93,11 +88,11 @@ func getOpStatsChart() string {
 			'vAxis': {title: '{{.VAxisLabel}}', minValue: 0},
 			'height': 600,
 			'titleTextStyle': {'fontSize': 20},
-{{if eq $ctype "ops"}}
+	{{if eq $ctype "ops"}}
 			'sizeAxis': {minValue: 0, minSize: 5, maxSize: 30},
-{{else}}
+	{{else}}
 			'sizeAxis': {minValue: 0, minSize: 5, maxSize: 5},
-{{end}}
+	{{end}}
 			'chartArea': {'width': '85%', 'height': '80%'},
 			'tooltip': { 'isHtml': false },
 			'legend': { 'position': 'none' } };
@@ -105,11 +100,15 @@ func getOpStatsChart() string {
 		var chart = new google.visualization.BubbleChart(document.getElementById('hatchetChart'));
 		chart.draw(data, options);
 	}
-</script>`
+</script>
+{{else}}
+<div align='center' class='btn'><span style='color: red'>no data found</span></div>
+{{end}}`
 }
 
 func getPieChart() string {
 	return `
+{{ if .NameValues }}
 <script>
 	setChartType();
 	google.charts.load('current', {'packages':['corechart']});
@@ -118,9 +117,9 @@ func getPieChart() string {
 	function drawChart() {
 		var data = google.visualization.arrayToDataTable([
 			['Name', 'Value'],
-{{range $i, $v := .NameValues}}
+	{{range $i, $v := .NameValues}}
 			['{{$v.Name}}', {{$v.Value}}],
-{{end}}
+	{{end}}
 		]);
 		// Set chart options
 		var options = {
@@ -132,32 +131,36 @@ func getPieChart() string {
 		var chart = new google.visualization.PieChart(document.getElementById('hatchetChart'));
 		chart.draw(data, options);
 	}
-</script>`
+</script>
+{{else}}
+<div align='center' class='btn'><span style='color: red'>no data found</span></div>
+{{end}}`
 }
 
 func getConnectionsChart() string {
 	return `
+{{ if .Remote }}
 <script>
 	setChartType();
 	google.charts.load('current', {'packages':['corechart']});
 	google.charts.setOnLoadCallback(drawChart);
 
 	function drawChart() {
-{{$ctype := .Type}}
+	{{$ctype := .Type}}
 		var data = google.visualization.arrayToDataTable([
-{{if eq $ctype "connections-time"}}
-			['Date/Time', 'Accepted', 'Ended'],
-{{else}}
-			['IP', 'Accepted', 'Ended'],
-{{end}}
-
-{{range $i, $v := .Remote}}
 	{{if eq $ctype "connections-time"}}
-			[new Date("{{$v.Value}}"), {{$v.Accepted}}, {{$v.Ended}}],
+			['Date/Time', 'Accepted', 'Ended'],
 	{{else}}
-			['{{$v.Value}}', {{$v.Accepted}}, {{$v.Ended}}],
+			['IP', 'Accepted', 'Ended'],
 	{{end}}
-{{end}}
+
+	{{range $i, $v := .Remote}}
+		{{if eq $ctype "connections-time"}}
+			[new Date("{{$v.Value}}"), {{$v.Accepted}}, {{$v.Ended}}],
+		{{else}}
+			['{{$v.Value}}', {{$v.Accepted}}, {{$v.Ended}}],
+		{{end}}
+	{{end}}
 		]);
 		// Set chart options
 		var options = {
@@ -171,5 +174,8 @@ func getConnectionsChart() string {
 		var chart = new google.visualization.ColumnChart(document.getElementById('hatchetChart'));
 		chart.draw(data, options);
 	}
-</script>`
+</script>
+{{else}}
+<div align='center' class='btn'><span style='color: red'>no data found</span></div>
+{{end}}`
 }

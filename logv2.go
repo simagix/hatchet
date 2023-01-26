@@ -35,15 +35,15 @@ func GetLogv2() *Logv2 {
 
 // Logv2 keeps Logv2 object
 type Logv2 struct {
-	buildInfo  map[string]interface{}
-	dbfile     string
-	filename   string
-	legacy     bool
-	tableName  string
-	testing    bool //test mode
-	totalLines int
-	verbose    bool
-	version    string
+	buildInfo   map[string]interface{}
+	dbfile      string
+	filename    string
+	legacy      bool
+	hatchetName string
+	testing     bool //test mode
+	totalLines  int
+	verbose     bool
+	version     string
 }
 
 // Logv2Info stores logv2 struct
@@ -105,6 +105,7 @@ type HatchetInfo struct {
 	Arch    string
 	End     string
 	Module  string
+	Name    string
 	OS      string
 	Start   string
 	Version string
@@ -122,8 +123,8 @@ func (ptr *Logv2) Analyze(filename string) error {
 	log.Println("processing", filename)
 	dirname := filepath.Dir(ptr.dbfile)
 	os.Mkdir(dirname, 0755)
-	ptr.tableName = getHatchetName(ptr.filename)
-	log.Println("hatchet table is", ptr.tableName)
+	ptr.hatchetName = getHatchetName(ptr.filename)
+	log.Println("hatchet name is", ptr.hatchetName)
 	if file, err = os.Open(filename); err != nil {
 		return err
 	}
@@ -162,7 +163,7 @@ func (ptr *Logv2) Analyze(filename string) error {
 	var dbase Database
 
 	if !ptr.legacy {
-		if dbase, err = GetDatabase(); err != nil {
+		if dbase, err = GetDatabase(ptr.hatchetName); err != nil {
 			return err
 		}
 		defer dbase.Close()
@@ -274,11 +275,11 @@ func (ptr *Logv2) GetSlowOpsStats() (string, error) {
 	buffer.WriteString("\r+----------+--------+------+--------+------+---------------------------------+--------------------------------------------------------------+\n")
 	buffer.WriteString(fmt.Sprintf("| Command  |COLLSCAN|avg ms| max ms | Count| %-32s| %-60s |\n", "Namespace", "Query Pattern"))
 	buffer.WriteString("|----------+--------+------+--------+------+---------------------------------+--------------------------------------------------------------|\n")
-	dbase, err := GetDatabase()
+	dbase, err := GetDatabase(ptr.hatchetName)
 	if err != nil {
 		return "", err
 	}
-	ops, err := dbase.GetSlowOps(ptr.tableName, "avg_ms", "DESC", false)
+	ops, err := dbase.GetSlowOps("avg_ms", "DESC", false)
 	if err != nil {
 		return "", err
 	}
@@ -342,6 +343,6 @@ func (ptr *Logv2) GetSlowOpsStats() (string, error) {
 	if maxSize < len(ops) {
 		summaries = append(summaries, fmt.Sprintf(`top %d of %d lines displayed.`, maxSize, len(ops)))
 	}
-	summaries = append(summaries, "hatchet table is "+ptr.tableName)
+	summaries = append(summaries, "hatchet name is "+ptr.hatchetName)
 	return strings.Join(summaries, "\n"), err
 }

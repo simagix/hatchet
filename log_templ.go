@@ -10,8 +10,8 @@ import (
 
 var (
 	SEVERITIES = []string{"F", "E", "W", "I", "D", "D2"}
-	SEVERITY_M = map[string]string{ "F": "FATAL", "E": "ERROR", "W": "WARN", "I": "INFO",
-			"D": "DEBUG", "D2": "DEBUG2" }
+	SEVERITY_M = map[string]string{"F": "FATAL", "E": "ERROR", "W": "WARN", "I": "INFO",
+		"D": "DEBUG", "D2": "DEBUG2"}
 )
 
 // GetLogTableTemplate returns HTML
@@ -77,15 +77,24 @@ func getSlowOpsLogsTable() string {
 	<table width='100%'>
 		<tr>
 			<th>#</th>
-			<th>log in legacy format</th>
+			<th>date</th>
+			<th>S</th>
+			<th>component</th>
+			<th>context</th>
+			<th>message</th>
 		</tr>
 {{range $n, $value := .Logs}}
 		<tr>
 			<td align='right'>{{ add $n 1 }}</td>
-			<td>{{ highlightLog $value }}</td>
+			<td>{{ $value.Timestamp }}</td>
+			<td>{{ $value.Severity }}</td>
+			<td>{{ $value.Component }}</td>
+			<td>{{ $value.Context }}</td>
+			<td>{{ highlightLog $value.Message }}</td>
 		</tr>
 {{end}}
 	</table>
+	<div align='center'><hr/><p/>@simagix</div>
 </div>
 `
 	return template
@@ -118,7 +127,11 @@ func getLegacyLogsTable() string {
 
 <p/>
 <div>
-{{ if gt .LogLength 0 }}
+{{ if .Logs }}
+	{{if .HasMore}}
+		<button onClick="javascript:location.href='{{.URL}}'; return false;"
+			class="btn" style="float: right;"><i class="fa fa-arrow-right"></i></button>
+	{{end}}
 	<table width='100%'>
 		<tr>
 			<th>#</th>
@@ -141,9 +154,13 @@ func getLegacyLogsTable() string {
 		</tr>
 	{{end}}
 	</table>
+	{{if .HasMore}}
+		<button onClick="javascript:location.href='{{.URL}}'; return false;"
+			class="btn" style="float: right;"><i class="fa fa-arrow-right"></i></button>
+	{{end}}
+<div align='center'><hr/><p/>{{.Summary}}</div>
 {{end}}
 </div>
-<p/>
 <script>
 	var input = document.getElementById("context");
 	input.addEventListener("keypress", function(event) {
@@ -159,7 +176,7 @@ func getLegacyLogsTable() string {
 		sel = document.getElementById('severity')
 		var severity = sel.options[sel.selectedIndex].value;
 		var context = document.getElementById('context').value
-		window.location.href = '/tables/{{.Table}}/logs?component='+component+'&severity='+severity+'&context='+context;
+		window.location.href = '/hatchets/{{.Hatchet}}/logs?component='+component+'&severity='+severity+'&context='+context;
 	}
 </script>
 `

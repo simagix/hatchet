@@ -7,14 +7,12 @@ import (
 	"sort"
 )
 
-const hatchetImage = `iVBORw0KGgoAAAANSUhEUgAAADwAAAA8CAYAAAA6/NlyAAAAAXNSR0IArs4c6QAAAERlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAPKADAAQAAAABAAAAPAAAAACL3+lcAAAGeklEQVRoBe1aCUhcVxQd13Hf1zpxFzVqXOLWuqAxSrQGBY1a1IK1cYEYkBJjBcVaJbYoQUMV1xZBbFNTmjQRbAihxUpLJaCioIa20Bh1QCdxHbf5Pa/EYTZHx4wzf+A/eMz3/bfcc+99d/uyWExjOMBwgOEAwwGGAwwHGA4wHDgdDmidzrbK2/UCWkJCguvu7u4LIyOjic3NTW5tba1AeSfQZCeKorSA9aqDgwPX3d2dsrW1FRgaGt4DefY0IVF5ZDx9+lQ3JiamBmBfa2trU9hZtPfgb0vlnabmnaCuRufPn2+2tLRc19LSEgUq+vwFyDRXM6lvf3xOTs47gYGBX5uYmGzKAUtB6vs2NjYfczgcQ0VP1VZ0wWnOn5qauj47O5u5vr5uiDt86FEwXtoAq29vb6+w0aUV4MnJyd+2trY2DkX65gUsNgvW+gNI2gFDCoM+an+VvIcaX8BBk+h76KL3Veazjo4OBSk/a25u/vDu3bsKq7ZKQB12SGVl5UVY5L8hMeJfZQKUNU4seEhIyFpGRkZWWVkZ+7D9aTXe0dFhAz/7SFdXd1sWqKPGiHEzMzPjJicnVzU1NdkQ/y0PoK68l6p4NzQ0VL68vByzv7+vf5LziHFbXV21nZiYaFhYWOC8fPnyFsZevLHyJ9ny9NbcuHEj1c7OTqYqW1hYUImJiWuwxAJ5LgrUCa8Auddwa39dRIMv15NFudqsdEFBge3g4OAnKysrTgKBQEwNYYxY2dnZPxOGeHp6PoG678oiXnIMWsJaWlpyg9tyxjWRqb1qAQyVMwdhnejv7u3tiUkCEmXFx8f3BQUFfQQJ/wrC6xFHr8BASeKT+beTk9OPYNJjWG6+zAnqGPT39y81NjbmSaoqJLMbERFxq7S0VBgr83g8i/Dw8O8hZQJAqL6Sz8Rie3l5/Yv1XngnpjHqwPj/mZCsQUVFxTWoLI8QKEo0wFKOjo6fW1lZmUkSeOnSpThTU9MlSQaJrsf7RaSRmVeuXKGPT87NzY2EFBYhLTGwIJZKT0//o7e39yyYIqW7yJ44AQEBk1i3LwpS5JkELAnoJ7L0WKf8Bs4HmZub/w4pEQMkBtjFxeVJamqqFzIlKbCEEsIEHx+fz2CFV0XXEsZh7BeMnUWXuRbjqm/19fVpcBPP2Wy2mIT09PRIePgQqaAzqJJ774qLi29CE15hHkVU+8yZM1RsbOyDyMhI16PW4r1qGpFMV1dXXnR09BLAiklVX1+funz58srAwMD7yJKOVMW0tLQUMIeL/gogh0pKSjKg6hY4Qy6jVIMUp4AQvdbW1uuwmjwCjgwddAIeBmamra0tGe7jSLCEaISNLuXl5YUtLS3vjY+PG5Mx2jSANWlsbLwNQ7MuaaBIBJWUlPRndXV1IMDqqJpomdHI2xDR399vCWvcMjIykjk/P29Iop+DhjCShXv3GBnOtZ2dnedZWVmaW32EVHX9/Pyc4XZ+gnHZlvSZsMRUYWHhN1BzDm3u3YEkFP3t6ekxBZg7CAv/AVAxS4y9qNDQ0G24nC+7u7utFN2bVvMhKTasZQ5i3YcGBgZ8SalijEII2dfQ0JAAi2pAK+IVIYaoL0orgb6+vu2Q6rpkmEiAe3h4UHFxcbcRQVkosjfd5mohYjLJy8urDQ4O5pHAAQQKOwEOl8OHxH+oqam5ev/+fVO6ATg2PTA27HPnznEQ4N+Ga5EqkgPsnre39xaCjK/gY62PvbGKJx7LLaEMYzYzM1MEF1PI5XK98Cv0nwDKglR3INWR/Pz8ewg0+pHHvlYxDuUcR9zH8PCwHaqK7bivG5JBBMAKkGzzUVHpAFg75Zyqxl1GR0edUGb51s3NbYvUi0CKaN+Gz52tq6urQMSk2e6G8BhBhH5UVNSniI6kvuBBsluY0h4WFuaOX/qkZYTwkzTcWTbKKoWQ6gLWixXHUZnYR4nmO7ynrWFSGDNi3FhXV9cFSTWGZEml/xkylvixsTGx4pvCh9BlAbHIcC8PAFbqSwCS7s2UlJTEoqIijQUrdf8WFxc98XUuEAIQy1OJ+0GBrc/a2nq8s7PzWHViughRlA4pwNPT0zMA3Q9fS8opwoYMaA39EZ/PFxsXTtDwBzaM0x0E/gv4R5I19A1kPDNVVVX+8M1STNIkrIdFWtuIl2/CD7fhy4AlwFuhCLc4Nzc3i8RAc5N2TZIMQyvDAYYDDAcYDjAcYDjAcEDjOPAfT2O3sqjcZZcAAAAASUVORK5CYII=`
-
 // GetTablesTemplate returns HTML
 func GetTablesTemplate() (*template.Template, error) {
 	html := headers + getMainPage() + "</body>"
 	return template.New("hatchet").Funcs(template.FuncMap{
 		"getHatchetImage": func() string {
-			return hatchetImage
+			return HATCHET_PNG
 		},
 		"add": func(a int, b int) int {
 			return a + b
@@ -180,14 +178,15 @@ const headers = `<!DOCTYPE html>
       font-weight: bold;
     }
     .footer {
-      background-color: #4285F4;
-      opacity: .8;
+      background-color: #f2f2f2;
+      opacity: 1;
       position: fixed;
       left: 0;
       bottom: 0;
       width: 100%;
-      color: #fff;
-      text-align: center;
+      color: #000;
+      text-align: left;
+      padding: 2px 10px;
     }
     input, select, textarea {
       font-family: "Trebuchet MS";
@@ -240,15 +239,15 @@ func getContentHTML() string {
 	}
 </script>
 <div align='center'>
-	<button id="stats" onClick="javascript:location.href='/tables/{{.Table}}/stats/slowops'; return false;"
+	<button id="stats" onClick="javascript:location.href='/hatchets/{{.Hatchet}}/stats/slowops'; return false;"
 		class="btn" style="float: left;"><i class="fa fa-info"></i> Stats</button>
-	<button id="logs" onClick="javascript:location.href='/tables/{{.Table}}/logs/slowops'; return false;"
+	<button id="logs" onClick="javascript:location.href='/hatchets/{{.Hatchet}}/logs/slowops'; return false;"
 		class="btn" style="float: left;"><i class="fa fa-list"></i> Top N</button>
 
 	<button id="title" onClick="javascript:location.href='/'; return false;"
 		class="btn" style="float: center;"><i class="fa fa-home"></i> Hatchet</button>
 
-	<button id="search" onClick="javascript:location.href='/tables/{{.Table}}/logs?component=NONE'; return false;"
+	<button id="search" onClick="javascript:location.href='/hatchets/{{.Hatchet}}/logs?component=NONE'; return false;"
 		class="btn" style="float: right;"><i class="fa fa-search"></i></button>
 	<select id='nextChart' style="float: right;" onchange='gotoChart()'>`
 	items := []Chart{}
@@ -264,11 +263,11 @@ func getContentHTML() string {
 		if i == 0 {
 			continue
 		}
-		html += fmt.Sprintf("<option value='/tables/{{.Table}}/charts%v'>%v</option>", item.URL, item.Label)
+		html += fmt.Sprintf("<option value='/hatchets/{{.Hatchet}}/charts%v'>%v</option>", item.URL, item.Label)
 	}
 
 	html += `</select>
-	<button id="chart" onClick="javascript:location.href='/tables/{{.Table}}/charts/ops?type=stats'; return false;" 
+	<button id="chart" onClick="javascript:location.href='/hatchets/{{.Hatchet}}/charts/ops?type=stats'; return false;" 
     class="btn" style="float: right;"><i class="fa fa-bar-chart"></i></button>
 </div>
 <p/>
@@ -281,7 +280,7 @@ func getContentHTML() string {
 	function refreshChart() {
 		var sd = document.getElementById('start').value;
 		var ed = document.getElementById('end').value;
-		window.location.href = '/tables/{{.Table}}/charts{{.Chart.URL}}&duration=' + sd + 'Z,' + ed + 'Z';
+		window.location.href = '/hatchets/{{.Hatchet}}/charts{{.Chart.URL}}&duration=' + sd + 'Z,' + ed + 'Z';
 	}
 </script>
 `
@@ -290,7 +289,7 @@ func getContentHTML() string {
 }
 
 func getMainPage() string {
-	template := `
+	template := fmt.Sprintf(`
 <script>
 	function redirect() {
 		var sel = document.getElementById('table')
@@ -298,7 +297,7 @@ func getMainPage() string {
 		if(value == "") {
 			return;
 		}
-		window.location.href='/tables/' + value + '/stats/slowops'
+		window.location.href='/hatchets/' + value + '/stats/slowops'
 	} 
 </script>
 
@@ -306,7 +305,7 @@ func getMainPage() string {
 	<h2><img class='rotate45' width='60' valign="middle" src='data:image/png;base64,{{ getHatchetImage }}'>Hatchet - MongoDB JSON Log Analyzer</img></h2>
 	<select id='table' class='hatchet-sel' onchange='redirect()'>
 		<option value=''>select a hatchet</option>
-{{range $n, $value := .Tables}}
+{{range $n, $value := .Hatchets}}
 		<option value='{{$value}}'>{{$value}}</option>
 {{end}}
 	</select>
@@ -316,20 +315,19 @@ func getMainPage() string {
 <h3>URL</h3>
 <ul class="api">
 	<li>/</li>
-	<li>/tables/{table}</li>
-	<li>/tables/{table}/charts/{chart}[?type={str}]</li>
-	<li>/tables/{table}/logs[?component={str}&context={str}&duration={date},{date}&severity={str}&limit=[{offset},]{int}]</li>
-	<li>/tables/{table}/logs/slowops[?topN={int}]</li>
-	<li>/tables/{table}/stats/slowops[?COLLSCAN={bool}&orderBy={str}]</li>
+	<li>/hatchets/{hatchet}</li>
+	<li>/hatchets/{hatchet}/charts/{chart}[?type={str}]</li>
+	<li>/hatchets/{hatchet}/logs[?component={str}&context={str}&duration={date},{date}&severity={str}&limit=[{offset},]{int}]</li>
+	<li>/hatchets/{hatchet}/logs/slowops[?topN={int}]</li>
+	<li>/hatchets/{hatchet}/stats/slowops[?COLLSCAN={bool}&orderBy={str}]</li>
 </ul>
 
 <h3>API</h3>
 <ul class="api">
-	<li>/api/hatchet/v1.0/tables/{table}/logs[?component={str}&context={str}&duration={date},{date}&severity={str}&limit=[{offset},]{int}]</li>
-	<li>/api/hatchet/v1.0/tables/{table}/logs/slowops[?topN={int}]</li>
-	<li>/api/hatchet/v1.0/tables/{table}/stats/slowops[?COLLSCAN={bool}&orderBy={str}]</li>
+	<li>/api/hatchet/v1.0/hatchets/{hatchet}/logs[?component={str}&context={str}&duration={date},{date}&severity={str}&limit=[{offset},]{int}]</li>
+	<li>/api/hatchet/v1.0/hatchets/{hatchet}/logs/slowops[?topN={int}]</li>
+	<li>/api/hatchet/v1.0/hatchets/{hatchet}/stats/slowops[?COLLSCAN={bool}&orderBy={str}]</li>
 </ul>
-<div class="footer">created by Ken Chen (https://github.com/simagix/hatchet)</div>
-`
+<div class="footer"><img valign="middle" src='data:image/png;base64,%v'/> Ken Chen</div>`, CHEN_ICO)
 	return template
 }

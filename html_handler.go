@@ -69,14 +69,12 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	info := dbase.GetHatchetInfo()
 	summary := GetHatchetSummary(info)
-	start, end := info.Start, info.End
+	start, end := getStartEndDates(fmt.Sprintf("%v,%v", info.Start, info.End))
 	duration := r.URL.Query().Get("duration")
 	download := r.URL.Query().Get("download")
 	if duration != "" {
 		start, end = getStartEndDates(duration)
 	}
-	start = strings.Trim(start, "Z")
-	end = strings.Trim(end, "Z")
 
 	if category == "charts" && attr == "ops" {
 		chartType := "ops"
@@ -283,7 +281,7 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		limit = fmt.Sprintf("%v,%v", offset+nlimit, nlimit)
 		url := fmt.Sprintf("%v?component=%v&context=%v&severity=%v&duration=%v&limit=%v", r.URL.Path,
-			component, context, severity, duration, limit);
+			component, context, severity, duration, limit)
 		doc := map[string]interface{}{"Hatchet": hatchetName, "Logs": logs, "Seq": seq,
 			"Summary": summary, "Context": context, "Component": component, "Severity": severity,
 			"HasMore": hasMore, "URL": url}
@@ -296,9 +294,15 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func getStartEndDates(duration string) (string, string) {
+	var start, end string
 	toks := strings.Split(duration, ",")
 	if len(toks) == 2 {
-		return toks[0], toks[1]
+		if len(toks[0]) >= 16 {
+			start = toks[0][:16]
+		}
+		if len(toks[1]) >= 16 {
+			end = toks[1][:16]
+		}
 	}
-	return "", ""
+	return start, end
 }

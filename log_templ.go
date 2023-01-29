@@ -59,15 +59,15 @@ func GetLogTableTemplate(attr string) (*template.Template, error) {
 func highlightLog(log string, params ...string) string {
 	re := regexp.MustCompile(`("?(planSummary)"?:\s?"(.*?)")`)
 	log = re.ReplaceAllString(log, "<mark>$1</mark>")
-	re = regexp.MustCompile(`("?(errMsg|errmsg)"?:\s?"(.*?)")`)
-	log = re.ReplaceAllString(log, "<span style='color: red; font-weight: bold;'>$1</span>")
 	re = regexp.MustCompile(`((\d+ms$))`)
 	log = re.ReplaceAllString(log, "<mark>$1</mark>")
 	re = regexp.MustCompile(`(("?(keysExamined|keysInserted|docsExamined|nreturned|nMatched|nModified|ndeleted|ninserted|reslen)"?:)\d+)`)
 	log = re.ReplaceAllString(log, "<mark>$1</mark>")
+	re = regexp.MustCompile(`(?i)("?(errMsg)"?:\s?"(.*?)"|planSummary:\s?"?COLLSCAN"?)`)
+	log = re.ReplaceAllString(log, "<span style='color: red; font-weight: bold;'>$1</span>")
 	for _, param := range params {
 		if param != "" {
-			re = regexp.MustCompile("(?i)(" + param + ")")
+			re = regexp.MustCompile("(?i)(" + param + `(:\s?\".*?\")?)`)
 			log = re.ReplaceAllString(log, "<mark>$1</mark>")
 		}
 	}

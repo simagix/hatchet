@@ -114,3 +114,12 @@ func GetOffsetLimit(str string) (int, int) {
 	}
 	return 0, 0
 }
+
+func getDateTimeStr(tm time.Time) string {
+	dt := tm.String()
+	toks := strings.Split(dt, " ")
+	if len(toks) > 3 {
+		dt = fmt.Sprintf("%vT%v%v", toks[0], toks[1], toks[2])
+	}
+	return dt
+}

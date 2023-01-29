@@ -204,7 +204,8 @@ func (ptr *Logv2) Analyze(filename string) error {
 			ptr.buildInfo = doc.Attr.Map()["buildInfo"].(bson.D).Map()
 		}
 		if ptr.legacy {
-			logstr := fmt.Sprintf("%v.000Z %-2s %-8s [%v] %v", doc.Timestamp.Format(time.RFC3339)[:19],
+			dt := getDateTimeStr(doc.Timestamp)
+			logstr := fmt.Sprintf("%v %-2s %-8s [%v] %v", dt,
 				doc.Severity, doc.Component, doc.Context, doc.Message)
 			if !ptr.testing {
 				fmt.Println(logstr)
@@ -212,15 +213,13 @@ func (ptr *Logv2) Analyze(filename string) error {
 			continue
 		}
 		stat, _ = AnalyzeSlowOp(&doc)
-		if !ptr.legacy {
-			end = doc.Timestamp.Format(time.RFC3339)
-			if start == "" {
-				start = end
-			}
-			dbase.InsertLog(index, end, &doc, stat)
-			if doc.Remote != nil {
-				dbase.InsertClientConn(index, *doc.Remote)
-			}
+		end = getDateTimeStr(doc.Timestamp)
+		if start == "" {
+			start = end
+		}
+		dbase.InsertLog(index, end, &doc, stat)
+		if doc.Remote != nil {
+			dbase.InsertClientConn(index, *doc.Remote)
 		}
 	}
 	if ptr.legacy {

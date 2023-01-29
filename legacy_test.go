@@ -5,7 +5,6 @@ package hatchet
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 )
@@ -22,7 +21,7 @@ func TestAddLegacyStringAccess(t *testing.T) {
 	if err = AddLegacyString(&doc); err != nil {
 		t.Fatalf("logv2 marshal error %v", err)
 	}
-	logstr := fmt.Sprintf("%v %-2s %-8s [%v] %v", doc.Timestamp.Format(time.RFC3339), doc.Severity, doc.Component, doc.Context, doc.Message)
+	logstr := fmt.Sprintf("%v %-2s %-8s [%v] %v", getDateTimeStr(doc.Timestamp), doc.Severity, doc.Component, doc.Context, doc.Message)
 	t.Log(logstr)
 }
 
@@ -38,7 +37,7 @@ func TestAddLegacyStringCommand(t *testing.T) {
 	if err = AddLegacyString(&doc); err != nil {
 		t.Fatalf("logv2 marshal error %v", err)
 	}
-	logstr := fmt.Sprintf("%v %-2s %-8s [%v] %v", doc.Timestamp.Format(time.RFC3339), doc.Severity, doc.Component, doc.Context, doc.Message)
+	logstr := fmt.Sprintf("%v %-2s %-8s [%v] %v", getDateTimeStr(doc.Timestamp), doc.Severity, doc.Component, doc.Context, doc.Message)
 	t.Log(logstr)
 }
 
@@ -54,7 +53,7 @@ func TestAddLegacyStringControl(t *testing.T) {
 	if err = AddLegacyString(&doc); err != nil {
 		t.Fatalf("logv2 marshal error %v", err)
 	}
-	logstr := fmt.Sprintf("%v %-2s %-8s [%v] %v", doc.Timestamp.Format(time.RFC3339), doc.Severity, doc.Component, doc.Context, doc.Message)
+	logstr := fmt.Sprintf("%v %-2s %-8s [%v] %v", getDateTimeStr(doc.Timestamp), doc.Severity, doc.Component, doc.Context, doc.Message)
 	t.Log(logstr)
 }
 
@@ -70,7 +69,7 @@ func TestAddLegacyStringNetwork(t *testing.T) {
 	if err = AddLegacyString(&doc); err != nil {
 		t.Fatalf("logv2 marshal error %v", err)
 	}
-	logstr := fmt.Sprintf("%v %-2s %-8s [%v] %v", doc.Timestamp.Format(time.RFC3339), doc.Severity, doc.Component, doc.Context, doc.Message)
+	logstr := fmt.Sprintf("%v %-2s %-8s [%v] %v", getDateTimeStr(doc.Timestamp), doc.Severity, doc.Component, doc.Context, doc.Message)
 	t.Log(logstr)
 }
 
@@ -86,7 +85,7 @@ func TestAddLegacyStringCommandCreateIndexes(t *testing.T) {
 	if err = AddLegacyString(&doc); err != nil {
 		t.Fatalf("logv2 marshal error %v", err)
 	}
-	logstr := fmt.Sprintf("%v %-2s %-8s [%v] %v", doc.Timestamp.Format(time.RFC3339), doc.Severity, doc.Component, doc.Context, doc.Message)
+	logstr := fmt.Sprintf("%v %-2s %-8s [%v] %v", getDateTimeStr(doc.Timestamp), doc.Severity, doc.Component, doc.Context, doc.Message)
 	t.Log(logstr)
 }
 
@@ -113,7 +112,7 @@ func TestAddLegacyStringPipeline(t *testing.T) {
 	if err = AddLegacyString(&doc); err != nil {
 		t.Fatalf("logv2 marshal error %v", err)
 	}
-	logstr := fmt.Sprintf("%v %-2s %-8s [%v] %v", doc.Timestamp.Format(time.RFC3339), doc.Severity, doc.Component, doc.Context, doc.Message)
+	logstr := fmt.Sprintf("%v %-2s %-8s [%v] %v", getDateTimeStr(doc.Timestamp), doc.Severity, doc.Component, doc.Context, doc.Message)
 	t.Log(logstr)
 }
 
@@ -129,7 +128,7 @@ func TestAddLegacyStringClientMeta(t *testing.T) {
 	if err = AddLegacyString(&doc); err != nil {
 		t.Fatalf("logv2 marshal error %v", err)
 	}
-	logstr := fmt.Sprintf("%v %-2s %-8s [%v] %v", doc.Timestamp.Format(time.RFC3339), doc.Severity, doc.Component, doc.Context, doc.Message)
+	logstr := fmt.Sprintf("%v %-2s %-8s [%v] %v", getDateTimeStr(doc.Timestamp), doc.Severity, doc.Component, doc.Context, doc.Message)
 	t.Log(logstr)
 }
 
@@ -145,7 +144,6 @@ func TestAddLegacyStringLogicalSessionWrite(t *testing.T) {
 	if err = AddLegacyString(&doc); err != nil {
 		t.Fatalf("logv2 marshal error %v", err)
 	}
-	logstr := fmt.Sprintf("%v %-2s %-8s [%v] %v", doc.Timestamp.Format(time.RFC3339), doc.Severity, doc.Component, doc.Context, doc.Message)
+	logstr := fmt.Sprintf("%v %-2s %-8s [%v] %v", getDateTimeStr(doc.Timestamp), doc.Severity, doc.Component, doc.Context, doc.Message)
 	t.Log(logstr)
 }
-

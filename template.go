@@ -280,7 +280,7 @@ func getContentHTML() string {
 	function refreshChart() {
 		var sd = document.getElementById('start').value;
 		var ed = document.getElementById('end').value;
-		window.location.href = '/hatchets/{{.Hatchet}}/charts{{.Chart.URL}}&duration=' + sd + 'Z,' + ed + 'Z';
+		window.location.href = '/hatchets/{{.Hatchet}}/charts{{.Chart.URL}}&duration=' + sd + ',' + ed;
 	}
 </script>
 `

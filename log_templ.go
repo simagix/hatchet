@@ -57,15 +57,19 @@ func GetLogTableTemplate(attr string) (*template.Template, error) {
 }
 
 func highlightLog(log string, params ...string) string {
-	re := regexp.MustCompile(`("?(planSummary|errMsg)"?:\s?"?\w+"?)`)
+	re := regexp.MustCompile(`("?(planSummary)"?:\s?"(.*?)")`)
 	log = re.ReplaceAllString(log, "<mark>$1</mark>")
+	re = regexp.MustCompile(`("?(errMsg|errmsg)"?:\s?"(.*?)")`)
+	log = re.ReplaceAllString(log, "<span style='color: red; font-weight: bold;'>$1</span>")
 	re = regexp.MustCompile(`((\d+ms$))`)
 	log = re.ReplaceAllString(log, "<mark>$1</mark>")
 	re = regexp.MustCompile(`(("?(keysExamined|keysInserted|docsExamined|nreturned|nMatched|nModified|ndeleted|ninserted|reslen)"?:)\d+)`)
 	log = re.ReplaceAllString(log, "<mark>$1</mark>")
 	for _, param := range params {
-		re = regexp.MustCompile("(?i)(" + param + ")")
-		log = re.ReplaceAllString(log, "<mark>$1</mark>")
+		if param != "" {
+			re = regexp.MustCompile("(?i)(" + param + ")")
+			log = re.ReplaceAllString(log, "<mark>$1</mark>")
+		}
 	}
 	return log
 }
@@ -158,7 +162,7 @@ func getLegacyLogsTable() string {
 		<button onClick="javascript:location.href='{{.URL}}'; return false;"
 			class="btn" style="float: right;"><i class="fa fa-arrow-right"></i></button>
 	{{end}}
-<div align='center'><hr/><p/>{{.Summary}}</div>
+<div align='center'><hr/><p/>@simagix</div>
 {{end}}
 </div>
 <script>

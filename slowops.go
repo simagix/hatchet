@@ -193,6 +193,9 @@ func AnalyzeSlowOp(doc *Logv2Info) (*OpStat, error) {
 	stat.QueryPattern = re.ReplaceAllString(stat.QueryPattern, `1`)
 	re = regexp.MustCompile(`("\$n?in"):\[\S+(,\s?\S+)*\]`)
 	stat.QueryPattern = re.ReplaceAllString(stat.QueryPattern, `$1:[...]`)
+	re = regexp.MustCompile(`"(\$?\w+)":`)
+	stat.QueryPattern = re.ReplaceAllString(stat.QueryPattern, ` $1:`)
+	stat.QueryPattern = strings.ReplaceAll(stat.QueryPattern, "}", " }")
 	if isGetMore {
 		stat.Op = cmdGetMore
 	}

@@ -60,7 +60,8 @@ func Run(fullVersion string) {
 		log.Fatal(err)
 	} else {
 		listener.Close()
-		log.Println("starting web server", addr)
+		log.Println("reading data file", *dbfile)
+		log.Println("starting web server at", addr)
 		log.Fatal(http.ListenAndServe(addr, nil))
 	}
 }

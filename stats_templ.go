@@ -58,6 +58,7 @@ func getStatsTable(collscan bool, orderBy string, download string) string {
 		html += `<button id="download" onClick="downloadStats(); return false;"
 			class="btn" style="float: right;"><i class="fa fa-download"></i></button>`
 	} else {
+		html += "<div align='center'>{{.Summary}}</div>"
 		asc = ""
 		desc = ""
 	}

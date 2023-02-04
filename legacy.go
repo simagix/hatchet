@@ -145,6 +145,8 @@ func toLegacyString(o interface{}) interface{} {
 		return fmt.Sprintf(`{ t:%v, i:%v}`, data.T, data.I)
 	case string, primitive.DateTime:
 		return fmt.Sprintf(` "%v"`, o)
+	case primitive.Regex:
+		return fmt.Sprintf(" /%v/%v", data.Pattern, data.Options)
 	default:
 		log.Printf("unhandled data type %T, %v", o, o)
 	}

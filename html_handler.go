@@ -10,10 +10,6 @@ import (
 	"strings"
 )
 
-const (
-	HTML_URL_PREFIX = "/hatchets/"
-)
-
 type Chart struct {
 	Index int
 	Label string
@@ -40,7 +36,7 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 	 * /hatchets/{hatchet}/logs/slowops
 	 * /hatchets/{hatchet}/stats/slowops
 	 */
-	tokens := strings.Split(r.URL.Path[len(HTML_URL_PREFIX):], "/")
+	tokens := strings.Split(r.URL.Path[len(HTML_API_PREFIX):], "/")
 	var hatchetName, category, attr string
 	for i, token := range tokens {
 		if i == 0 {
@@ -194,7 +190,7 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 	} else if category == "logs" && attr == "slowops" {
 		topN := ToInt(r.URL.Query().Get("topN"))
 		if topN == 0 {
-			topN = 25
+			topN = TOP_N
 		}
 		logstrs, err := dbase.GetSlowestLogs(topN)
 		if err != nil {
@@ -214,7 +210,7 @@ func htmlHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	} else if category == "stats" && attr == "slowops" {
 		collscan := false
-		if r.URL.Query().Get("COLLSCAN") == "true" {
+		if r.URL.Query().Get(COLLSCAN) == "true" {
 			collscan = true
 		}
 		var order, orderBy string

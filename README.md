@@ -16,8 +16,12 @@ Use the command below to process a log file, mongod.log.gz and start a web serve
 ./dist/hatchet -web mongod.log.gz
 ```
 
-Use the URL `http://localhost:3721/` in a browser to view reports and charts.  if you choose to view in the
-legacy format without a browser, use the command below:
+Use the URL `http://localhost:3721/` in a browser to view reports and charts.  Alternatively, you can use the in-memory mode without persisting data, for example:
+```bash
+./dist/hatchet -in-memory mongod.log.gz
+```
+
+if you choose to view in the legacy format without a browser, use the command below:
 ```bash
 ./dist/hatchet -legacy mongod.log.gz
 ```

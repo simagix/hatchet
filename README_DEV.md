@@ -16,7 +16,7 @@ The easiest way is to go to the home page `http://localhost:3721` and following 
 - `/hatchets/{hatchet}` views stats summary of a log file
 - `/hatchets/{hatchet}/stats/slowops` same as the above
 - `/hatchets/{hatchet}/stats/slowops?COLLSCAN=true&orderBy=count` views stats summary of COLLSCAN logs and sorted by *count*
-- `/hatchets/{hatchet}/logs/slowops` views top 25 slowest ops logs
+- `/hatchets/{hatchet}/logs/slowops` views top 23 slowest ops logs
 - `/hatchets/{hatchet}/logs/slowops?topN=100` views top 100 slowest ops logs
 - `/hatchets/{hatchet}/logs` views all logs, and available query string parameters are:
   - component
@@ -95,11 +95,17 @@ Hatchet provides a number of APIs to output JSON data. They work similarly to th
   - total_ms
   - reslen
 - /api/hatchet/v1.0/hatchets/{hatchet}/logs
-- /api/hatchet/v1.0/hatchets/{hatchet}/logs/slowops[?topN=] ; The default value of topN is 25.
+- /api/hatchet/v1.0/hatchets/{hatchet}/logs/slowops[?topN=] ; The default value of topN is 23.
 
 ## Output Logs in Legacy Format
 ```bash
 ./dist/hatchet -legacy testdata/mongod.log.gz > mongod_legacy.log
+```
+
+## In-Memory Mode
+The in-memory mode is good for a quick view of the result and no data is persisted.  When using the in-memory mode, the web server is automatically started.  The in-memory mode is not necessarily faster than using a data file if the computer doesn't have enough memory.
+```bash
+./dist/hatchet -in-memory testdata/mongod.log.gz
 ```
 
 ## Docker Build

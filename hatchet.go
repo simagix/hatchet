@@ -22,6 +22,7 @@ const (
 
 func Run(fullVersion string) {
 	dbfile := flag.String("dbfile", SQLITE3_FILE, "database file name")
+	inMem := flag.Bool("in-memory", false, "use in-memory mode")
 	legacy := flag.Bool("legacy", false, "view logs in legacy format")
 	port := flag.Int("port", 3721, "web server port number")
 	ver := flag.Bool("version", false, "print version number")
@@ -34,6 +35,17 @@ func Run(fullVersion string) {
 	if *ver {
 		fmt.Println(fullVersion)
 		return
+	}
+
+	if *inMem {
+		if *dbfile != SQLITE3_FILE {
+			log.Fatalln("cannot use -dbfile and -in-memory together")
+		} else if len(flag.Args()) == 0 {
+			log.Fatalln("cannot use -in-memory without a log file")
+		}
+		log.Println("in-memory mode is enabled, no data will be persisted")
+		*dbfile = "file::memory:?cache=shared"
+		*web = true
 	}
 
 	logv2 := Logv2{version: fullVersion, dbfile: *dbfile, verbose: *verbose, legacy: *legacy}
@@ -60,7 +72,9 @@ func Run(fullVersion string) {
 		log.Fatal(err)
 	} else {
 		listener.Close()
-		log.Println("reading data file", *dbfile)
+		if !*inMem {
+			log.Println("using data file", *dbfile)
+		}
 		log.Println("starting web server at", addr)
 		log.Fatal(http.ListenAndServe(addr, nil))
 	}

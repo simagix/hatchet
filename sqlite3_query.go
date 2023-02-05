@@ -8,10 +8,6 @@ import (
 	"strings"
 )
 
-const (
-	LIMIT = 100
-)
-
 type OpCount struct {
 	Date      string
 	Count     int

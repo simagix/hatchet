@@ -12,20 +12,22 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-var ops = []string{cmdAggregate, cmdCount, cmdDelete, cmdDistinct, cmdFind,
-	cmdFindAndModify, cmdGetMore, cmdInsert, cmdUpdate}
+const (
+	cmdCollstats     = "collstats"
+	cmdCreateIndexes = "createIndexes"
 
-const cmdAggregate = "aggregate"
-const cmdCount = "count"
-const cmdCreateIndexes = "createIndexes"
-const cmdDelete = "delete"
-const cmdDistinct = "distinct"
-const cmdFind = "find"
-const cmdFindAndModify = "findandmodify"
-const cmdGetMore = "getMore"
-const cmdInsert = "insert"
-const cmdRemove = "remove"
-const cmdUpdate = "update"
+	cmdInsert   = "insert"
+	cmdDistinct = "distinct"
+
+	cmdAggregate     = "aggregate"
+	cmdCount         = "count"
+	cmdDelete        = "delete"
+	cmdFind          = "find"
+	cmdFindAndModify = "findandmodify"
+	cmdGetMore       = "getMore"
+	cmdRemove        = "remove"
+	cmdUpdate        = "update"
+)
 
 // AnalyzeLog analyzes slow op log
 func AnalyzeLog(str string) (*OpStat, error) {
@@ -93,7 +95,8 @@ func AnalyzeSlowOp(doc *Logv2Info) (*OpStat, error) {
 		command = doc.Attributes.OriginatingCommand
 		stat.Op = getOp(command)
 	}
-	if stat.Op == cmdInsert || stat.Op == cmdCreateIndexes {
+	if stat.Op == cmdInsert || stat.Op == cmdDistinct ||
+		stat.Op == cmdCreateIndexes || stat.Op == cmdCollstats {
 		stat.QueryPattern = ""
 	} else if stat.QueryPattern == "" &&
 		(stat.Op == cmdFind || stat.Op == cmdUpdate || stat.Op == cmdRemove || stat.Op == cmdDelete) {
@@ -212,6 +215,8 @@ func isRegex(doc map[string]interface{}) bool {
 }
 
 func getOp(command map[string]interface{}) string {
+	ops := []string{cmdAggregate, cmdCollstats, cmdCount, cmdCreateIndexes, cmdDelete, cmdDistinct,
+		cmdFind, cmdFindAndModify, cmdGetMore, cmdInsert, cmdUpdate}
 	for _, v := range ops {
 		if command[v] != nil {
 			return v

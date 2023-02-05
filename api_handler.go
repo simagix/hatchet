@@ -10,11 +10,6 @@ import (
 	"strings"
 )
 
-const (
-	API_PREFIX = "/api/hatchet/v1.0/hatchets/"
-	TOPN       = 25
-)
-
 // apiHandler responds to API calls
 func apiHandler(w http.ResponseWriter, r *http.Request) {
 	/** APIs
@@ -24,7 +19,7 @@ func apiHandler(w http.ResponseWriter, r *http.Request) {
 	 */
 	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")
-	tokens := strings.Split(r.URL.Path[len(API_PREFIX):], "/")
+	tokens := strings.Split(r.URL.Path[len(REST_API_PREFIX):], "/")
 	var hatchetName string
 	if len(tokens) > 0 {
 		hatchetName = tokens[0]
@@ -62,7 +57,7 @@ func apiHandler(w http.ResponseWriter, r *http.Request) {
 		} else if attr == "slowops" && category == "logs" {
 			topN := ToInt(r.URL.Query().Get("topN"))
 			if topN == 0 {
-				topN = TOPN
+				topN = TOP_N
 			}
 			logs, err := dbase.GetSlowestLogs(topN)
 			if err != nil {

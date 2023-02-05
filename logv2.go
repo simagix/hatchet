@@ -21,6 +21,8 @@ import (
 const (
 	COLLSCAN   = "COLLSCAN"
 	DOLLAR_CMD = "$cmd"
+	LIMIT      = 100
+	TOP_N      = 23
 )
 
 var instance *Logv2
@@ -133,22 +135,23 @@ func (ptr *Logv2) Analyze(filename string) error {
 		return err
 	}
 
-	// check if it's a ptr format
-	if buf, _, err = reader.ReadLine(); err != nil { // 0x0A separator = newline
-		return err
-	}
-
-	if len(buf) == 0 {
-		return errors.New("can't detect file type")
-	}
-
-	str := string(buf)
-	if !regexp.MustCompile("^{.*}$").MatchString(str) {
-		return errors.New("log format not supported")
+	for { // check if it is in the logv2 format
+		if buf, _, err = reader.ReadLine(); err != nil { // 0x0A separator = newline
+			return errors.New("no valid log format found")
+		}
+		if len(buf) == 0 {
+			continue
+		}
+		str := string(buf)
+		if !regexp.MustCompile("^{.*}$").MatchString(str) {
+			return errors.New("log format not supported")
+		}
+		break
 	}
 
 	// get total counts of logs
 	if !ptr.legacy {
+		log.Println("fast counting", filename, "...")
 		ptr.totalLines, _ = gox.CountLines(reader)
 	}
 	file.Seek(0, 0)
@@ -255,35 +258,22 @@ func (ptr *Logv2) Analyze(filename string) error {
 }
 
 func (ptr *Logv2) PrintSummary() error {
-	if ptr.buildInfo != nil {
-		fmt.Println(gox.Stringify(ptr.buildInfo, "", "  "))
-	}
-	str, err := ptr.GetSlowOpsStats()
+	dbase, err := GetDatabase(ptr.hatchetName)
 	if err != nil {
 		return err
 	}
-	fmt.Println(str)
-	return err
-}
-
-// GetSlowOpsStats prints slow ops stats
-func (ptr *Logv2) GetSlowOpsStats() (string, error) {
-	var maxSize = 20
+	fmt.Println("\n", "*", GetHatchetSummary(dbase.GetHatchetInfo()))
 	summaries := []string{}
 	var buffer bytes.Buffer
 	buffer.WriteString("\r+----------+--------+------+--------+------+---------------------------------+--------------------------------------------------------------+\n")
 	buffer.WriteString(fmt.Sprintf("| Command  |COLLSCAN|avg ms| max ms | Count| %-32s| %-60s |\n", "Namespace", "Query Pattern"))
 	buffer.WriteString("|----------+--------+------+--------+------+---------------------------------+--------------------------------------------------------------|\n")
-	dbase, err := GetDatabase(ptr.hatchetName)
-	if err != nil {
-		return "", err
-	}
-	ops, err := dbase.GetSlowOps("avg_ms", "DESC", false)
-	if err != nil {
-		return "", err
+	var ops []OpStat
+	if ops, err = dbase.GetSlowOps("avg_ms", "DESC", false); err != nil {
+		return err
 	}
 	for count, value := range ops {
-		if count > maxSize {
+		if count > TOP_N {
 			break
 		}
 		str := value.QueryPattern
@@ -303,8 +293,8 @@ func (ptr *Logv2) GetSlowOpsStats() (string, error) {
 		}
 		output := ""
 		collscan := ""
-		if value.Index == "COLLSCAN" {
-			collscan = "COLLSCAN"
+		if value.Index == COLLSCAN {
+			collscan = COLLSCAN
 		}
 		output = fmt.Sprintf("|%-10s %8s %6d %8d %6d %-33s %-62s|\n", value.Op, collscan,
 			int(value.AvgMilli), value.MaxMilli, value.Count, value.Namespace, str)
@@ -332,16 +322,17 @@ func (ptr *Logv2) GetSlowOpsStats() (string, error) {
 				buffer.WriteString(output)
 			}
 		}
-		if value.Index != "" && value.Index != "COLLSCAN" {
+		if value.Index != "" && value.Index != COLLSCAN {
 			output = fmt.Sprintf("|...index:  %-128s|\n", value.Index)
 			buffer.WriteString(output)
 		}
 	}
 	buffer.WriteString("+----------+--------+------+--------+------+---------------------------------+--------------------------------------------------------------+\n")
 	summaries = append(summaries, buffer.String())
-	if maxSize < len(ops) {
-		summaries = append(summaries, fmt.Sprintf(`top %d of %d lines displayed.`, maxSize, len(ops)))
+	if TOP_N < len(ops) {
+		summaries = append(summaries,
+			fmt.Sprintf(` * %v: slowest %d of %d ops displayed`, ptr.hatchetName, TOP_N, len(ops)))
 	}
-	summaries = append(summaries, "hatchet name is "+ptr.hatchetName)
-	return strings.Join(summaries, "\n"), err
+	fmt.Println(strings.Join(summaries, "\n"))
+	return err
 }

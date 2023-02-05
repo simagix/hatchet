@@ -8,6 +8,11 @@ import (
 	"net/http"
 )
 
+const (
+	HTML_API_PREFIX = "/hatchets/"
+	REST_API_PREFIX = "/api/hatchet/v1.0/hatchets/"
+)
+
 // handler responds to API calls
 func handler(w http.ResponseWriter, r *http.Request) {
 	dbase, err := GetDatabase(GetLogv2().hatchetName) // main page

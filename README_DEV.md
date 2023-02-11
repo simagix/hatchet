@@ -13,18 +13,17 @@ Note that there are a few indexes created during the logs processings  But, you 
 ## View Available Reports
 The easiest way is to go to the home page `http://localhost:3721` and following the instructions to view available reports.  Each report is also available using its own URL with additional parameters defined in the query string.  Below are a few examples:
 
-- `/hatchets/{hatchet}` views stats summary of a log file
 - `/hatchets/{hatchet}/stats/slowops` same as the above
 - `/hatchets/{hatchet}/stats/slowops?COLLSCAN=true&orderBy=count` views stats summary of COLLSCAN logs and sorted by *count*
 - `/hatchets/{hatchet}/logs/slowops` views top 23 slowest ops logs
 - `/hatchets/{hatchet}/logs/slowops?topN=100` views top 100 slowest ops logs
-- `/hatchets/{hatchet}/logs` views all logs, and available query string parameters are:
+- `/hatchets/{hatchet}/logs/all` views all logs, and available query string parameters are:
   - component
   - context
   - duration (begin_datetime,end_datetime)
   - limit ([offset,]limit)
   - severity
-- `/hatchets/{hatchet}/logs?component=NETWORK` searches logs where *component* = *NETWORK*.  Available option are:
+- `/hatchets/{hatchet}/logs/all?component=NETWORK` searches logs where *component* = *NETWORK*.  Available option are:
   - component
   - context
   - duration (begin_datetime,end_datetime)
@@ -94,7 +93,7 @@ Hatchet provides a number of APIs to output JSON data. They work similarly to th
   - max_ms
   - total_ms
   - reslen
-- /api/hatchet/v1.0/hatchets/{hatchet}/logs
+- /api/hatchet/v1.0/hatchets/{hatchet}/logs/all
 - /api/hatchet/v1.0/hatchets/{hatchet}/logs/slowops[?topN=] ; The default value of topN is 23.
 
 ## Output Logs in Legacy Format

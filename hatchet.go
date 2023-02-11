@@ -10,8 +10,8 @@ import (
 	"net"
 	"net/http"
 
+	"github.com/julienschmidt/httprouter"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/simagix/gox"
 )
 
 const (
@@ -63,10 +63,16 @@ func Run(fullVersion string) {
 		return
 	}
 
-	http.HandleFunc("/", gox.Cors(handler))
-	http.HandleFunc("/favicon.ico", gox.Cors(faviconHandler))
-	http.HandleFunc("/api/hatchet/v1.0/hatchets/", gox.Cors(apiHandler))
-	http.HandleFunc("/hatchets/", gox.Cors(htmlHandler))
+	router := httprouter.New()
+	router.GET("/", Handler)
+	router.GET("/favicon.ico", FaviconHandler)
+
+	router.GET("/api/hatchet/v1.0/hatchets/:hatchet/:category/:attr", APIHandler)
+
+	router.GET("/hatchets/:hatchet/charts/:attr", ChartsHandler)
+	router.GET("/hatchets/:hatchet/logs/:attr", LogsHandler)
+	router.GET("/hatchets/:hatchet/stats/:attr", StatsHandler)
+
 	addr := fmt.Sprintf(":%d", *port)
 	if listener, err := net.Listen("tcp", addr); err != nil {
 		log.Fatal(err)
@@ -76,14 +82,23 @@ func Run(fullVersion string) {
 			log.Println("using data file", *dbfile)
 		}
 		log.Println("starting web server at", addr)
-		log.Fatal(http.ListenAndServe(addr, nil))
+		log.Fatal(http.ListenAndServe(addr, router))
 	}
 }
 
-func faviconHandler(w http.ResponseWriter, r *http.Request) {
+func FaviconHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	log.Println("FaviconHandler")
 	r.Close = true
 	r.Header.Set("Connection", "close")
 	w.Header().Set("Content-Type", "image/x-icon")
 	ico, _ := base64.StdEncoding.DecodeString(CHEN_ICO)
 	w.Write(ico)
+}
+
+func Index(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	fmt.Fprint(w, "Welcome!\n")
+}
+
+func Hello(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	fmt.Fprintf(w, "hello, %s!\n", ps.ByName("name"))
 }

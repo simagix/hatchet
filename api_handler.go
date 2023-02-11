@@ -7,23 +7,22 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strings"
+
+	"github.com/julienschmidt/httprouter"
 )
 
-// apiHandler responds to API calls
-func apiHandler(w http.ResponseWriter, r *http.Request) {
+// APIHandler responds to API calls
+func APIHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	/** APIs
-	 * /api/hatchet/v1.0/hatchets/{hatchet}/logs
+	 * /api/hatchet/v1.0/hatchets/{hatchet}/logs/all
 	 * /api/hatchet/v1.0/hatchets/{hatchet}/logs/slowops
 	 * /api/hatchet/v1.0/hatchets/{hatchet}/stats/slowops
 	 */
 	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")
-	tokens := strings.Split(r.URL.Path[len(REST_API_PREFIX):], "/")
-	var hatchetName string
-	if len(tokens) > 0 {
-		hatchetName = tokens[0]
-	}
+	hatchetName := params.ByName("hatchet")
+	attr := params.ByName("attr")
+	category := params.ByName("category")
 	dbase, err := GetDatabase(hatchetName)
 	if err != nil {
 		json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
@@ -31,49 +30,44 @@ func apiHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer dbase.Close()
 	if dbase.GetVerbose() {
-		log.Println(r.URL.Path)
+		log.Println("LogsHandler", r.URL.Path, hatchetName, attr)
 	}
 
-	if len(tokens) == 3 {
-		category := tokens[1]
-		attr := tokens[2]
-		if attr == "slowops" && category == "stats" {
-			orderBy := r.URL.Query().Get("orderBy")
-			if orderBy == "" {
-				orderBy = "avg_ms"
-			}
-			ops, err := dbase.GetSlowOps(orderBy, "DESC", false)
-			if err != nil {
-				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
-			}
-			doc := map[string]interface{}{"hatchet": hatchetName, "has_more": false, "offset": 0, "limit": len(ops), "ops": ops}
-			b, err := json.Marshal(doc)
-			if err != nil {
-				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
-			} else {
-				w.Write(b)
-			}
-			return
-		} else if attr == "slowops" && category == "logs" {
-			topN := ToInt(r.URL.Query().Get("topN"))
-			if topN == 0 {
-				topN = TOP_N
-			}
-			logs, err := dbase.GetSlowestLogs(topN)
-			if err != nil {
-				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
-			}
-			doc := map[string]interface{}{"hatchet": hatchetName, "has_more": false, "offset": 0, "limit": len(logs), "logs": logs}
-			b, err := json.Marshal(doc)
-			if err != nil {
-				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
-			} else {
-				w.Write(b)
-			}
-			return
+	if category == "stats" && attr == "slowops" {
+		orderBy := r.URL.Query().Get("orderBy")
+		if orderBy == "" {
+			orderBy = "avg_ms"
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"hatchet": hatchetName, "data_type": attr})
-	} else if len(tokens) == 2 && tokens[1] == "logs" {
+		ops, err := dbase.GetSlowOps(orderBy, "DESC", false)
+		if err != nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+		}
+		doc := map[string]interface{}{"hatchet": hatchetName, "has_more": false, "offset": 0, "limit": len(ops), "ops": ops}
+		b, err := json.Marshal(doc)
+		if err != nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+		} else {
+			w.Write(b)
+		}
+		return
+	} else if category == "logs" && attr == "slowops" {
+		topN := ToInt(r.URL.Query().Get("topN"))
+		if topN == 0 {
+			topN = TOP_N
+		}
+		logs, err := dbase.GetSlowestLogs(topN)
+		if err != nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+		}
+		doc := map[string]interface{}{"hatchet": hatchetName, "has_more": false, "offset": 0, "limit": len(logs), "logs": logs}
+		b, err := json.Marshal(doc)
+		if err != nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+		} else {
+			w.Write(b)
+		}
+		return
+	} else if category == "logs" && attr == "all" {
 		var hasMore bool
 		component := r.URL.Query().Get("component")
 		context := r.URL.Query().Get("context")

@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+
+	"github.com/julienschmidt/httprouter"
 )
 
 const (
@@ -13,8 +15,8 @@ const (
 	REST_API_PREFIX = "/api/hatchet/v1.0/hatchets/"
 )
 
-// handler responds to API calls
-func handler(w http.ResponseWriter, r *http.Request) {
+// Handler responds to API calls
+func Handler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	dbase, err := GetDatabase(GetLogv2().hatchetName) // main page
 	if err != nil {
 		json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})

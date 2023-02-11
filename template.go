@@ -247,7 +247,7 @@ func getContentHTML() string {
 	<button id="title" onClick="javascript:location.href='/'; return false;"
 		class="btn" style="float: center;"><i class="fa fa-home"></i> Hatchet</button>
 
-	<button id="search" onClick="javascript:location.href='/hatchets/{{.Hatchet}}/logs?component=NONE'; return false;"
+	<button id="search" onClick="javascript:location.href='/hatchets/{{.Hatchet}}/logs/all?component=NONE'; return false;"
 		class="btn" style="float: right;"><i class="fa fa-search"></i></button>
 	<select id='nextChart' style="float: right;" onchange='gotoChart()'>`
 	items := []Chart{}
@@ -315,16 +315,15 @@ func getMainPage() string {
 <h3>URL</h3>
 <ul class="api">
 	<li>/</li>
-	<li>/hatchets/{hatchet}</li>
 	<li>/hatchets/{hatchet}/charts/{chart}[?type={str}]</li>
-	<li>/hatchets/{hatchet}/logs[?component={str}&context={str}&duration={date},{date}&severity={str}&limit=[{offset},]{int}]</li>
+	<li>/hatchets/{hatchet}/logs/all[?component={str}&context={str}&duration={date},{date}&severity={str}&limit=[{offset},]{int}]</li>
 	<li>/hatchets/{hatchet}/logs/slowops[?topN={int}]</li>
 	<li>/hatchets/{hatchet}/stats/slowops[?COLLSCAN={bool}&orderBy={str}]</li>
 </ul>
 
 <h3>API</h3>
 <ul class="api">
-	<li>/api/hatchet/v1.0/hatchets/{hatchet}/logs[?component={str}&context={str}&duration={date},{date}&severity={str}&limit=[{offset},]{int}]</li>
+	<li>/api/hatchet/v1.0/hatchets/{hatchet}/logs/all[?component={str}&context={str}&duration={date},{date}&severity={str}&limit=[{offset},]{int}]</li>
 	<li>/api/hatchet/v1.0/hatchets/{hatchet}/logs/slowops[?topN={int}]</li>
 	<li>/api/hatchet/v1.0/hatchets/{hatchet}/stats/slowops[?COLLSCAN={bool}&orderBy={str}]</li>
 </ul>

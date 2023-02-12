@@ -7,11 +7,6 @@ import (
 	"time"
 )
 
-type NameValue struct {
-	Name  string
-	Value int
-}
-
 func getFooter() string {
 	summary := "{{.Summary}}"
 	return fmt.Sprintf(`<div class="footer"><img valign="middle" src='data:image/png;base64,%v'> %v</img></div>`,
@@ -21,19 +16,21 @@ func getFooter() string {
 // GetChartTemplate returns HTML
 func GetChartTemplate(chartType string) (*template.Template, error) {
 	html := getContentHTML()
-	if chartType == "ops" || chartType == "slowops" {
+	if chartType == BUBBLE_CHART {
 		html += getOpStatsChart()
-	} else if chartType == "slowops-counts" || chartType == "connections-accepted" {
+	} else if chartType == PIE_CHART {
 		html += getPieChart()
-	} else if chartType == "connections-time" || chartType == "connections-total" {
+	} else if chartType == BAR_CHART {
 		html += getConnectionsChart()
 	}
 	html += `
-		<input type='datetime-local' id='start' value='{{.Start}}'></input>
-		<input type='datetime-local' id='end' value='{{.End}}'></input>
-		<button onClick="refreshChart(); return false;" class="button">Refresh</button>
-		<div id='hatchetChart' align='center' width='100%'/>
-		</body></html>`
+		<div align=left>
+			<input type='datetime-local' id='start' value='{{.Start}}'></input>
+			<input type='datetime-local' id='end' value='{{.End}}'></input>
+			<button onClick="refreshChart(); return false;" class="button">Refresh</button>
+			<div id='hatchetChart' align='center' width='100%'/>
+		</div></body></html>`
+
 	return template.New("hatchet").Funcs(template.FuncMap{
 		"descr": func(v OpCount) template.HTML {
 			if v.Filter == "" {
@@ -82,11 +79,12 @@ func getOpStatsChart() string {
 		]);
 		// Set chart options
 		var options = {
+			'backgroundColor': { 'fill': 'transparent' },
 			'title': '{{.Chart.Title}}',
 			// 'hAxis': { textPosition: 'none' },
 			'hAxis': { slantedText: true, slantedTextAngle: 30 },
 			'vAxis': {title: '{{.VAxisLabel}}', minValue: 0},
-			'height': 600,
+			'height': 480,
 			'titleTextStyle': {'fontSize': 20},
 	{{if eq $ctype "ops"}}
 			'sizeAxis': {minValue: 0, minSize: 5, maxSize: 30},
@@ -123,10 +121,13 @@ func getPieChart() string {
 		]);
 		// Set chart options
 		var options = {
+			'backgroundColor': { 'fill': 'transparent' },
 			'title': '{{.Chart.Title}}',
 			'height': 480,
 			'titleTextStyle': {'fontSize': 20},
-			'legend': { 'position': 'left' } };
+			'slices': {},
+			'legend': { 'position': 'right' } };
+		options.slices[data.getSortedRows([{column: 1, desc: true}])[0]] = {offset: 0.1};
 		// Instantiate and draw our chart, passing in some options.
 		var chart = new google.visualization.PieChart(document.getElementById('hatchetChart'));
 		chart.draw(data, options);
@@ -164,12 +165,13 @@ func getConnectionsChart() string {
 		]);
 		// Set chart options
 		var options = {
+			'backgroundColor': { 'fill': 'transparent' },
 			'title': '{{.Chart.Title}}',
 			'hAxis': { slantedText: true, slantedTextAngle: 30 },
 			'vAxis': {title: 'Count', minValue: 0},
 			'height': 480,
 			'titleTextStyle': {'fontSize': 20},
-			'legend': { 'position': 'bottom' } };
+			'legend': { 'position': 'right' } };
 		// Instantiate and draw our chart, passing in some options.
 		var chart = new google.visualization.ColumnChart(document.getElementById('hatchetChart'));
 		chart.draw(data, options);

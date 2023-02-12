@@ -62,6 +62,9 @@ func AnalyzeSlowOp(doc *Logv2Info) (*OpStat, error) {
 				if doc.Attributes.NS, ok = elem.Value.(string); !ok {
 					doc.Attributes.NS = stat.Namespace
 				}
+				if !strings.Contains(doc.Attributes.NS, ".") {
+					doc.Attributes.NS = strings.ReplaceAll(stat.Namespace, "$cmd", doc.Attributes.NS)
+				}
 			}
 		}
 		if doc.Attributes.ErrMsg != "" {

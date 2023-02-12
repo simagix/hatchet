@@ -180,7 +180,7 @@ func getLegacyLogsTable() string {
 		sel = document.getElementById('severity')
 		var severity = sel.options[sel.selectedIndex].value;
 		var context = document.getElementById('context').value
-		window.location.href = '/hatchets/{{.Hatchet}}/logs?component='+component+'&severity='+severity+'&context='+context;
+		window.location.href = '/hatchets/{{.Hatchet}}/logs/all?component='+component+'&severity='+severity+'&context='+context;
 	}
 </script>
 `

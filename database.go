@@ -17,11 +17,12 @@ type Database interface {
 	GetHatchetPreparedStmt() string
 	GetLogs(opts ...string) ([]LegacyLog, error)
 	GetOpsCounts(duration string) ([]NameValue, error)
+	GetReslenByClients(duration string) ([]NameValue, error)
 	GetSlowOps(orderBy string, order string, collscan bool) ([]OpStat, error)
 	GetSlowOpsCounts(duration string) ([]OpCount, error)
 	GetSlowestLogs(topN int) ([]LegacyLog, error)
 	GetVerbose() bool
-	InsertClientConn(index int, rmt Remote) error
+	InsertClientConn(index int, doc *Logv2Info) error
 	InsertLog(index int, end string, doc *Logv2Info, stat *OpStat) error
 	InsertOps() error
 	SearchLogs(opts ...string) ([]LegacyLog, error)

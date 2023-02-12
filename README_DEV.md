@@ -28,9 +28,17 @@ The easiest way is to go to the home page `http://localhost:3721` and following 
   - context
   - duration (begin_datetime,end_datetime)
   - severity
-- `/hatchets/{hatchet}/charts/connections[?type={}]` views connections charts
-- `/hatchets/{hatchet}/charts/ops` views average ops time chart
-- `/hatchets/{hatchet}/charts/slowops[?type={}]` views ops counts chart
+- `/hatchets/{hatchet}/charts/connections[?type={}]` views connections charts, types are:
+  - accepted
+  - time
+  - total
+- `/hatchets/{hatchet}/charts/ops?type={}` views average ops time chart, types are:
+  - stats
+- `/hatchets/{hatchet}/charts/reslen?type={}` views response length chart, types are:
+  - ips
+- `/hatchets/{hatchet}/charts/slowops[?type={}]` views ops counts chart, types are:
+  - counts
+  - stats
 ```
 
 ## Query SQLite3 Database

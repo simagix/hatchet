@@ -222,7 +222,7 @@ func (ptr *Logv2) Analyze(filename string) error {
 		}
 		dbase.InsertLog(index, end, &doc, stat)
 		if doc.Remote != nil {
-			dbase.InsertClientConn(index, *doc.Remote)
+			dbase.InsertClientConn(index, &doc)
 		}
 	}
 	if ptr.legacy {

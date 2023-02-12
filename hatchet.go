@@ -87,7 +87,6 @@ func Run(fullVersion string) {
 }
 
 func FaviconHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	log.Println("FaviconHandler")
 	r.Close = true
 	r.Header.Set("Connection", "close")
 	w.Header().Set("Content-Type", "image/x-icon")

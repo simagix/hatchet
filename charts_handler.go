@@ -12,21 +12,35 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
+const (
+	BAR_CHART    = "bar_chart"
+	BUBBLE_CHART = "bubble_chart"
+	PIE_CHART    = "pie_chart"
+)
+
 type Chart struct {
 	Index int
-	Label string
 	Title string
+	Descr string
 	URL   string
 }
 
 var charts = map[string]Chart{
 	"instruction":          {0, "select a chart", "", ""},
-	"ops":                  {1, "avg op time", "Average Operation Time", "/ops?type=stats"},
-	"slowops":              {2, "ops stats", "Slow Operation Counts", "/slowops?type=stats"},
-	"slowops-counts":       {3, "ops counts", "Operation Counts", "/slowops?type=counts"},
-	"connections-accepted": {4, "conns accepted", "Accepted Connections", "/connections?type=accepted"},
-	"connections-time":     {5, "conns by time", "Accepted vs Ended Connections", "/connections?type=time"},
-	"connections-total":    {6, "conns by total", "Accepted vs Ended Connections by IP", "/connections?type=total"},
+	"ops":                  {1, "Average Operation Time",
+		"A chart displaying average operations time over a period of time", "/ops?type=stats"},
+	"slowops":              {2, "Slow Operation Counts",
+		"A chart displaying total counts and duration of operations", "/slowops?type=stats"},
+	"slowops-counts":       {3, "Operation Counts",
+		"A chart displaying total counts of operations", "/slowops?type=counts"},
+	"connections-accepted": {4, "Accepted Connections",
+		"A chart displaying accepted connections from clients", "/connections?type=accepted"},
+	"connections-time":     {5, "Accepted & Ended Connections",
+		"A chart displaying accepted vs ended connections over a period of time", "/connections?type=time"},
+	"connections-total":    {6, "Accepted & Ended from IPs",
+		"A chart displaying accepted vs ended connections by client IPs", "/connections?type=total"},
+	"reslen":               {7, "Response Length in MB",
+		"A chart displaying total response length from client IPs", "/reslen?type=ips"},
 }
 
 // ChartsHandler responds to charts API calls
@@ -64,7 +78,7 @@ func ChartsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Par
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return
 		}
-		templ, err := GetChartTemplate(chartType)
+		templ, err := GetChartTemplate(BUBBLE_CHART)
 		if err != nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return
@@ -92,7 +106,7 @@ func ChartsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Par
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
 			}
-			templ, err := GetChartTemplate(chartType)
+			templ, err := GetChartTemplate(BUBBLE_CHART)
 			if err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
@@ -111,7 +125,7 @@ func ChartsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Par
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
 			}
-			templ, err := GetChartTemplate(chartType)
+			templ, err := GetChartTemplate(PIE_CHART)
 			if err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
@@ -136,7 +150,7 @@ func ChartsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Par
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
 			}
-			templ, err := GetChartTemplate(chartType)
+			templ, err := GetChartTemplate(PIE_CHART)
 			if err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
@@ -155,7 +169,7 @@ func ChartsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Par
 				return
 			}
 			chartType = "connections-" + chartType
-			templ, err := GetChartTemplate(chartType)
+			templ, err := GetChartTemplate(BAR_CHART)
 			if err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
@@ -168,6 +182,29 @@ func ChartsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Par
 			}
 			return
 		}
+	} else if attr == "reslen" {
+		chartType := r.URL.Query().Get("type")
+		if dbase.GetVerbose() {
+			log.Println("type", chartType, "duration", duration)
+		}
+		chartType = "reslen"
+		docs, err := dbase.GetReslenByClients(duration)
+		if err != nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+			return
+		}
+		templ, err := GetChartTemplate(PIE_CHART)
+		if err != nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+			return
+		}
+		doc := map[string]interface{}{"Hatchet": hatchetName, "NameValues": docs, "Chart": charts[chartType],
+			"Type": chartType, "Summary": summary, "Start": start, "End": end}
+		if err = templ.Execute(w, doc); err != nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+			return
+		}
+		return
 	}
 }
 

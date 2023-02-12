@@ -405,3 +405,36 @@ func (ptr *SQLite3DB) GetOpsCounts(duration string) ([]NameValue, error) {
 	}
 	return docs, err
 }
+
+// GetReslenByClients returns total response length by connections
+func (ptr *SQLite3DB) GetReslenByClients(duration string) ([]NameValue, error) {
+	hatchetName := ptr.hatchetName
+	docs := []NameValue{}
+	var durcond string
+	if duration != "" {
+		toks := strings.Split(duration, ",")
+		durcond = fmt.Sprintf("AND a.date BETWEEN '%v' AND '%v'", toks[0], toks[1])
+	}
+	query := fmt.Sprintf(`SELECT b.ip, ROUND(SUM(a.reslen)/(1024*1024), 1) reslen FROM %v a, %v_rmt b
+			WHERE a.op != "" AND reslen > 0 AND a.context = b.context %v GROUP by b.ip ORDER BY reslen DESC;`,
+		hatchetName, hatchetName, durcond)
+	db := ptr.db
+	if ptr.verbose {
+		log.Println(query)
+	}
+	rows, err := db.Query(query)
+	if err != nil {
+		return docs, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var doc NameValue
+		var conns float64
+		if err = rows.Scan(&doc.Name, &conns); err != nil {
+			return docs, err
+		}
+		doc.Value = int(conns)
+		docs = append(docs, doc)
+	}
+	return docs, err
+}

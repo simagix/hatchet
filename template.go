@@ -51,11 +51,11 @@ const headers = `<!DOCTYPE html>
       margin:2px;
     }
     table, th, td {
-      border: 1px solid gray;
+      border: 1px solid #ccc;
       vertical-align: middle;
     }
     th {
-      background-color: #888;
+      background-color: #333;
       color: #fff;
       vertical-align: middle;
       font-size: .8em;
@@ -67,11 +67,10 @@ const headers = `<!DOCTYPE html>
     .break {
       vertical-align: middle;
       font-size: .8em;
-//      inline-size: 100px;
       word-break: break-all;
     }
-    tr:nth-child(even) {background-color: #f2f2f2;}
-    tr:nth-child(odd) {background-color: #fff;}
+    tr:nth-child(even) {background-color: #fff;}
+    tr:nth-child(odd) {background-color: #f2f2f2;}
     .api {
       font-family: Consolas, monaco, monospace;
     }
@@ -178,8 +177,8 @@ const headers = `<!DOCTYPE html>
       font-weight: bold;
     }
     .footer {
-      background-color: #f2f2f2;
-      opacity: 1;
+      background-color: #fff;
+      opacity: .75;
       position: fixed;
       left: 0;
       bottom: 0;
@@ -213,7 +212,7 @@ const headers = `<!DOCTYPE html>
       accent-color: red;
     }
     .sort {
-      color: #fff;
+      color: #4285F4;
     }
     .sort:hover {
       color: #DB4437;
@@ -243,12 +242,13 @@ func getContentHTML() string {
 		class="btn" style="float: left;"><i class="fa fa-info"></i> Stats</button>
 	<button id="logs" onClick="javascript:location.href='/hatchets/{{.Hatchet}}/logs/slowops'; return false;"
 		class="btn" style="float: left;"><i class="fa fa-list"></i> Top N</button>
+	<button id="search" class="btn" style="float: left;"
+		onClick="javascript:location.href='/hatchets/{{.Hatchet}}/logs/all?component=NONE'; return false;">
+		<i class="fa fa-search"></i> Search</button>
 
 	<button id="title" onClick="javascript:location.href='/'; return false;"
 		class="btn" style="float: center;"><i class="fa fa-home"></i> Hatchet</button>
 
-	<button id="search" onClick="javascript:location.href='/hatchets/{{.Hatchet}}/logs/all?component=NONE'; return false;"
-		class="btn" style="float: right;"><i class="fa fa-search"></i></button>
 	<select id='nextChart' style="float: right;" onchange='gotoChart()'>`
 	items := []Chart{}
 	for _, chart := range charts {
@@ -263,7 +263,7 @@ func getContentHTML() string {
 		if i == 0 {
 			continue
 		}
-		html += fmt.Sprintf("<option value='/hatchets/{{.Hatchet}}/charts%v'>%v</option>", item.URL, item.Label)
+		html += fmt.Sprintf("<option value='/hatchets/{{.Hatchet}}/charts%v'>%v</option>", item.URL, item.Title)
 	}
 
 	html += `</select>
@@ -289,7 +289,7 @@ func getContentHTML() string {
 }
 
 func getMainPage() string {
-	template := fmt.Sprintf(`
+	template := `
 <script>
 	function redirect() {
 		var sel = document.getElementById('table')
@@ -312,7 +312,24 @@ func getMainPage() string {
 </div>
 <hr/>
 <h4 align='center'>{{.Version}}</h4>
-<h3>URL</h3>
+
+<h3>Charts</h3>
+    <table width='100%'>
+      <tr><th></th><th>Title</th><th>Description</th></tr>`
+	size := len(charts)-1
+	tables := make([]Chart, size)
+	for k, chart := range charts {
+		if k == "instruction" {
+			continue
+		}
+		tables[chart.Index-1] = chart
+	}
+	for _, chart := range tables {
+		template += fmt.Sprintf("<tr><td align=right>%d</td><td>%v</td><td>%v</td></tr>\n",
+			chart.Index, chart.Title, chart.Descr)
+	}
+	template += "</table>"
+	template += `<h3>URL</h3>
 <ul class="api">
 	<li>/</li>
 	<li>/hatchets/{hatchet}/charts/{chart}[?type={str}]</li>
@@ -327,6 +344,8 @@ func getMainPage() string {
 	<li>/api/hatchet/v1.0/hatchets/{hatchet}/logs/slowops[?topN={int}]</li>
 	<li>/api/hatchet/v1.0/hatchets/{hatchet}/stats/slowops[?COLLSCAN={bool}&orderBy={str}]</li>
 </ul>
-<div class="footer"><img valign="middle" src='data:image/png;base64,%v'/> Ken Chen</div>`, CHEN_ICO)
+<hr/>
+`
+	template += fmt.Sprintf(`<div class="footer"><img valign="middle" src='data:image/png;base64,%v'/> Ken Chen</div>`, CHEN_ICO)
 	return template
 }

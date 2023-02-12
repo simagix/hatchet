@@ -9,12 +9,12 @@ import (
 )
 
 type SQLite3DB struct {
-	clientStmt  *sql.Stmt
+	clientStmt  *sql.Stmt // {hatchet}_rmt
 	db          *sql.DB
 	dbfile      string
 	hatchetName string
 	tx          *sql.Tx
-	pstmt       *sql.Stmt
+	pstmt       *sql.Stmt // {hatchet}
 	verbose     bool
 }
 
@@ -82,9 +82,10 @@ func (ptr *SQLite3DB) InsertLog(index int, end string, doc *Logv2Info, stat *OpS
 	return err
 }
 
-func (ptr *SQLite3DB) InsertClientConn(index int, rmt Remote) error {
+func (ptr *SQLite3DB) InsertClientConn(index int, doc *Logv2Info) error {
 	var err error
-	_, err = ptr.clientStmt.Exec(index, rmt.Value, rmt.Port, rmt.Conns, rmt.Accepted, rmt.Ended)
+	rmt := doc.Remote
+	_, err = ptr.clientStmt.Exec(index, rmt.Value, rmt.Port, rmt.Conns, rmt.Accepted, rmt.Ended, doc.Context)
 	return err
 }
 
@@ -126,7 +127,7 @@ func (ptr *SQLite3DB) GetHatchetInitStmt() string {
 
 			DROP TABLE IF EXISTS %v_rmt;
 			CREATE TABLE %v_rmt(
-				id integer not null primary key, ip text, port text, conns integer, accepted integer, ended integer)`,
+				id integer not null primary key, ip text, port text, conns integer, accepted integer, ended integer, context string)`,
 		hatchetName, hatchetName, hatchetName, hatchetName, hatchetName,
 		hatchetName, hatchetName, hatchetName, hatchetName, hatchetName,
 		hatchetName, hatchetName, hatchetName, hatchetName)
@@ -141,6 +142,6 @@ func (ptr *SQLite3DB) GetHatchetPreparedStmt() string {
 
 // GetClientPreparedStmt returns prepared statement of client table
 func (ptr *SQLite3DB) GetClientPreparedStmt() string {
-	return fmt.Sprintf(`INSERT INTO %v_rmt (id, ip, port, conns, accepted, ended)
-		VALUES(?,?,?,?,?, ?)`, ptr.hatchetName)
+	return fmt.Sprintf(`INSERT INTO %v_rmt (id, ip, port, conns, accepted, ended, context)
+		VALUES(?,?,?,?,?, ?,?)`, ptr.hatchetName)
 }

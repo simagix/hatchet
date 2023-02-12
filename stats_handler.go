@@ -13,6 +13,7 @@ import (
 // StatsHandler responds to API calls
 func StatsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	/** APIs
+	 * /hatchets/{hatchet}/stats/audit
 	 * /hatchets/{hatchet}/stats/slowops
 	 */
 	hatchetName := params.ByName("hatchet")
@@ -30,7 +31,24 @@ func StatsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Para
 	summary := GetHatchetSummary(info)
 	download := r.URL.Query().Get("download")
 
-	if attr == "slowops" {
+	if attr == "audit" {
+		data, err := dbase.GetAuditData()
+		if err != nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+			return
+		}
+		templ, err := GetAuditTablesTemplate()
+		if err != nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+			return
+		}
+		doc := map[string]interface{}{"Hatchet": hatchetName, "Summary": summary, "Data": data}
+		if err = templ.Execute(w, doc); err != nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+			return
+		}
+		return
+	} else if attr == "slowops" {
 		collscan := false
 		if r.URL.Query().Get(COLLSCAN) == "true" {
 			collscan = true

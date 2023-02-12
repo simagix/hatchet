@@ -50,6 +50,19 @@ func APIHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params
 			w.Write(b)
 		}
 		return
+	} else if category == "stats" && attr == "audit" {
+		data, err := dbase.GetAuditData()
+		if err != nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+		}
+		doc := map[string]interface{}{"hatchet": hatchetName, "audit": data}
+		b, err := json.Marshal(doc)
+		if err != nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+		} else {
+			w.Write(b)
+		}
+		return
 	} else if category == "logs" && attr == "slowops" {
 		topN := ToInt(r.URL.Query().Get("topN"))
 		if topN == 0 {

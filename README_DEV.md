@@ -13,7 +13,7 @@ Note that there are a few indexes created during the logs processings  But, you 
 ## View Available Reports
 The easiest way is to go to the home page `http://localhost:3721` and following the instructions to view available reports.  Each report is also available using its own URL with additional parameters defined in the query string.  Below are a few examples:
 
-- `/hatchets/{hatchet}/stats/slowops` same as the above
+- `/hatchets/{hatchet}/stats/audit` view audit data
 - `/hatchets/{hatchet}/stats/slowops?COLLSCAN=true&orderBy=count` views stats summary of COLLSCAN logs and sorted by *count*
 - `/hatchets/{hatchet}/logs/slowops` views top 23 slowest ops logs
 - `/hatchets/{hatchet}/logs/slowops?topN=100` views top 100 slowest ops logs
@@ -34,11 +34,9 @@ The easiest way is to go to the home page `http://localhost:3721` and following 
   - total
 - `/hatchets/{hatchet}/charts/ops?type={}` views average ops time chart, types are:
   - stats
+  - counts
 - `/hatchets/{hatchet}/charts/reslen?type={}` views response length chart, types are:
   - ips
-- `/hatchets/{hatchet}/charts/slowops[?type={}]` views ops counts chart, types are:
-  - counts
-  - stats
 ```
 
 ## Query SQLite3 Database
@@ -47,7 +45,7 @@ The database file is *data/hatchet.db*; use the *sqlite3* command as below:
 sqlite3 ./data/hatchet.db
 ```
 
-After a log file is processed, 3 tables are created in the SQLite3 database.  Part of the table name are from the processed log file.  For example, a table *mongod*_<hex> (e.g., mongod_1b3d5f7) is created after a log file $HOME/Downloads/**mongod**.log.gz is processed.  The other 2 tables are 1) mongod_<hex>_ops stores stats of slow ops and 2) mongod_<hex>_rmt stores remote clients information.  A few SQL commands follow.
+After a log file is processed, 3 tables are created in the SQLite3 database.  Part of the table name are from the processed log file.  For example, a table *mongod*_{hex} (e.g., mongod_1b3d5f7) is created after a log file $HOME/Downloads/**mongod**.log.gz is processed.  The other 3 tables are 1) mongod_{hex}_ops stores stats of slow ops, 2) mongod_{hex}_clients stores clients information, and 3) mongod_{hex}_audit keeps audit data.  A few SQL commands follow.
 
 ### Query All Data
 ```sqlite3
@@ -93,6 +91,7 @@ sqlite3 -header -separator $'\t' ./data/hatchet.db "SELECT * FROM mongod_1b3d5f7
 
 ## Hatchet API
 Hatchet provides a number of APIs to output JSON data. They work similarly to the URLs but with a prefix `/api/hatchet/v1.0`.  The APIs are as follows:
+- /api/hatchet/v1.0/hatchets/{hatchet}/stats/audit
 - /api/hatchet/v1.0/hatchets/{hatchet}/stats/slowops[?orderyBy=] ; Possible values of *orderBy* are:
   - op
   - ns

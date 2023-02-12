@@ -9,7 +9,7 @@ import (
 )
 
 type SQLite3DB struct {
-	clientStmt  *sql.Stmt // {hatchet}_rmt
+	clientStmt  *sql.Stmt // {hatchet}_clients
 	db          *sql.DB
 	dbfile      string
 	hatchetName string
@@ -18,10 +18,24 @@ type SQLite3DB struct {
 	verbose     bool
 }
 
+func GetSQLite3DB(hatchetName string) (Database, error) {
+	var dbase Database
+	var err error
+	logv2 := GetLogv2()
+	if logv2.verbose {
+		log.Println("dbfile", logv2.dbfile, "hatchet name", hatchetName)
+	}
+	if dbase, err = NewSQLite3DB(logv2.dbfile, hatchetName); err != nil {
+		return dbase, err
+	}
+	dbase.SetVerbose(logv2.verbose)
+	return dbase, err
+}
+
 func NewSQLite3DB(dbfile string, hatchetName string) (*SQLite3DB, error) {
 	var err error
 	sqlite := &SQLite3DB{dbfile: dbfile, hatchetName: hatchetName}
-	if sqlite.db, err = sql.Open("sqlite3", dbfile); err != nil {
+	if sqlite.db, err = sql.Open("sqlite3_extended", dbfile); err != nil {
 		return sqlite, err
 	}
 	return sqlite, err
@@ -96,11 +110,56 @@ func (ptr *SQLite3DB) UpdateHatchetInfo(info HatchetInfo) error {
 	return err
 }
 
-func (ptr *SQLite3DB) InsertOps() error {
+func (ptr *SQLite3DB) CreateMetaData() error {
+	var err error
+	log.Printf("insert into %v_ops\n", ptr.hatchetName)
 	istmt := fmt.Sprintf(`INSERT INTO %v_ops
 			SELECT op, COUNT(*), ROUND(AVG(milli),1), MAX(milli), SUM(milli), ns, _index, SUM(reslen), filter
 				FROM %v WHERE op != "" GROUP BY op, ns, filter, _index`, ptr.hatchetName, ptr.hatchetName)
-	_, err := ptr.db.Exec(istmt)
+	if _, err = ptr.db.Exec(istmt); err != nil {
+		return err
+	}
+
+	log.Printf("insert into %v_audit\n", ptr.hatchetName)
+	istmt = fmt.Sprintf(`INSERT INTO %v_audit
+		SELECT 'ip', ip, SUM(accepted) open FROM %v_clients GROUP by ip ORDER BY open DESC`, ptr.hatchetName, ptr.hatchetName)
+	if _, err = ptr.db.Exec(istmt); err != nil {
+		return err
+	}
+
+	istmt = fmt.Sprintf(`INSERT INTO %v_audit
+		SELECT 'exception', severity, COUNT(*) count FROM %v WHERE severity IN ('W', 'E', 'F') 
+		GROUP by severity ORDER BY count DESC`, ptr.hatchetName, ptr.hatchetName)
+	if _, err = ptr.db.Exec(istmt); err != nil {
+		return err
+	}
+
+	istmt = fmt.Sprintf(`INSERT INTO %v_audit
+		SELECT 'failed', SUBSTR(message, 1, INSTR(message, 'failed')+6) failed, COUNT(*) count FROM %v 
+		WHERE message REGEXP "(\w\sfailed\s)" GROUP by failed ORDER BY count DESC`, ptr.hatchetName, ptr.hatchetName)
+	if _, err = ptr.db.Exec(istmt); err != nil {
+		return err
+	}
+
+	istmt = fmt.Sprintf(`INSERT INTO %v_audit
+		SELECT 'ns', ns, COUNT(*) count FROM %v WHERE op != "" GROUP by ns ORDER BY count DESC`, ptr.hatchetName, ptr.hatchetName)
+	if _, err = ptr.db.Exec(istmt); err != nil {
+		return err
+	}
+
+	istmt = fmt.Sprintf(`INSERT INTO %v_audit
+		SELECT 'reslen', b.ip, SUM(a.reslen) reslen FROM %v a, %v_clients b WHERE a.op != "" AND reslen > 0 AND a.context = b.context GROUP by b.ip ORDER BY reslen DESC`,
+		ptr.hatchetName, ptr.hatchetName, ptr.hatchetName)
+	if _, err = ptr.db.Exec(istmt); err != nil {
+		return err
+	}
+
+	istmt = fmt.Sprintf(`INSERT INTO %v_audit
+		SELECT 'op', op, COUNT(*) count FROM %v WHERE op != '' GROUP by op ORDER BY count DESC`, ptr.hatchetName, ptr.hatchetName)
+	if _, err = ptr.db.Exec(istmt); err != nil {
+		return err
+	}
+
 	return err
 }
 
@@ -120,17 +179,19 @@ func (ptr *SQLite3DB) GetHatchetInitStmt() string {
 			DROP TABLE IF EXISTS %v_ops;
 			CREATE TABLE %v_ops ( op, count, avg_ms, max_ms, total_ms, ns, _index, reslen, filter);
 
+			DROP TABLE IF EXISTS %v_audit;
+			CREATE TABLE %v_audit ( type, name, value);
+
 			CREATE INDEX IF NOT EXISTS %v_idx_component ON %v (component);
 			CREATE INDEX IF NOT EXISTS %v_idx_context ON %v (context);
 			CREATE INDEX IF NOT EXISTS %v_idx_severity ON %v (severity);
 			CREATE INDEX IF NOT EXISTS %v_idx_op ON %v (op,ns,filter);
 
-			DROP TABLE IF EXISTS %v_rmt;
-			CREATE TABLE %v_rmt(
+			DROP TABLE IF EXISTS %v_clients;
+			CREATE TABLE %v_clients(
 				id integer not null primary key, ip text, port text, conns integer, accepted integer, ended integer, context string)`,
-		hatchetName, hatchetName, hatchetName, hatchetName, hatchetName,
-		hatchetName, hatchetName, hatchetName, hatchetName, hatchetName,
-		hatchetName, hatchetName, hatchetName, hatchetName)
+		hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName,
+		hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName)
 }
 
 // GetHatchetPreparedStmt returns prepared statement of the hatchet table
@@ -142,6 +203,6 @@ func (ptr *SQLite3DB) GetHatchetPreparedStmt() string {
 
 // GetClientPreparedStmt returns prepared statement of client table
 func (ptr *SQLite3DB) GetClientPreparedStmt() string {
-	return fmt.Sprintf(`INSERT INTO %v_rmt (id, ip, port, conns, accepted, ended, context)
+	return fmt.Sprintf(`INSERT INTO %v_clients (id, ip, port, conns, accepted, ended, context)
 		VALUES(?,?,?,?,?, ?,?)`, ptr.hatchetName)
 }

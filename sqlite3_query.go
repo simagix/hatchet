@@ -223,39 +223,6 @@ func (ptr *SQLite3DB) GetAverageOpTime(duration string) ([]OpCount, error) {
 	return docs, err
 }
 
-func (ptr *SQLite3DB) GetSlowOpsCounts(duration string) ([]OpCount, error) {
-	docs := []OpCount{}
-	db := ptr.db
-	durcond := ""
-	var substr string
-	if duration != "" {
-		toks := strings.Split(duration, ",")
-		durcond = fmt.Sprintf("AND date BETWEEN '%v' AND '%v'", toks[0], toks[1])
-		substr = GetDateSubString(toks[0], toks[1])
-	} else {
-		info := ptr.GetHatchetInfo()
-		substr = GetDateSubString(info.Start, info.End)
-	}
-	query := fmt.Sprintf(`SELECT %v, COUNT(op), op, ns, filter FROM %v 
-		WHERE op != '' %v GROUP by %v, op, ns, filter;`, substr, ptr.hatchetName, durcond, substr)
-	if ptr.verbose {
-		log.Println(query)
-	}
-	rows, err := db.Query(query)
-	if err != nil {
-		return docs, err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var doc OpCount
-		if err = rows.Scan(&doc.Date, &doc.Count, &doc.Op, &doc.Namespace, &doc.Filter); err != nil {
-			return docs, err
-		}
-		docs = append(docs, doc)
-	}
-	return docs, err
-}
-
 func (ptr *SQLite3DB) GetHatchetInfo() HatchetInfo {
 	var info HatchetInfo
 	query := fmt.Sprintf("SELECT name, version, module, os, arch, start, end FROM hatchet WHERE name = '%v'",
@@ -307,7 +274,7 @@ func (ptr *SQLite3DB) GetAcceptedConnsCounts(duration string) ([]NameValue, erro
 		durcond = fmt.Sprintf("AND date BETWEEN '%v' AND '%v'", toks[0], toks[1])
 	}
 	query := fmt.Sprintf(`SELECT b.ip, SUM(b.accepted)
-		FROM %v a, %v_rmt b WHERE a.id = b.id AND b.accepted = 1 %v GROUP by ip ORDER BY accepted DESC;`,
+		FROM %v a, %v_clients b WHERE a.id = b.id AND b.accepted = 1 %v GROUP by ip ORDER BY accepted DESC;`,
 		hatchetName, hatchetName, durcond)
 	db := ptr.db
 	if ptr.verbose {
@@ -346,11 +313,11 @@ func (ptr *SQLite3DB) GetConnectionStats(chartType string, duration string) ([]R
 	}
 	if chartType == "time" {
 		query = fmt.Sprintf(`SELECT %v dt, SUM(b.accepted), SUM(b.ended)
-			FROM %v a, %v_rmt b WHERE a.id = b.id %v GROUP by dt ORDER BY dt;`,
+			FROM %v a, %v_clients b WHERE a.id = b.id %v GROUP by dt ORDER BY dt;`,
 			substr, hatchetName, hatchetName, durcond)
 	} else if chartType == "total" {
 		query = fmt.Sprintf(`SELECT b.ip, SUM(b.accepted), SUM(b.ended)
-			FROM %v a, %v_rmt b WHERE a.id = b.id %v GROUP by ip ORDER BY accepted DESC;`, hatchetName, hatchetName, durcond)
+			FROM %v a, %v_clients b WHERE a.id = b.id %v GROUP by ip ORDER BY accepted DESC;`, hatchetName, hatchetName, durcond)
 	}
 	db := ptr.db
 	if ptr.verbose {
@@ -415,7 +382,7 @@ func (ptr *SQLite3DB) GetReslenByClients(duration string) ([]NameValue, error) {
 		toks := strings.Split(duration, ",")
 		durcond = fmt.Sprintf("AND a.date BETWEEN '%v' AND '%v'", toks[0], toks[1])
 	}
-	query := fmt.Sprintf(`SELECT b.ip, ROUND(SUM(a.reslen)/(1024*1024), 1) reslen FROM %v a, %v_rmt b
+	query := fmt.Sprintf(`SELECT b.ip, SUM(a.reslen) reslen FROM %v a, %v_clients b
 			WHERE a.op != "" AND reslen > 0 AND a.context = b.context %v GROUP by b.ip ORDER BY reslen DESC;`,
 		hatchetName, hatchetName, durcond)
 	db := ptr.db
@@ -437,4 +404,37 @@ func (ptr *SQLite3DB) GetReslenByClients(duration string) ([]NameValue, error) {
 		docs = append(docs, doc)
 	}
 	return docs, err
+}
+
+func (ptr *SQLite3DB) GetAuditData() (map[string][]NameValue, error) {
+	var err error
+	data := map[string][]NameValue{}
+	query := fmt.Sprintf(`SELECT type, name, value FROM %v_audit ORDER BY type, value DESC;`, ptr.hatchetName)
+	if ptr.verbose {
+		log.Println(query)
+	}
+	db := ptr.db
+	rows, err := db.Query(query)
+	if err != nil {
+		return data, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var category string
+		var doc NameValue
+		if err = rows.Scan(&category, &doc.Name, &doc.Value); err != nil {
+			return data, err
+		}
+		if category == "exception" {
+			if doc.Name == "E" {
+				doc.Name = "Error"
+			} else if doc.Name == "F" {
+				doc.Name = "Fatal"
+			} else if doc.Name == "W" {
+				doc.Name = "Warn"
+			}
+		}
+		data[category] = append(data[category], doc)
+	}
+	return data, err
 }

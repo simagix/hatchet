@@ -26,27 +26,25 @@ type Chart struct {
 }
 
 var charts = map[string]Chart{
-	"instruction":          {0, "select a chart", "", ""},
-	"ops":                  {1, "Average Operation Time",
-		"A chart displaying average operations time over a period of time", "/ops?type=stats"},
-	"slowops":              {2, "Slow Operation Counts",
-		"A chart displaying total counts and duration of operations", "/slowops?type=stats"},
-	"slowops-counts":       {3, "Operation Counts",
-		"A chart displaying total counts of operations", "/slowops?type=counts"},
+	"instruction": {0, "select a chart", "", ""},
+	"ops": {1, "Average Operation Time",
+		"Display average operations time over a period of time", "/ops?type=stats"},
+	"reslen": {2, "Response Length ",
+		"Display total response length from client IPs", "/reslen?type=ips"},
+	"ops-counts": {3, "Operation Counts",
+		"Display total counts of operations", "/ops?type=counts"},
 	"connections-accepted": {4, "Accepted Connections",
-		"A chart displaying accepted connections from clients", "/connections?type=accepted"},
-	"connections-time":     {5, "Accepted & Ended Connections",
-		"A chart displaying accepted vs ended connections over a period of time", "/connections?type=time"},
-	"connections-total":    {6, "Accepted & Ended from IPs",
-		"A chart displaying accepted vs ended connections by client IPs", "/connections?type=total"},
-	"reslen":               {7, "Response Length in MB",
-		"A chart displaying total response length from client IPs", "/reslen?type=ips"},
+		"Display accepted connections from clients", "/connections?type=accepted"},
+	"connections-time": {5, "Accepted & Ended Connections",
+		"Display accepted vs ended connections over a period of time", "/connections?type=time"},
+	"connections-total": {6, "Accepted & Ended from IPs",
+		"Display accepted vs ended connections by client IPs", "/connections?type=total"},
 }
 
 // ChartsHandler responds to charts API calls
 func ChartsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	/** APIs
-	 * /hatchets/{hatchet}/charts/slowops
+	 * /hatchets/{hatchet}/charts/ops
 	 */
 	hatchetName := params.ByName("hatchet")
 	attr := params.ByName("attr")
@@ -68,36 +66,10 @@ func ChartsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Par
 	}
 
 	if attr == "ops" {
-		chartType := "ops"
-		docs, err := dbase.GetAverageOpTime(duration)
-		if len(docs) > 0 {
-			start = docs[0].Date
-			end = docs[len(docs)-1].Date
-		}
-		if err != nil {
-			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
-			return
-		}
-		templ, err := GetChartTemplate(BUBBLE_CHART)
-		if err != nil {
-			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
-			return
-		}
-		doc := map[string]interface{}{"Hatchet": hatchetName, "OpCounts": docs, "Chart": charts[chartType],
-			"Type": chartType, "Summary": summary, "Start": start, "End": end, "VAxisLabel": "seconds"}
-		if err = templ.Execute(w, doc); err != nil {
-			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
-			return
-		}
-		return
-	} else if attr == "slowops" {
 		chartType := r.URL.Query().Get("type")
-		if dbase.GetVerbose() {
-			log.Println("type", chartType, "duration", duration)
-		}
-		if chartType == "" || chartType == "stats" {
-			chartType = "slowops"
-			docs, err := dbase.GetSlowOpsCounts(duration)
+		if chartType == "stats" {
+			chartType := "ops"
+			docs, err := dbase.GetAverageOpTime(duration)
 			if len(docs) > 0 {
 				start = docs[0].Date
 				end = docs[len(docs)-1].Date
@@ -112,14 +84,13 @@ func ChartsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Par
 				return
 			}
 			doc := map[string]interface{}{"Hatchet": hatchetName, "OpCounts": docs, "Chart": charts[chartType],
-				"Type": chartType, "Summary": summary, "Start": start, "End": end, "VAxisLabel": "count"}
+				"Type": chartType, "Summary": summary, "Start": start, "End": end, "VAxisLabel": "seconds"}
 			if err = templ.Execute(w, doc); err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 				return
 			}
-			return
 		} else if chartType == "counts" {
-			chartType = "slowops-counts"
+			chartType = "ops-counts"
 			docs, err := dbase.GetOpsCounts(duration)
 			if err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
@@ -138,6 +109,7 @@ func ChartsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Par
 			}
 			return
 		}
+		return
 	} else if attr == "connections" {
 		chartType := r.URL.Query().Get("type")
 		if dbase.GetVerbose() {

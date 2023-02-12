@@ -75,7 +75,7 @@ const headers = `<!DOCTYPE html>
       font-family: Consolas, monaco, monospace;
     }
     .btn {
-      background-color: #f2f2f2;
+      background-color: transparent;
       border: none;
       outline:none;
       color: #4285F4;
@@ -85,19 +85,7 @@ const headers = `<!DOCTYPE html>
     }
     .btn:hover {
       color: #DB4437;
-	  cursor: hand;
-    }
-    .btn2 {
-      background-color: #f2f2f2;
-      color: #4285F4;
-      cursor: pointer;
-      font-size: .8em;
-      padding: 5px;
-      border-radius: .25em;
-    }
-    .btn2:hover {
-      color: #DB4437;
-	    cursor: hand;
+      cursor: hand;
     }
     .button {
       font-family: "Trebuchet MS";
@@ -105,7 +93,7 @@ const headers = `<!DOCTYPE html>
       border: none; 
       outline: none;
       color: #f2f2f2;
-      padding: 5px 15px;
+      padding: 2px 15px;
       margin: 2px 10px;
       cursor: pointer;
       font-size: 1em;
@@ -158,17 +146,17 @@ const headers = `<!DOCTYPE html>
     }
     h1 {
       font-family: "Trebuchet MS";
-      font-size: 1.7em;
+      font-size: 1.6em;
       font-weight: bold;
     }
     h2 {
       font-family: "Trebuchet MS";
-      font-size: 1.5em;
+      font-size: 1.4em;
       font-weight: bold;
     }
     h3 {
       font-family: "Trebuchet MS";
-      font-size: 1.25em;
+      font-size: 1.2em;
       font-weight: bold;
     }
     h4 {
@@ -195,11 +183,7 @@ const headers = `<!DOCTYPE html>
       cursor: pointer;
       border-radius: .25em;
       font-size: 1em;
-      padding: 5px 5px;
-    }
-    .hatchet-sel {
-      font-size: 1.25em;
-      padding: 10px 20px;
+      padding: 2px 2px;
     }
     .rotate45:hover {
       -webkit-transform: rotate(45deg);
@@ -238,6 +222,11 @@ func getContentHTML() string {
 	}
 </script>
 <div align='center'>
+	<button id="title" onClick="javascript:location.href='/'; return false;"
+		class="btn" style="float: center;"><i class="fa fa-home"></i> Hatchet</button>
+
+  <button id="logs" onClick="javascript:location.href='/hatchets/{{.Hatchet}}/stats/audit'; return false;"
+		class="btn" style="float: left;"><i class="fa fa-shield"></i> Audit</button>
 	<button id="stats" onClick="javascript:location.href='/hatchets/{{.Hatchet}}/stats/slowops'; return false;"
 		class="btn" style="float: left;"><i class="fa fa-info"></i> Stats</button>
 	<button id="logs" onClick="javascript:location.href='/hatchets/{{.Hatchet}}/logs/slowops'; return false;"
@@ -245,9 +234,6 @@ func getContentHTML() string {
 	<button id="search" class="btn" style="float: left;"
 		onClick="javascript:location.href='/hatchets/{{.Hatchet}}/logs/all?component=NONE'; return false;">
 		<i class="fa fa-search"></i> Search</button>
-
-	<button id="title" onClick="javascript:location.href='/'; return false;"
-		class="btn" style="float: center;"><i class="fa fa-home"></i> Hatchet</button>
 
 	<select id='nextChart' style="float: right;" onchange='gotoChart()'>`
 	items := []Chart{}
@@ -268,7 +254,7 @@ func getContentHTML() string {
 
 	html += `</select>
 	<button id="chart" onClick="javascript:location.href='/hatchets/{{.Hatchet}}/charts/ops?type=stats'; return false;" 
-    class="btn" style="float: right;"><i class="fa fa-bar-chart"></i></button>
+    	class="btn" style="float: right;"><i class="fa fa-bar-chart"></i></button>
 </div>
 <p/>
 <script>
@@ -297,7 +283,7 @@ func getMainPage() string {
 		if(value == "") {
 			return;
 		}
-		window.location.href='/hatchets/' + value + '/stats/slowops'
+		window.location.href='/hatchets/' + value + '/stats/audit'
 	} 
 </script>
 
@@ -313,10 +299,19 @@ func getMainPage() string {
 <hr/>
 <h4 align='center'>{{.Version}}</h4>
 
+<h3>Reports</h3>
+    <table width='100%'>
+      <tr><th></th><th>Title</th><th>Description</th></tr>
+      <tr><td align=center><i class="fa fa-shield"></i></td><td>Audit</td><td>Security and audits</td></tr>
+      <tr><td align=center><i class="fa fa-bar-chart"></i></td><td>Charts</td><td>Stats charts</td></tr>
+      <tr><td align=center><i class="fa fa-search"></i></td><td>Search</td><td>Search logs</td></tr>
+      <tr><td align=center><i class="fa fa-info"></i></td><td>Stats</td><td>Slow operations summary</td></tr>
+      <tr><td align=center><i class="fa fa-list"></i></td><td>TopN</td><td>Slowest 25 operations</td></tr>
+    </table>
 <h3>Charts</h3>
     <table width='100%'>
       <tr><th></th><th>Title</th><th>Description</th></tr>`
-	size := len(charts)-1
+	size := len(charts) - 1
 	tables := make([]Chart, size)
 	for k, chart := range charts {
 		if k == "instruction" {
@@ -342,9 +337,10 @@ func getMainPage() string {
 <ul class="api">
 	<li>/api/hatchet/v1.0/hatchets/{hatchet}/logs/all[?component={str}&context={str}&duration={date},{date}&severity={str}&limit=[{offset},]{int}]</li>
 	<li>/api/hatchet/v1.0/hatchets/{hatchet}/logs/slowops[?topN={int}]</li>
+	<li>/api/hatchet/v1.0/hatchets/{hatchet}/stats/audit</li>
 	<li>/api/hatchet/v1.0/hatchets/{hatchet}/stats/slowops[?COLLSCAN={bool}&orderBy={str}]</li>
 </ul>
-<hr/>
+	<div align='center'><hr/><p/>@simagix</div>
 `
 	template += fmt.Sprintf(`<div class="footer"><img valign="middle" src='data:image/png;base64,%v'/> Ken Chen</div>`, CHEN_ICO)
 	return template

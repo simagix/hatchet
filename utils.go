@@ -64,11 +64,15 @@ func EscapeString(value string) string {
 func GetDateSubString(start string, end string) string {
 	var err error
 	substr := "SUBSTR(date, 1, 16)"
-	var stime, etime time.Time
-	if stime, err = time.Parse(time.RFC3339, start); err != nil {
+	if len(start) < 16 || len(end) < 16 {
 		return substr
 	}
-	if etime, err = time.Parse(time.RFC3339, end); err != nil {
+	var stime, etime time.Time
+	layout := "2006-01-02T15:04"
+	if stime, err = time.Parse(layout, start[:16]); err != nil {
+		return substr
+	}
+	if etime, err = time.Parse(layout, end[:16]); err != nil {
 		return substr
 	}
 	minutes := etime.Sub(stime).Minutes()

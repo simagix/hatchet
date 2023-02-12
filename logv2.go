@@ -248,7 +248,7 @@ func (ptr *Logv2) Analyze(filename string) error {
 	if err = dbase.UpdateHatchetInfo(info); err != nil {
 		return err
 	}
-	if err = dbase.InsertOps(); err != nil {
+	if err = dbase.CreateMetaData(); err != nil {
 		return err
 	}
 	if !ptr.testing && !ptr.legacy {

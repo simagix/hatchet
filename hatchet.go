@@ -3,15 +3,17 @@
 package hatchet
 
 import (
+	"database/sql"
 	"encoding/base64"
 	"flag"
 	"fmt"
 	"log"
 	"net"
 	"net/http"
+	"regexp"
 
 	"github.com/julienschmidt/httprouter"
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/mattn/go-sqlite3"
 )
 
 const (
@@ -47,6 +49,16 @@ func Run(fullVersion string) {
 		*dbfile = "file::memory:?cache=shared"
 		*web = true
 	}
+
+	regex := func(re, s string) (bool, error) {
+		return regexp.MatchString(re, s)
+	}
+	sql.Register("sqlite3_extended",
+		&sqlite3.SQLiteDriver{
+			ConnectHook: func(conn *sqlite3.SQLiteConn) error {
+				return conn.RegisterFunc("regexp", regex, true)
+			},
+		})
 
 	logv2 := Logv2{version: fullVersion, dbfile: *dbfile, verbose: *verbose, legacy: *legacy}
 	instance = &logv2

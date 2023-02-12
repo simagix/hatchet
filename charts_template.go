@@ -7,11 +7,6 @@ import (
 	"time"
 )
 
-type NameValue struct {
-	Name  string
-	Value int
-}
-
 func getFooter() string {
 	summary := "{{.Summary}}"
 	return fmt.Sprintf(`<div class="footer"><img valign="middle" src='data:image/png;base64,%v'> %v</img></div>`,
@@ -29,11 +24,13 @@ func GetChartTemplate(chartType string) (*template.Template, error) {
 		html += getConnectionsChart()
 	}
 	html += `
-		<input type='datetime-local' id='start' value='{{.Start}}'></input>
-		<input type='datetime-local' id='end' value='{{.End}}'></input>
-		<button onClick="refreshChart(); return false;" class="button">Refresh</button>
-		<div id='hatchetChart' align='center' width='100%'/>
-		</body></html>`
+		<div align=left>
+			<input type='datetime-local' id='start' value='{{.Start}}'></input>
+			<input type='datetime-local' id='end' value='{{.End}}'></input>
+			<button onClick="refreshChart(); return false;" class="button">Refresh</button>
+			<div id='hatchetChart' align='center' width='100%'/>
+		</div></body></html>`
+
 	return template.New("hatchet").Funcs(template.FuncMap{
 		"descr": func(v OpCount) template.HTML {
 			if v.Filter == "" {

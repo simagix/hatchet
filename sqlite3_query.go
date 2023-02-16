@@ -1,4 +1,7 @@
-// Copyright 2022-present Kuei-chun Chen. All rights reserved.
+/*
+ * Copyright 2022-present Kuei-chun Chen. All rights reserved.
+ * sqlite3_query.go
+ */
 
 package hatchet
 
@@ -190,11 +193,15 @@ func (ptr *SQLite3DB) GetSlowestLogs(topN int) ([]LegacyLog, error) {
 	return docs, err
 }
 
-func (ptr *SQLite3DB) GetAverageOpTime(duration string) ([]OpCount, error) {
+func (ptr *SQLite3DB) GetAverageOpTime(op string, duration string) ([]OpCount, error) {
 	docs := []OpCount{}
 	db := ptr.db
 	durcond := ""
 	var substr string
+	opcond := "op != ''"
+	if op != "" {
+		opcond = fmt.Sprintf("op = '%v'", op)
+	}
 	if duration != "" {
 		toks := strings.Split(duration, ",")
 		durcond = fmt.Sprintf("AND date BETWEEN '%v' AND '%v'", toks[0], toks[1])
@@ -204,7 +211,7 @@ func (ptr *SQLite3DB) GetAverageOpTime(duration string) ([]OpCount, error) {
 		substr = GetDateSubString(info.Start, info.End)
 	}
 	query := fmt.Sprintf(`SELECT %v, AVG(milli), COUNT(*), op, ns, filter FROM %v 
-		WHERE op != '' %v GROUP by %v, op, ns, filter;`, substr, ptr.hatchetName, durcond, substr)
+		WHERE %v %v GROUP by %v, op, ns, filter;`, substr, ptr.hatchetName, opcond, durcond, substr)
 	if ptr.verbose {
 		log.Println(query)
 	}
@@ -373,18 +380,25 @@ func (ptr *SQLite3DB) GetOpsCounts(duration string) ([]NameValue, error) {
 	return docs, err
 }
 
-// GetReslenByClients returns total response length by connections
-func (ptr *SQLite3DB) GetReslenByClients(duration string) ([]NameValue, error) {
+// GetReslenByIP returns total response length by ip
+func (ptr *SQLite3DB) GetReslenByIP(ip string, duration string) ([]NameValue, error) {
 	hatchetName := ptr.hatchetName
 	docs := []NameValue{}
-	var durcond string
+	var query, durcond, ipcond string
 	if duration != "" {
 		toks := strings.Split(duration, ",")
 		durcond = fmt.Sprintf("AND a.date BETWEEN '%v' AND '%v'", toks[0], toks[1])
 	}
-	query := fmt.Sprintf(`SELECT b.ip, SUM(a.reslen) reslen FROM %v a, %v_clients b
-			WHERE a.op != "" AND reslen > 0 AND a.context = b.context %v GROUP by b.ip ORDER BY reslen DESC;`,
-		hatchetName, hatchetName, durcond)
+	if ip != "" {
+		ipcond = fmt.Sprintf("AND b.ip = '%v'", ip)
+		query = fmt.Sprintf(`SELECT a.context, SUM(a.reslen) reslen FROM %v a, %v_clients b
+				WHERE reslen > 0 AND a.context = b.context %v %v GROUP by a.context ORDER BY reslen DESC;`,
+			hatchetName, hatchetName, ipcond, durcond)
+	} else {
+		query = fmt.Sprintf(`SELECT b.ip, SUM(a.reslen) reslen FROM %v a, %v_clients b
+				WHERE reslen > 0 AND a.context = b.context %v GROUP by b.ip ORDER BY reslen DESC;`,
+			hatchetName, hatchetName, durcond)
+	}
 	db := ptr.db
 	if ptr.verbose {
 		log.Println(query)
@@ -406,10 +420,49 @@ func (ptr *SQLite3DB) GetReslenByClients(duration string) ([]NameValue, error) {
 	return docs, err
 }
 
-func (ptr *SQLite3DB) GetAuditData() (map[string][]NameValue, error) {
+// GetReslenByNamespace returns total response length by ns
+func (ptr *SQLite3DB) GetReslenByNamespace(ns string, duration string) ([]NameValue, error) {
+	hatchetName := ptr.hatchetName
+	docs := []NameValue{}
+	var query, durcond, nscond string
+	if duration != "" {
+		toks := strings.Split(duration, ",")
+		durcond = fmt.Sprintf("AND date BETWEEN '%v' AND '%v'", toks[0], toks[1])
+	}
+	if ns != "" {
+		nscond = fmt.Sprintf("AND ns = '%v'", ns)
+		query = fmt.Sprintf(`SELECT ns, SUM(reslen) reslen FROM %v WHERE op != "" AND reslen > 0 %v %v GROUP by ns ORDER BY reslen DESC;`,
+			hatchetName, nscond, durcond)
+	} else {
+		query = fmt.Sprintf(`SELECT ns, SUM(reslen) reslen FROM %v WHERE op != "" AND reslen > 0 %v GROUP by ns ORDER BY reslen DESC;`,
+			hatchetName, durcond)
+	}
+	db := ptr.db
+	if ptr.verbose {
+		log.Println(query)
+	}
+	rows, err := db.Query(query)
+	if err != nil {
+		return docs, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var doc NameValue
+		var conns float64
+		if err = rows.Scan(&doc.Name, &conns); err != nil {
+			return docs, err
+		}
+		doc.Value = int(conns)
+		docs = append(docs, doc)
+	}
+	return docs, err
+}
+
+func (ptr *SQLite3DB) GetAuditData() (map[string][]NameValues, error) {
 	var err error
-	data := map[string][]NameValue{}
-	query := fmt.Sprintf(`SELECT type, name, value FROM %v_audit ORDER BY type, value DESC;`, ptr.hatchetName)
+	data := map[string][]NameValues{}
+	query := fmt.Sprintf(`SELECT type, name, value FROM %v_audit
+		WHERE type IN ('exception', 'failed', 'op', 'duration') ORDER BY type, value DESC;`, ptr.hatchetName)
 	if ptr.verbose {
 		log.Println(query)
 	}
@@ -418,13 +471,14 @@ func (ptr *SQLite3DB) GetAuditData() (map[string][]NameValue, error) {
 	if err != nil {
 		return data, err
 	}
-	defer rows.Close()
 	for rows.Next() {
 		var category string
-		var doc NameValue
-		if err = rows.Scan(&category, &doc.Name, &doc.Value); err != nil {
+		var doc NameValues
+		var value int
+		if err = rows.Scan(&category, &doc.Name, &value); err != nil {
 			return data, err
 		}
+		doc.Values = append(doc.Values, value)
 		if category == "exception" {
 			if doc.Name == "E" {
 				doc.Name = "Error"
@@ -436,5 +490,50 @@ func (ptr *SQLite3DB) GetAuditData() (map[string][]NameValue, error) {
 		}
 		data[category] = append(data[category], doc)
 	}
+	rows.Close()
+
+	category := "ip"
+	query = fmt.Sprintf(`SELECT a.name ip, a.value count, b.value reslen FROM %v_audit a, %v_audit b WHERE a.type == '%v' AND b.type = 'reslen-ip' AND a.name = b.name ORDER BY reslen DESC;`,
+		ptr.hatchetName, ptr.hatchetName, category)
+	if ptr.verbose {
+		log.Println(query)
+	}
+	rows, err = db.Query(query)
+	if err != nil {
+		return data, err
+	}
+	for rows.Next() {
+		var doc NameValues
+		var val1, val2 int
+		if err = rows.Scan(&doc.Name, &val1, &val2); err != nil {
+			return data, err
+		}
+		doc.Values = append(doc.Values, val1)
+		doc.Values = append(doc.Values, val2)
+		data[category] = append(data[category], doc)
+	}
+	rows.Close()
+
+	category = "ns"
+	query = fmt.Sprintf(`SELECT a.name ns, a.value count, b.value reslen FROM %v_audit a, %v_audit b WHERE a.type == '%v' AND b.type = 'reslen-ns' AND a.name = b.name ORDER BY reslen DESC;`,
+		ptr.hatchetName, ptr.hatchetName, category)
+	if ptr.verbose {
+		log.Println(query)
+	}
+	rows, err = db.Query(query)
+	if err != nil {
+		return data, err
+	}
+	for rows.Next() {
+		var doc NameValues
+		var val1, val2 int
+		if err = rows.Scan(&doc.Name, &val1, &val2); err != nil {
+			return data, err
+		}
+		doc.Values = append(doc.Values, val1)
+		doc.Values = append(doc.Values, val2)
+		data[category] = append(data[category], doc)
+	}
+	defer rows.Close()
 	return data, err
 }

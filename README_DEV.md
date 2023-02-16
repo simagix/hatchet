@@ -35,8 +35,8 @@ The easiest way is to go to the home page `http://localhost:3721` and following 
 - `/hatchets/{hatchet}/charts/ops?type={}` views average ops time chart, types are:
   - stats
   - counts
-- `/hatchets/{hatchet}/charts/reslen?type={}` views response length chart, types are:
-  - ips
+- `/hatchets/{hatchet}/charts/reslen-ip?ip={}` views response length by IPs chart, types are:
+- `/hatchets/{hatchet}/charts/reslen-ns?ns={}` views response length by IPs chart, types are:
 ```
 
 ## Query SQLite3 Database
@@ -53,7 +53,7 @@ SELECT * FROM mongod_1b3d5f7;
 ```
 
 ```sqlite3
-SELECT date, severity, component, context, substr(message, 1, 60) message FROM mongod_1b3d5f7;
+SELECT date, severity, component, context, SUBSTR(message, 1, 60) message FROM mongod_1b3d5f7;
 ```
 
 ```sqlite3
@@ -78,6 +78,16 @@ SELECT SUBSTR(date, 1, 16), COUNT(op), op, ns, filter
 SELECT SUBSTR(date, 1, 16), COUNT(op), op, ns
     FROM mongod_1b3d5f7 where op != ''
     GROUP by SUBSTR(date, 1, 16), op, ns;
+```
+
+### Query Long Lasting Connection Duration and Relen
+```sqlite3
+SELECT ip, context, STRFTIME('%s', SUBSTR(etm,1,19))-STRFTIME('%s', SUBSTR(btm,1,19)) dur, reslen 
+  FROM (
+    SELECT MAX(a.date) etm, MIN(a.date) btm, a.context context, b.ip, SUM(a.reslen) reslen
+      FROM mongod_1b3d5f7 a, mongod_1b3d5f7_clients b WHERE a.context = b.context GROUP BY a.context
+  ) 
+  WHERE dur > 0 AND reslen > 0 order by dur DESC, reslen DESC limit 23;
 ```
 
 ## Use SQLite3 API

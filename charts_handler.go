@@ -1,4 +1,7 @@
-// Copyright 2022-present Kuei-chun Chen. All rights reserved.
+/*
+ * Copyright 2022-present Kuei-chun Chen. All rights reserved.
+ * charts_handler.go
+ */
 
 package hatchet
 
@@ -16,6 +19,14 @@ const (
 	BAR_CHART    = "bar_chart"
 	BUBBLE_CHART = "bubble_chart"
 	PIE_CHART    = "pie_chart"
+
+	T_OPS            = "ops"
+	T_RESLEN_UP      = "reslen-ip"
+	T_OPS_COUNTS     = "ops-counts"
+	T_CONNS_ACCEPTED = "connections-accepted"
+	T_CONNS_TIME     = "connections-time"
+	T_CONNS_TOTAL    = "connections-total"
+	T_RESLEN_NS      = "reslen-ns"
 )
 
 type Chart struct {
@@ -27,18 +38,20 @@ type Chart struct {
 
 var charts = map[string]Chart{
 	"instruction": {0, "select a chart", "", ""},
-	"ops": {1, "Average Operation Time",
+	T_OPS: {1, "Average Operation Time",
 		"Display average operations time over a period of time", "/ops?type=stats"},
-	"reslen": {2, "Response Length ",
-		"Display total response length from client IPs", "/reslen?type=ips"},
-	"ops-counts": {3, "Operation Counts",
+	T_OPS_COUNTS: {2, "Operation Counts",
 		"Display total counts of operations", "/ops?type=counts"},
-	"connections-accepted": {4, "Accepted Connections",
+	"connections-accepted": {3, "Accepted Connections",
 		"Display accepted connections from clients", "/connections?type=accepted"},
-	"connections-time": {5, "Accepted & Ended Connections",
+	T_CONNS_TIME: {4, "Accepted & Ended Connections",
 		"Display accepted vs ended connections over a period of time", "/connections?type=time"},
-	"connections-total": {6, "Accepted & Ended from IPs",
+	T_CONNS_TOTAL: {5, "Accepted & Ended from IPs",
 		"Display accepted vs ended connections by client IPs", "/connections?type=total"},
+	T_RESLEN_UP: {6, "Response Length by IPs ",
+		"Display total response length by client IPs", "/reslen-ip?ip="},
+	T_RESLEN_NS: {7, "Response Length by Namespaces ",
+		"Display total response length by namespaces", "/reslen-ns?ns="},
 }
 
 // ChartsHandler responds to charts API calls
@@ -65,11 +78,12 @@ func ChartsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Par
 		start, end = getStartEndDates(duration)
 	}
 
-	if attr == "ops" {
+	if attr == T_OPS {
 		chartType := r.URL.Query().Get("type")
+		op := r.URL.Query().Get("op")
 		if chartType == "stats" {
-			chartType := "ops"
-			docs, err := dbase.GetAverageOpTime(duration)
+			chartType := T_OPS
+			docs, err := dbase.GetAverageOpTime(op, duration)
 			if len(docs) > 0 {
 				start = docs[0].Date
 				end = docs[len(docs)-1].Date
@@ -90,7 +104,7 @@ func ChartsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Par
 				return
 			}
 		} else if chartType == "counts" {
-			chartType = "ops-counts"
+			chartType = T_OPS_COUNTS
 			docs, err := dbase.GetOpsCounts(duration)
 			if err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
@@ -154,13 +168,13 @@ func ChartsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Par
 			}
 			return
 		}
-	} else if attr == "reslen" {
-		chartType := r.URL.Query().Get("type")
+	} else if attr == T_RESLEN_UP {
+		ip := r.URL.Query().Get("ip")
+		chartType := attr
 		if dbase.GetVerbose() {
 			log.Println("type", chartType, "duration", duration)
 		}
-		chartType = "reslen"
-		docs, err := dbase.GetReslenByClients(duration)
+		docs, err := dbase.GetReslenByIP(ip, duration)
 		if err != nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return
@@ -170,7 +184,38 @@ func ChartsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Par
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return
 		}
-		doc := map[string]interface{}{"Hatchet": hatchetName, "NameValues": docs, "Chart": charts[chartType],
+		chart := charts[chartType]
+		if ip != "" {
+			chart.Title += fmt.Sprintf(" (%v)", ip)
+		}
+		doc := map[string]interface{}{"Hatchet": hatchetName, "NameValues": docs, "Chart": chart,
+			"Type": chartType, "Summary": summary, "Start": start, "End": end}
+		if err = templ.Execute(w, doc); err != nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+			return
+		}
+		return
+	} else if attr == T_RESLEN_NS {
+		ns := r.URL.Query().Get("ns")
+		chartType := attr
+		if dbase.GetVerbose() {
+			log.Println("type", chartType, "duration", duration)
+		}
+		docs, err := dbase.GetReslenByNamespace(ns, duration)
+		if err != nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+			return
+		}
+		templ, err := GetChartTemplate(PIE_CHART)
+		if err != nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+			return
+		}
+		chart := charts[chartType]
+		if ns != "" {
+			chart.Title += fmt.Sprintf(" (%v)", ns)
+		}
+		doc := map[string]interface{}{"Hatchet": hatchetName, "NameValues": docs, "Chart": chart,
 			"Type": chartType, "Summary": summary, "Start": start, "End": end}
 		if err = templ.Execute(w, doc); err != nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})

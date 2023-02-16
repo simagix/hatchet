@@ -1,9 +1,18 @@
-// Copyright 2022-present Kuei-chun Chen. All rights reserved.
+/*
+ * Copyright 2022-present Kuei-chun Chen. All rights reserved.
+ * database.go
+ */
+
 package hatchet
 
 type NameValue struct {
 	Name  string
 	Value int
+}
+
+type NameValues struct {
+	Name   string
+	Values []int
 }
 
 type Database interface {
@@ -12,8 +21,8 @@ type Database interface {
 	Commit() error
 	CreateMetaData() error
 	GetAcceptedConnsCounts(duration string) ([]NameValue, error)
-	GetAuditData() (map[string][]NameValue, error)
-	GetAverageOpTime(duration string) ([]OpCount, error)
+	GetAuditData() (map[string][]NameValues, error)
+	GetAverageOpTime(op string, duration string) ([]OpCount, error)
 	GetClientPreparedStmt() string
 	GetConnectionStats(chartType string, duration string) ([]Remote, error)
 	GetHatchetInfo() HatchetInfo
@@ -22,7 +31,8 @@ type Database interface {
 	GetHatchetPreparedStmt() string
 	GetLogs(opts ...string) ([]LegacyLog, error)
 	GetOpsCounts(duration string) ([]NameValue, error)
-	GetReslenByClients(duration string) ([]NameValue, error)
+	GetReslenByNamespace(ip string, duration string) ([]NameValue, error)
+	GetReslenByIP(ip string, duration string) ([]NameValue, error)
 	GetSlowOps(orderBy string, order string, collscan bool) ([]OpStat, error)
 	GetSlowestLogs(topN int) ([]LegacyLog, error)
 	GetVerbose() bool
@@ -36,4 +46,3 @@ type Database interface {
 func GetDatabase(hatchetName string) (Database, error) {
 	return GetSQLite3DB(hatchetName)
 }
-

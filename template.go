@@ -1,4 +1,8 @@
-// Copyright 2022-present Kuei-chun Chen. All rights reserved.
+/*
+ * Copyright 2022-present Kuei-chun Chen. All rights reserved.
+ * template.go
+ */
+
 package hatchet
 
 import (
@@ -71,15 +75,16 @@ const headers = `<!DOCTYPE html>
     }
     tr:nth-child(even) {background-color: #fff;}
     tr:nth-child(odd) {background-color: #f2f2f2;}
-    .api {
+    ul, ol {
       font-family: Consolas, monaco, monospace;
+      font-size: .8em;
     }
     .btn {
       background-color: transparent;
       border: none;
       outline:none;
       color: #4285F4;
-      padding: 5px 10px;
+      padding: 5px 5px;
       cursor: pointer;
       font-size: 16px;
     }
@@ -297,16 +302,14 @@ func getMainPage() string {
 	</select>
 </div>
 <hr/>
-<h4 align='center'>{{.Version}}</h4>
-
 <h3>Reports</h3>
     <table width='100%'>
       <tr><th></th><th>Title</th><th>Description</th></tr>
-      <tr><td align=center><i class="fa fa-shield"></i></td><td>Audit</td><td>Security and audits</td></tr>
-      <tr><td align=center><i class="fa fa-bar-chart"></i></td><td>Charts</td><td>Stats charts</td></tr>
-      <tr><td align=center><i class="fa fa-search"></i></td><td>Search</td><td>Search logs</td></tr>
-      <tr><td align=center><i class="fa fa-info"></i></td><td>Stats</td><td>Slow operations summary</td></tr>
-      <tr><td align=center><i class="fa fa-list"></i></td><td>TopN</td><td>Slowest 25 operations</td></tr>
+      <tr><td align=center><i class="fa fa-shield"></i></td><td>Audit</td><td>Display information on security audits and performance metrics</td></tr>
+      <tr><td align=center><i class="fa fa-bar-chart"></i></td><td>Charts</td><td>A number of charts are available for security audits and performance metrics</td></tr>
+      <tr><td align=center><i class="fa fa-search"></i></td><td>Search</td><td>Powerful log searching function with key metrics highlighted</td></tr>
+      <tr><td align=center><i class="fa fa-info"></i></td><td>Stats</td><td>Summary of slow operational query patterns and duration</td></tr>
+      <tr><td align=center><i class="fa fa-list"></i></td><td>TopN</td><td>Display the slowest 23 operation logs</td></tr>
     </table>
 <h3>Charts</h3>
     <table width='100%'>
@@ -340,7 +343,7 @@ func getMainPage() string {
 	<li>/api/hatchet/v1.0/hatchets/{hatchet}/stats/audit</li>
 	<li>/api/hatchet/v1.0/hatchets/{hatchet}/stats/slowops[?COLLSCAN={bool}&orderBy={str}]</li>
 </ul>
-	<div align='center'><hr/><p/>@simagix</div>
+<h4 align='center'><hr/>{{.Version}}</h4>
 `
 	template += fmt.Sprintf(`<div class="footer"><img valign="middle" src='data:image/png;base64,%v'/> Ken Chen</div>`, CHEN_ICO)
 	return template

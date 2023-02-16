@@ -1,4 +1,7 @@
-// Copyright 2022-present Kuei-chun Chen. All rights reserved.
+/*
+ * Copyright 2022-present Kuei-chun Chen. All rights reserved.
+ * sqlite3.go
+ */
 
 package hatchet
 
@@ -120,42 +123,64 @@ func (ptr *SQLite3DB) CreateMetaData() error {
 		return err
 	}
 
-	log.Printf("insert into %v_audit\n", ptr.hatchetName)
-	istmt = fmt.Sprintf(`INSERT INTO %v_audit
-		SELECT 'ip', ip, SUM(accepted) open FROM %v_clients GROUP by ip ORDER BY open DESC`, ptr.hatchetName, ptr.hatchetName)
-	if _, err = ptr.db.Exec(istmt); err != nil {
-		return err
-	}
-
+	log.Printf("insert exception into %v_audit\n", ptr.hatchetName)
 	istmt = fmt.Sprintf(`INSERT INTO %v_audit
 		SELECT 'exception', severity, COUNT(*) count FROM %v WHERE severity IN ('W', 'E', 'F') 
-		GROUP by severity ORDER BY count DESC`, ptr.hatchetName, ptr.hatchetName)
+		GROUP by severity`, ptr.hatchetName, ptr.hatchetName)
 	if _, err = ptr.db.Exec(istmt); err != nil {
 		return err
 	}
 
+	log.Printf("insert failed into %v_audit\n", ptr.hatchetName)
 	istmt = fmt.Sprintf(`INSERT INTO %v_audit
-		SELECT 'failed', SUBSTR(message, 1, INSTR(message, 'failed')+6) failed, COUNT(*) count FROM %v 
-		WHERE message REGEXP "(\w\sfailed\s)" GROUP by failed ORDER BY count DESC`, ptr.hatchetName, ptr.hatchetName)
+		SELECT 'failed', SUBSTR(message, 1, INSTR(message, 'failed')+6) matched, COUNT(*) count FROM %v 
+		WHERE message REGEXP "(\w\sfailed\s)" GROUP by matched`, ptr.hatchetName, ptr.hatchetName)
 	if _, err = ptr.db.Exec(istmt); err != nil {
 		return err
 	}
 
+	log.Printf("insert op into %v_audit\n", ptr.hatchetName)
 	istmt = fmt.Sprintf(`INSERT INTO %v_audit
-		SELECT 'ns', ns, COUNT(*) count FROM %v WHERE op != "" GROUP by ns ORDER BY count DESC`, ptr.hatchetName, ptr.hatchetName)
+		SELECT 'op', op, COUNT(*) count FROM %v WHERE op != '' GROUP by op`, ptr.hatchetName, ptr.hatchetName)
 	if _, err = ptr.db.Exec(istmt); err != nil {
 		return err
 	}
 
+	log.Printf("insert ip into %v_audit\n", ptr.hatchetName)
 	istmt = fmt.Sprintf(`INSERT INTO %v_audit
-		SELECT 'reslen', b.ip, SUM(a.reslen) reslen FROM %v a, %v_clients b WHERE a.op != "" AND reslen > 0 AND a.context = b.context GROUP by b.ip ORDER BY reslen DESC`,
+		SELECT 'ip', ip, SUM(accepted) open FROM %v_clients GROUP by ip`, ptr.hatchetName, ptr.hatchetName)
+	if _, err = ptr.db.Exec(istmt); err != nil {
+		return err
+	}
+
+	log.Printf("insert reslen-ip into %v_audit\n", ptr.hatchetName)
+	istmt = fmt.Sprintf(`INSERT INTO %v_audit
+		SELECT 'reslen-ip', b.ip, SUM(a.reslen) reslen FROM %v a, %v_clients b WHERE a.op != "" AND reslen > 0 AND a.context = b.context GROUP by b.ip`,
 		ptr.hatchetName, ptr.hatchetName, ptr.hatchetName)
 	if _, err = ptr.db.Exec(istmt); err != nil {
 		return err
 	}
 
+	log.Printf("insert ns into %v_audit\n", ptr.hatchetName)
 	istmt = fmt.Sprintf(`INSERT INTO %v_audit
-		SELECT 'op', op, COUNT(*) count FROM %v WHERE op != '' GROUP by op ORDER BY count DESC`, ptr.hatchetName, ptr.hatchetName)
+		SELECT 'ns', ns, COUNT(*) count FROM %v WHERE op != "" GROUP by ns`, ptr.hatchetName, ptr.hatchetName)
+	if _, err = ptr.db.Exec(istmt); err != nil {
+		return err
+	}
+
+	log.Printf("insert reslen-ns into %v_audit\n", ptr.hatchetName)
+	istmt = fmt.Sprintf(`INSERT INTO %v_audit
+		SELECT 'reslen-ns', ns, SUM(reslen) reslen FROM %v WHERE ns != "" AND reslen > 0 GROUP by ns`, ptr.hatchetName, ptr.hatchetName)
+	if _, err = ptr.db.Exec(istmt); err != nil {
+		return err
+	}
+
+	// commented out, the cmd takes a long time to process
+	log.Printf("insert duration into %v_audit\n", ptr.hatchetName)
+	istmt = fmt.Sprintf(`INSERT INTO %v_audit
+		SELECT 'duration', context || ' (' || ip || ')', STRFTIME('%%s', SUBSTR(etm,1,19))-STRFTIME('%%s', SUBSTR(btm,1,19)) duration
+			FROM ( SELECT MAX(a.date) etm, MIN(a.date) btm, a.context, b.ip FROM %v a, %v_clients b WHERE a.id = b.id GROUP BY a.context)
+		WHERE duration > 0`, ptr.hatchetName, ptr.hatchetName, ptr.hatchetName)
 	if _, err = ptr.db.Exec(istmt); err != nil {
 		return err
 	}
@@ -183,15 +208,16 @@ func (ptr *SQLite3DB) GetHatchetInitStmt() string {
 			CREATE TABLE %v_audit ( type, name, value);
 
 			CREATE INDEX IF NOT EXISTS %v_idx_component ON %v (component);
-			CREATE INDEX IF NOT EXISTS %v_idx_context ON %v (context);
+			CREATE INDEX IF NOT EXISTS %v_idx_context ON %v (context,date);
 			CREATE INDEX IF NOT EXISTS %v_idx_severity ON %v (severity);
 			CREATE INDEX IF NOT EXISTS %v_idx_op ON %v (op,ns,filter);
 
 			DROP TABLE IF EXISTS %v_clients;
 			CREATE TABLE %v_clients(
-				id integer not null primary key, ip text, port text, conns integer, accepted integer, ended integer, context string)`,
+				id integer not null primary key, ip text, port text, conns integer, accepted integer, ended integer, context string);
+			CREATE INDEX IF NOT EXISTS %v_clients_idx_context ON %v_clients (context,ip);`,
 		hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName,
-		hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName)
+		hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName)
 }
 
 // GetHatchetPreparedStmt returns prepared statement of the hatchet table

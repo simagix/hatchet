@@ -1,4 +1,7 @@
-// Copyright 2022-present Kuei-chun Chen. All rights reserved.
+/*
+ * Copyright 2022-present Kuei-chun Chen. All rights reserved.
+ * utils.go
+ */
 
 package hatchet
 
@@ -120,10 +123,6 @@ func GetOffsetLimit(str string) (int, int) {
 }
 
 func getDateTimeStr(tm time.Time) string {
-	dt := tm.String()
-	toks := strings.Split(dt, " ")
-	if len(toks) > 3 {
-		dt = fmt.Sprintf("%vT%v%v", toks[0], toks[1], toks[2])
-	}
+	dt := tm.Format("2006-01-02T15:04:05.000-0000")
 	return dt
 }

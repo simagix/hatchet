@@ -24,7 +24,7 @@ type Database interface {
 	GetAuditData() (map[string][]NameValues, error)
 	GetAverageOpTime(op string, duration string) ([]OpCount, error)
 	GetClientPreparedStmt() string
-	GetConnectionStats(chartType string, duration string) ([]Remote, error)
+	GetConnectionStats(chartType string, duration string) ([]RemoteClient, error)
 	GetHatchetInfo() HatchetInfo
 	GetHatchetInitStmt() string
 	GetHatchetNames() ([]string, error)
@@ -37,6 +37,7 @@ type Database interface {
 	GetSlowestLogs(topN int) ([]LegacyLog, error)
 	GetVerbose() bool
 	InsertClientConn(index int, doc *Logv2Info) error
+	InsertDriver(index int, doc *Logv2Info) error
 	InsertLog(index int, end string, doc *Logv2Info, stat *OpStat) error
 	SearchLogs(opts ...string) ([]LegacyLog, error)
 	SetVerbose(v bool)

@@ -45,7 +45,7 @@ The database file is *data/hatchet.db*; use the *sqlite3* command as below:
 sqlite3 ./data/hatchet.db
 ```
 
-After a log file is processed, 3 tables are created in the SQLite3 database.  Part of the table name are from the processed log file.  For example, a table *mongod*_{hex} (e.g., mongod_1b3d5f7) is created after a log file $HOME/Downloads/**mongod**.log.gz is processed.  The other 3 tables are 1) mongod_{hex}_ops stores stats of slow ops, 2) mongod_{hex}_clients stores clients information, and 3) mongod_{hex}_audit keeps audit data.  A few SQL commands follow.
+After a log file is processed, 3 tables are created in the SQLite3 database.  Part of the table name are from the processed log file.  For example, a table *mongod*_{hex} (e.g., mongod_1b3d5f7) is created after a log file $HOME/Downloads/**mongod**.log.gz is processed.  The other 4 tables are 1) mongod_{hex}_ops stores stats of slow ops, 2) mongod_{hex}_clients stores clients information, 3) mongod_{hex}_audit keeps audit data, and 4) mongod_{hex}_drivers to store driver information.  A few SQL commands follow.
 
 ### Query All Data
 ```sqlite3
@@ -85,7 +85,7 @@ SELECT SUBSTR(date, 1, 16), COUNT(op), op, ns
 SELECT ip, context, STRFTIME('%s', SUBSTR(etm,1,19))-STRFTIME('%s', SUBSTR(btm,1,19)) dur, reslen 
   FROM (
     SELECT MAX(a.date) etm, MIN(a.date) btm, a.context context, b.ip, SUM(a.reslen) reslen
-      FROM mongod_1b3d5f7 a, mongod_1b3d5f7_clients b WHERE a.context = b.context GROUP BY a.context
+      FROM mongod_1b3d5f7 a, mongod_1b3d5f7_clients b WHERE a.ip = b.ip GROUP BY a.context
   ) 
   WHERE dur > 0 AND reslen > 0 order by dur DESC, reslen DESC limit 23;
 ```

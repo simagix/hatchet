@@ -13,6 +13,7 @@ import (
 
 type SQLite3DB struct {
 	clientStmt  *sql.Stmt // {hatchet}_clients
+	driverStmt  *sql.Stmt // {hatchet}_drivers
 	db          *sql.DB
 	dbfile      string
 	hatchetName string
@@ -68,6 +69,9 @@ func (ptr *SQLite3DB) Begin() error {
 	if ptr.clientStmt, err = ptr.tx.Prepare(ptr.GetClientPreparedStmt()); err != nil {
 		return err
 	}
+	if ptr.driverStmt, err = ptr.tx.Prepare(ptr.GetDriverPreparedStmt()); err != nil {
+		return err
+	}
 	return err
 }
 
@@ -101,8 +105,15 @@ func (ptr *SQLite3DB) InsertLog(index int, end string, doc *Logv2Info, stat *OpS
 
 func (ptr *SQLite3DB) InsertClientConn(index int, doc *Logv2Info) error {
 	var err error
-	rmt := doc.Remote
-	_, err = ptr.clientStmt.Exec(index, rmt.Value, rmt.Port, rmt.Conns, rmt.Accepted, rmt.Ended, doc.Context)
+	client := doc.Client
+	_, err = ptr.clientStmt.Exec(index, client.IP, client.Port, client.Conns, client.Accepted, client.Ended, doc.Context)
+	return err
+}
+
+func (ptr *SQLite3DB) InsertDriver(index int, doc *Logv2Info) error {
+	var err error
+	client := doc.Client
+	_, err = ptr.driverStmt.Exec(index, client.IP, client.Driver, client.Version)
 	return err
 }
 
@@ -175,7 +186,6 @@ func (ptr *SQLite3DB) CreateMetaData() error {
 		return err
 	}
 
-	// commented out, the cmd takes a long time to process
 	log.Printf("insert duration into %v_audit\n", ptr.hatchetName)
 	istmt = fmt.Sprintf(`INSERT INTO %v_audit
 		SELECT 'duration', context || ' (' || ip || ')', STRFTIME('%%s', SUBSTR(etm,1,19))-STRFTIME('%%s', SUBSTR(btm,1,19)) duration
@@ -184,7 +194,6 @@ func (ptr *SQLite3DB) CreateMetaData() error {
 	if _, err = ptr.db.Exec(istmt); err != nil {
 		return err
 	}
-
 	return err
 }
 
@@ -212,12 +221,17 @@ func (ptr *SQLite3DB) GetHatchetInitStmt() string {
 			CREATE INDEX IF NOT EXISTS %v_idx_severity ON %v (severity);
 			CREATE INDEX IF NOT EXISTS %v_idx_op ON %v (op,ns,filter);
 
+			DROP TABLE IF EXISTS %v_drivers;
+			CREATE TABLE %v_drivers (
+				id integer not null primary key, ip text, driver text, version text);
+
 			DROP TABLE IF EXISTS %v_clients;
 			CREATE TABLE %v_clients(
 				id integer not null primary key, ip text, port text, conns integer, accepted integer, ended integer, context string);
 			CREATE INDEX IF NOT EXISTS %v_clients_idx_context ON %v_clients (context,ip);`,
 		hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName,
-		hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName)
+		hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName)
+
 }
 
 // GetHatchetPreparedStmt returns prepared statement of the hatchet table
@@ -227,8 +241,14 @@ func (ptr *SQLite3DB) GetHatchetPreparedStmt() string {
 		VALUES(?,?,?,?,?, ?,?,?,?,?, ?,?,?,?,?)`, ptr.hatchetName)
 }
 
-// GetClientPreparedStmt returns prepared statement of client table
+// GetClientPreparedStmt returns prepared statement of clients table
 func (ptr *SQLite3DB) GetClientPreparedStmt() string {
 	return fmt.Sprintf(`INSERT INTO %v_clients (id, ip, port, conns, accepted, ended, context)
 		VALUES(?,?,?,?,?, ?,?)`, ptr.hatchetName)
+}
+
+// GetDriverPreparedStmt returns prepared statement of drivers table
+func (ptr *SQLite3DB) GetDriverPreparedStmt() string {
+	return fmt.Sprintf(`INSERT INTO %v_drivers (id, ip, driver, version)
+		VALUES(?,?,?,?)`, ptr.hatchetName)
 }

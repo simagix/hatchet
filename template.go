@@ -190,12 +190,12 @@ const headers = `<!DOCTYPE html>
       font-size: 1em;
       padding: 2px 2px;
     }
-    .rotate45:hover {
-      -webkit-transform: rotate(45deg);
-      -moz-transform: rotate(45deg);
-      -o-transform: rotate(45deg);
-      -ms-transform: rotate(45deg);
-      transform: rotate(45deg);
+    .rotate23:hover {
+      -webkit-transform: rotate(23deg);
+      -moz-transform: rotate(23deg);
+      -o-transform: rotate(23deg);
+      -ms-transform: rotate(23deg);
+      transform: rotate(23deg);
     }
     input[type="checkbox"] {
       accent-color: red;
@@ -206,6 +206,11 @@ const headers = `<!DOCTYPE html>
     .sort:hover {
       color: #DB4437;
 	  cursor: hand;
+    }
+    .summary {
+	  background-color: black;
+      color: #CCC;
+	  padding: 5px;
     }
   </style>
 </head>
@@ -293,7 +298,7 @@ func getMainPage() string {
 </script>
 
 <div align='center'>
-	<h2><img class='rotate45' width='60' valign="middle" src='data:image/png;base64,{{ getHatchetImage }}'>Hatchet - MongoDB JSON Log Analyzer</img></h2>
+	<h2><img class='rotate23' width='60' valign="middle" src='data:image/png;base64,{{ getHatchetImage }}'>Hatchet - MongoDB JSON Log Analyzer</img></h2>
 	<select id='table' class='hatchet-sel' onchange='redirect()'>
 		<option value=''>select a hatchet</option>
 {{range $n, $value := .Hatchets}}

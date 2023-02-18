@@ -157,9 +157,9 @@ func getConnectionsChart() string {
 
 	{{range $i, $v := .Remote}}
 		{{if eq $ctype "connections-time"}}
-			[new Date("{{$v.Value}}"), {{$v.Accepted}}, {{$v.Ended}}],
+			[new Date("{{$v.IP}}"), {{$v.Accepted}}, {{$v.Ended}}],
 		{{else}}
-			['{{$v.Value}}', {{$v.Accepted}}, {{$v.Ended}}],
+			['{{$v.IP}}', {{$v.Accepted}}, {{$v.Ended}}],
 		{{end}}
 	{{end}}
 		]);

@@ -42,7 +42,7 @@ var charts = map[string]Chart{
 		"Display average operations time over a period of time", "/ops?type=stats"},
 	T_OPS_COUNTS: {2, "Operation Counts",
 		"Display total counts of operations", "/ops?type=counts"},
-	"connections-accepted": {3, "Accepted Connections",
+	T_CONNS_ACCEPTED: {3, "Accepted Connections",
 		"Display accepted connections from clients", "/connections?type=accepted"},
 	T_CONNS_TIME: {4, "Accepted & Ended Connections",
 		"Display accepted vs ended connections over a period of time", "/connections?type=time"},
@@ -130,7 +130,7 @@ func ChartsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Par
 			log.Println("type", chartType, "duration", duration)
 		}
 		if chartType == "" || chartType == "accepted" {
-			chartType = "connections-accepted"
+			chartType = T_CONNS_ACCEPTED
 			docs, err := dbase.GetAcceptedConnsCounts(duration)
 			if err != nil {
 				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})

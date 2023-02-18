@@ -8,6 +8,7 @@ package hatchet
 import (
 	"fmt"
 	"log"
+	"regexp"
 	"strings"
 )
 
@@ -239,12 +240,48 @@ func (ptr *SQLite3DB) GetHatchetInfo() HatchetInfo {
 	if err != nil {
 		return info
 	}
-	defer rows.Close()
 	if rows.Next() {
 		if err = rows.Scan(&info.Name, &info.Version, &info.Module, &info.OS, &info.Arch,
 			&info.Start, &info.End); err != nil {
 			return info
 		}
+	}
+	if rows != nil {
+		rows.Close()
+	}
+
+	query = fmt.Sprintf(`SELECT message FROM %v WHERE component = 'CONTROL' AND message LIKE '%%provider:%%region:%%';`,
+		ptr.hatchetName)
+	if ptr.verbose {
+		log.Println(query)
+	}
+	rows, err = db.Query(query)
+	if err == nil && rows.Next() {
+		var message string
+		if err = rows.Scan(&message); err == nil {
+			re := regexp.MustCompile(`.*(provider: "(\w+)", region: "(\w+)",).*`)
+			matches := re.FindStringSubmatch(message)
+			info.Provider = matches[2]
+			info.Region = matches[3]
+		}
+	}
+	if rows != nil {
+		rows.Close()
+	}
+
+	query = fmt.Sprintf(`SELECT DISTINCT driver, version FROM %v_drivers;`, ptr.hatchetName)
+	if ptr.verbose {
+		log.Println(query)
+	}
+	rows, err = db.Query(query)
+	for err == nil && rows.Next() {
+		var driver, version string
+		if err = rows.Scan(&driver, &version); err == nil {
+			info.Drivers = append(info.Drivers, map[string]string{driver: version})
+		}
+	}
+	if rows != nil {
+		rows.Close()
 	}
 	return info
 }
@@ -305,9 +342,9 @@ func (ptr *SQLite3DB) GetAcceptedConnsCounts(duration string) ([]NameValue, erro
 }
 
 // GetConnectionStats returns stats data of accepted and ended
-func (ptr *SQLite3DB) GetConnectionStats(chartType string, duration string) ([]Remote, error) {
+func (ptr *SQLite3DB) GetConnectionStats(chartType string, duration string) ([]RemoteClient, error) {
 	hatchetName := ptr.hatchetName
-	docs := []Remote{}
+	docs := []RemoteClient{}
 	var query, durcond string
 	var substr string
 	if duration != "" {
@@ -336,10 +373,10 @@ func (ptr *SQLite3DB) GetConnectionStats(chartType string, duration string) ([]R
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var doc Remote
+		var doc RemoteClient
 		var accepted float64
 		var ended float64
-		if err = rows.Scan(&doc.Value, &accepted, &ended); err != nil {
+		if err = rows.Scan(&doc.IP, &accepted, &ended); err != nil {
 			return docs, err
 		}
 		doc.Accepted = int(accepted)
@@ -460,14 +497,50 @@ func (ptr *SQLite3DB) GetReslenByNamespace(ns string, duration string) ([]NameVa
 
 func (ptr *SQLite3DB) GetAuditData() (map[string][]NameValues, error) {
 	var err error
+	db := ptr.db
 	data := map[string][]NameValues{}
-	query := fmt.Sprintf(`SELECT type, name, value FROM %v_audit
+	query := fmt.Sprintf(`SELECT MAX(conns) FROM %v_clients;`, ptr.hatchetName)
+	if ptr.verbose {
+		log.Println(query)
+	}
+	rows, err := db.Query(query)
+	category := "stats"
+	if err == nil && rows.Next() {
+		var doc NameValues
+		var value int
+		_ = rows.Scan(&value)
+		doc.Name = "maxConns"
+		doc.Values = append(doc.Values, value)
+		data[category] = append(data[category], doc)
+	}
+	if rows != nil {
+		rows.Close()
+	}
+
+	query = fmt.Sprintf(`SELECT MAX(max_ms), SUM(count), SUM(total_ms) FROM %v_ops;`, ptr.hatchetName)
+	if ptr.verbose {
+		log.Println(query)
+	}
+	rows, err = db.Query(query)
+	if err == nil && rows.Next() {
+		var maxMilli, total, totalMilli int
+		if err = rows.Scan(&maxMilli, &total, &totalMilli); err != nil {
+			return data, err
+		}
+		data[category] = append(data[category], NameValues{"maxMilli", []int{maxMilli}})
+		data[category] = append(data[category], NameValues{"avgMilli", []int{totalMilli / total}})
+		data[category] = append(data[category], NameValues{"totalMilli", []int{totalMilli}})
+	}
+	if rows != nil {
+		rows.Close()
+	}
+
+	query = fmt.Sprintf(`SELECT type, name, value FROM %v_audit
 		WHERE type IN ('exception', 'failed', 'op', 'duration') ORDER BY type, value DESC;`, ptr.hatchetName)
 	if ptr.verbose {
 		log.Println(query)
 	}
-	db := ptr.db
-	rows, err := db.Query(query)
+	rows, err = db.Query(query)
 	if err != nil {
 		return data, err
 	}
@@ -490,9 +563,11 @@ func (ptr *SQLite3DB) GetAuditData() (map[string][]NameValues, error) {
 		}
 		data[category] = append(data[category], doc)
 	}
-	rows.Close()
+	if rows != nil {
+		rows.Close()
+	}
 
-	category := "ip"
+	category = "ip"
 	query = fmt.Sprintf(`SELECT a.name ip, a.value count, b.value reslen FROM %v_audit a, %v_audit b WHERE a.type == '%v' AND b.type = 'reslen-ip' AND a.name = b.name ORDER BY reslen DESC;`,
 		ptr.hatchetName, ptr.hatchetName, category)
 	if ptr.verbose {
@@ -512,7 +587,9 @@ func (ptr *SQLite3DB) GetAuditData() (map[string][]NameValues, error) {
 		doc.Values = append(doc.Values, val2)
 		data[category] = append(data[category], doc)
 	}
-	rows.Close()
+	if rows != nil {
+		rows.Close()
+	}
 
 	category = "ns"
 	query = fmt.Sprintf(`SELECT a.name ns, a.value count, b.value reslen FROM %v_audit a, %v_audit b WHERE a.type == '%v' AND b.type = 'reslen-ns' AND a.name = b.name ORDER BY reslen DESC;`,
@@ -534,6 +611,8 @@ func (ptr *SQLite3DB) GetAuditData() (map[string][]NameValues, error) {
 		doc.Values = append(doc.Values, val2)
 		data[category] = append(data[category], doc)
 	}
-	defer rows.Close()
+	if rows != nil {
+		rows.Close()
+	}
 	return data, err
 }

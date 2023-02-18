@@ -1,4 +1,7 @@
-// Copyright 2022-present Kuei-chun Chen. All rights reserved.
+/*
+ * Copyright 2022-present Kuei-chun Chen. All rights reserved.
+ * stats_handler.go
+ */
 
 package hatchet
 
@@ -42,7 +45,7 @@ func StatsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Para
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return
 		}
-		doc := map[string]interface{}{"Hatchet": hatchetName, "Summary": summary, "Data": data}
+		doc := map[string]interface{}{"Hatchet": hatchetName, "Info": info, "Summary": summary, "Data": data}
 		if err = templ.Execute(w, doc); err != nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return

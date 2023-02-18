@@ -1,4 +1,7 @@
-// Copyright 2022-present Kuei-chun Chen. All rights reserved.
+/*
+ * Copyright 2022-present Kuei-chun Chen. All rights reserved.
+ * logv2.go
+ */
 
 package hatchet
 
@@ -60,7 +63,7 @@ type Logv2Info struct {
 
 	Attributes Attributes
 	Message    string // remaining legacy message
-	Remote     *Remote
+	Client     *RemoteClient
 }
 
 type Attributes struct {
@@ -74,12 +77,15 @@ type Attributes struct {
 	Type               string                 `json:"type" bson:"type"`
 }
 
-type Remote struct {
+type RemoteClient struct {
 	Accepted int    `json:"accepted"`
 	Conns    int    `json:"conns"`
 	Ended    int    `json:"ended"`
+	IP       string `json:"value"`
 	Port     string `json:"port"`
-	Value    string `json:"value"`
+
+	Driver  string // driver name
+	Version string // driver version
 }
 
 // OpStat stores performance data
@@ -111,6 +117,10 @@ type HatchetInfo struct {
 	OS      string
 	Start   string
 	Version string
+
+	Drivers  []map[string]string
+	Provider string
+	Region   string
 }
 
 // Analyze analyzes logs from a file
@@ -221,8 +231,12 @@ func (ptr *Logv2) Analyze(filename string) error {
 			start = end
 		}
 		dbase.InsertLog(index, end, &doc, stat)
-		if doc.Remote != nil {
-			dbase.InsertClientConn(index, &doc)
+		if doc.Client != nil {
+			if (doc.Client.Accepted + doc.Client.Ended) > 0 { // record connections
+				dbase.InsertClientConn(index, &doc)
+			} else if doc.Client.Driver != "" {
+				dbase.InsertDriver(index, &doc)
+			}
 		}
 	}
 	if ptr.legacy {

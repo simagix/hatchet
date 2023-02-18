@@ -10,10 +10,11 @@ import (
 	"html/template"
 	"strings"
 
-	"github.com/simagix/gox"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 )
+
+const MIN_MONGO_VER = "5.0"
 
 // GetStatsTableTemplate returns HTML
 func GetStatsTableTemplate(collscan bool, orderBy string, download string) (*template.Template, error) {
@@ -111,141 +112,3 @@ func getStatsTable(collscan bool, orderBy string, download string) string {
 	return html
 }
 
-// GetAuditTablesTemplate returns HTML
-func GetAuditTablesTemplate() (*template.Template, error) {
-	html := headers + getContentHTML()
-	html += `{{$name := .Hatchet}}
-{{if hasData .Data "exception"}}
-	<h3><button class='btn'
-			onClick="javascript:location.href='/hatchets/{{.Hatchet}}/logs/all?severity=W'; return false;">
-			<i class='fa fa-search'></i></button>Exceptions</h3>
-	<table>
-		<tr><th></th><th>Severity</th><th>Total</th></tr>
-	{{range $n, $val := index .Data "exception"}}
-		<tr><td align=right>{{add $n 1}}</td>
-		<td>
-			<button class='btn' onClick="javascript:location.href='/hatchets/{{$name}}/logs/all?severity={{slice $val.Name 0 1}}'; return false;"><i class='fa fa-search'></i></button>{{$val.Name}}
-		</td>
-		<td align=right>{{getFormattedNumber $val.Values 0}}</td></tr>
-	{{end}}
-	</table>
-{{end}}
-
-{{if hasData .Data "failed"}}
-	<h3><button class='btn'
-			onClick="javascript:location.href='/hatchets/{{.Hatchet}}/logs/all?context=failed'; return false;">
-			<i class='fa fa-search'></i></button>Failed Operations</h3>
-	<table>
-		<tr><th></th><th>Failed Operation</th><th>Total</th></tr>
-	{{range $n, $val := index .Data "failed"}}
-		<tr><td align=right>{{add $n 1}}</td>
-			<td>
-				<button class='btn' onClick="javascript:location.href='/hatchets/{{$name}}/logs/all?context={{$val.Name}}'; return false;"><i class='fa fa-search'></i></button>{{$val.Name}}
-			</td>
-			<td align=right>{{getFormattedNumber $val.Values 0}}</td>
-		</tr>
-	{{end}}
-	</table>
-{{end}}
-
-{{if hasData .Data "op"}}
-	<h3><button class='btn'
-			onClick="javascript:location.href='/hatchets/{{.Hatchet}}/charts/ops?type=stats'; return false;">
-			<i class='fa fa-area-chart'></i></button>Operations Stats</h3>
-	<table>
-		<tr><th></th><th>Operation</th><th>Total</th></tr>
-	{{range $n, $val := index .Data "op"}}
-		<tr><td align=right>{{add $n 1}}</td>
-		<td>
-			<button class='btn' onClick="javascript:location.href='/hatchets/{{$name}}/charts/ops?type=stats&op={{$val.Name}}'; return false;"><i class='fa fa-area-chart'></i></button>{{$val.Name}}
-		</td>
-		<td align=right>{{getFormattedNumber $val.Values 0}}</td></tr>
-	{{end}}
-	</table>
-{{end}}
-
-{{if hasData .Data "ip"}}
-	<h3><button class='btn'
-			onClick="javascript:location.href='/hatchets/{{.Hatchet}}/charts/connections?type=accepted'; return false;">
-			<i class='fa fa-pie-chart'></i></button>Stats by IPs</h3>
-	<table>
-		<tr><th></th><th>IP</th><th>Accepted Connections</th><th>Response Length</th></tr>
-	{{range $n, $val := index .Data "ip"}}
-		<tr><td align=right>{{add $n 1}}</td>
-		<td>
-			<button class='btn' onClick="javascript:location.href='/hatchets/{{$name}}/charts/reslen-ip?ip={{$val.Name}}'; return false;"><i class='fa fa-pie-chart'></i></button>{{$val.Name}}
-		</td>
-		<td align=right>{{getFormattedNumber $val.Values 0}}</td><td align=right>{{getFormattedSize $val.Values 1}}</td></tr>
-	{{end}}
-	</table>
-{{end}}
-
-{{if hasData .Data "ns"}}
-	<h3><button class='btn'
-			onClick="javascript:location.href='/hatchets/{{.Hatchet}}/charts/reslen-ns?ns='; return false;">
-			<i class='fa fa-pie-chart'></i></button>Stats by Namespaces</h3>
-	<table>
-		<tr><th></th><th>Namespace</th><th>Accessed</th><th>Response Length</th></tr>
-	{{range $n, $val := index .Data "ns"}}
-		<tr><td align=right>{{add $n 1}}</td>
-		<td>
-			<button class='btn' onClick="javascript:location.href='/hatchets/{{$name}}/logs/all?context={{$val.Name}}'; return false;"><i class='fa fa-search'></i></button>{{$val.Name}}
-		</td>
-		<td align=right>{{getFormattedNumber $val.Values 0}}</td><td align=right>{{getFormattedSize $val.Values 1}}</td></tr>
-	{{end}}
-	</table>
-{{end}}
-
-{{if hasData .Data "duration"}}
-	<h3><span style="font-size: 16px; padding: 5px 5px;"><i class="fa fa-shield"></i></span>Top N Long Lasting Connections</h3>
-	<table>
-		<tr><th></th><th>Context</th><th>Duration</th></tr>
-	{{range $n, $val := index .Data "duration"}}
-		{{if lt $n 23}}
-			<tr><td align=right>{{add $n 1}}</td>
-			<td><button class='btn' onClick="javascript:location.href='/hatchets/{{$name}}/logs/all?context={{getContext $val.Name}}'; return false;"><i class='fa fa-search'></i></button>{{$val.Name}}
-			</td>
-			<td align=right>{{getFormattedDuration $val.Values 0}}</td>
-		{{end}}
-		</tr>
-	{{end}}
-	</table>
-{{end}}
-	<div align='center'><hr/><p/>@simagix</div>
-	`
-	html += "</body></html>"
-	return template.New("hatchet").Funcs(template.FuncMap{
-		"add": func(a int, b int) int {
-			return a + b
-		},
-		"hasData": func(data map[string][]NameValues, key string) bool {
-			return len(data[key]) > 0
-		},
-		"numPrinter": func(n interface{}) string {
-			printer := message.NewPrinter(language.English)
-			return printer.Sprintf("%v", ToInt(n))
-		},
-		"getContext": func(s string) string {
-			toks := strings.Split(s, " ")
-			if len(toks) == 0 {
-				return s
-			}
-			return toks[0]
-		},
-		"getFormattedNumber": func(numbers []int, i int) string {
-			printer := message.NewPrinter(language.English)
-			return printer.Sprintf("%v", numbers[i])
-		},
-		"getDurationFromSeconds": func(s int) string {
-			return gox.GetDurationFromSeconds(float64(s))
-		},
-		"getFormattedDuration": func(numbers []int, i int) string {
-			return gox.GetDurationFromSeconds(float64(numbers[i]))
-		},
-		"getStorageSize": func(s int) string {
-			return gox.GetStorageSize(float64(s))
-		},
-		"getFormattedSize": func(numbers []int, i int) string {
-			return gox.GetStorageSize(numbers[i])
-		}}).Parse(html)
-}

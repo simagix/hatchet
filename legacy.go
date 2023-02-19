@@ -1,4 +1,7 @@
-// Copyright 2022-present Kuei-chun Chen. All rights reserved.
+/*
+ * Copyright 2022-present Kuei-chun Chen. All rights reserved.
+ * legacy.go
+ */
 
 package hatchet
 
@@ -47,16 +50,16 @@ func AddLegacyString(doc *Logv2Info) error {
 			}
 		}
 	} else if doc.Component == "NETWORK" {
-		remote := Remote{}
+		remote := RemoteClient{}
 		for _, attr := range doc.Attr {
 			if attr.Key == "remote" {
 				toks := strings.Split(attr.Value.(string), ":")
-				remote.Value = toks[0]
+				remote.IP = toks[0]
 				remote.Port = toks[1]
 				if doc.Msg == "Connection ended" {
 					remote.Ended = 1
 					arr = append(arr, fmt.Sprintf("%v", attr.Value))
-				} else {
+				} else if doc.Msg == "Connection accepted" {
 					remote.Accepted = 1
 					arr = append(arr, fmt.Sprintf("from %v", attr.Value))
 				}
@@ -70,10 +73,20 @@ func AddLegacyString(doc *Logv2Info) error {
 			} else if attr.Key == "doc" {
 				b, _ := bson.MarshalExtJSON(attr.Value, false, false)
 				arr = append(arr, string(b))
+				if doc.Msg == "client metadata" {
+					data, ok := attr.Value.(bson.D)
+					if ok {
+						driver, ok := data.Map()["driver"].(bson.D)
+						if ok {
+							remote.Driver, _ = driver.Map()["name"].(string)
+							remote.Version, _ = driver.Map()["version"].(string)
+						}
+					}
+				}
 			}
 		}
-		if remote.Value != "" {
-			doc.Remote = &remote
+		if remote.IP != "" {
+			doc.Client = &remote
 		}
 	} else {
 		for _, attr := range doc.Attr {

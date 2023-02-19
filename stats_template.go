@@ -1,4 +1,8 @@
-// Copyright 2022-present Kuei-chun Chen. All rights reserved.
+/*
+ * Copyright 2022-present Kuei-chun Chen. All rights reserved.
+ * stats_template.go
+ */
+
 package hatchet
 
 import (
@@ -10,11 +14,13 @@ import (
 	"golang.org/x/text/message"
 )
 
+const MIN_MONGO_VER = "5.0"
+
 // GetStatsTableTemplate returns HTML
 func GetStatsTableTemplate(collscan bool, orderBy string, download string) (*template.Template, error) {
 	html := headers
 	if download == "" {
-		html = getContentHTML() + getFooter()
+		html = getContentHTML()
 	}
 	html += getStatsTable(collscan, orderBy, download) + "</body></html>"
 	return template.New("hatchet").Funcs(template.FuncMap{
@@ -106,98 +112,3 @@ func getStatsTable(collscan bool, orderBy string, download string) string {
 	return html
 }
 
-// GetAuditTablesTemplate returns HTML
-func GetAuditTablesTemplate() (*template.Template, error) {
-	html := headers + getContentHTML() + getFooter()
-	html += `
-{{if hasData .Data "exception"}}
-	<h3><i class="fa fa-shield"></i> Exceptions<button class='btn'
-		onClick="javascript:location.href='/hatchets/{{.Hatchet}}/logs/all?severity=W'; return false;">
-		<i class='fa fa-search'></i></button></h3>
-	<table>
-		<tr><th></th><th>Severity</th><th>Counts</th></tr>
-	{{range $n, $val := index .Data "exception"}}
-		<tr><td align=right>{{add $n 1}}</td><td>{{$val.Name}}</td><td align=right>{{numPrinter $val.Value}}</td></tr>
-	{{end}}
-	</table>
-{{end}}
-
-{{if hasData .Data "failed"}}
-	<h3><i class="fa fa-shield"></i> Failed Operations</h3>
-	<table>
-		<tr><th></th><th>Failed Operations</th><th>Counts</th></tr>
-	{{$name := .Hatchet}}
-	{{range $n, $val := index .Data "failed"}}
-		<tr><td align=right>{{add $n 1}}</td>
-			<td>
-				{{$val.Name}} <button class='btn'onClick="javascript:location.href='/hatchets/{{$name}}/logs/all?context={{$val.Name}}'; return false;">
-				<i class='fa fa-search'></i></button>
-			</td>
-			<td align=right>{{numPrinter $val.Value}}</td>
-		</tr>
-	{{end}}
-	</table>
-{{end}}
-
-{{if hasData .Data "op"}}
-	<h3><i class="fa fa-shield"></i> Operations Stats<button class='btn'
-		onClick="javascript:location.href='/hatchets/{{.Hatchet}}/stats/slowops'; return false;">
-		<i class='fa fa-info'></i></button></h3>
-	<table>
-		<tr><th></th><th>Operation</th><th>Counts</th></tr>
-	{{range $n, $val := index .Data "op"}}
-		<tr><td align=right>{{add $n 1}}</td><td>{{$val.Name}}</td><td align=right>{{numPrinter $val.Value}}</td></tr>
-	{{end}}
-	</table>
-{{end}}
-
-{{if hasData .Data "ip"}}
-	<h3><i class="fa fa-shield"></i> Connected Clients<button class='btn'
-		onClick="javascript:location.href='/hatchets/{{.Hatchet}}/charts/connections?type=accepted'; return false;">
-		<i class='fa fa-bar-chart'></i></button></h3>
-	<table>
-		<tr><th></th><th>IP</th><th>Accepted Connections</th></tr>
-	{{range $n, $val := index .Data "ip"}}
-		<tr><td align=right>{{add $n 1}}</td><td>{{$val.Name}}</td><td align=right>{{numPrinter $val.Value}}</td></tr>
-	{{end}}
-	</table>
-{{end}}
-
-{{if hasData .Data "ns"}}
-	<h3><i class="fa fa-shield"></i> Namespaces<button class='btn'
-		onClick="javascript:location.href='/hatchets/{{.Hatchet}}/charts/ops?type=stats'; return false;">
-		<i class='fa fa-bar-chart'></i></button></h3>
-	<table>
-		<tr><th></th><th>Namespace</th><th>Counts</th></tr>
-	{{range $n, $val := index .Data "ns"}}
-		<tr><td align=right>{{add $n 1}}</td><td>{{$val.Name}}</td><td align=right>{{numPrinter $val.Value}}</td></tr>
-	{{end}}
-	</table>
-{{end}}
-
-{{if hasData .Data "reslen"}}
-	<h3><i class="fa fa-shield"></i> Response Length<button class='btn'
-		onClick="javascript:location.href='/hatchets/{{.Hatchet}}/charts/reslen?type=ips'; return false;">
-		<i class='fa fa-bar-chart'></i></button></h3>
-	<table>
-		<tr><th></th><th>IP</th><th>Response Length (bytes)</th></tr>
-	{{range $n, $val := index .Data "reslen"}}
-		<tr><td align=right>{{add $n 1}}</td><td>{{$val.Name}}</td><td align=right>{{numPrinter $val.Value}}</td></tr>
-	{{end}}
-	</table>
-{{end}}
-	<div align='center'><hr/><p/>@simagix</div>
-	`
-	html += "</body></html>"
-	return template.New("hatchet").Funcs(template.FuncMap{
-		"add": func(a int, b int) int {
-			return a + b
-		},
-		"hasData": func(data map[string][]NameValue, key string) bool {
-			return len(data[key]) > 0
-		},
-		"numPrinter": func(n interface{}) string {
-			printer := message.NewPrinter(language.English)
-			return printer.Sprintf("%v", ToInt(n))
-		}}).Parse(html)
-}

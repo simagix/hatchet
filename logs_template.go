@@ -53,6 +53,9 @@ func GetLogTableTemplate(attr string) (*template.Template, error) {
 		},
 		"highlightLog": func(log string, params ...string) template.HTML {
 			return template.HTML(highlightLog(log, params...))
+		},
+		"formatDateTime": func(str string) string {
+			return strings.Replace(str, "T", " ", 1)
 		}}).Parse(html)
 }
 
@@ -90,7 +93,7 @@ func getSlowOpsLogsTable() string {
 {{range $n, $value := .Logs}}
 		<tr>
 			<td align='right'>{{ add $n 1 }}</td>
-			<td>{{ $value.Timestamp }}</td>
+			<td>{{ formatDateTime $value.Timestamp }}</td>
 			<td>{{ $value.Severity }}</td>
 			<td>{{ $value.Component }}</td>
 			<td>{{ $value.Context }}</td>
@@ -98,7 +101,7 @@ func getSlowOpsLogsTable() string {
 		</tr>
 {{end}}
 	</table>
-	<div align='center'><hr/><p/>@simagix</div>
+	<div style='clear: left;' align='center'><hr/><p/>@simagix</div>
 </div>
 `
 	return template
@@ -106,35 +109,34 @@ func getSlowOpsLogsTable() string {
 
 func getLegacyLogsTable() string {
 	template := `
-<br/>
-<div style="float: left;">
+  <div style="float: left; margin-right: 20px; clear: left;">
 	<label><i class="fa fa-leaf"></i></label>
 	<select id='component'>
 		<option value=''>select a component</option>
 		{{getComponentOptions .Component}}
 	</select>
-</div>
+  </div>
 
-<div style="float: left; padding: 0px 0px 0px 20px;">
+  <div style="float: left; margin-right: 20px;">
 	<label><i class="fa fa-exclamation"></i></label>
 	<select id='severity'>
 		<option value=''>select a severity</option>
 		{{getSeverityOptions .Severity}}
 	</select>
-</div>
+  </div>
 
-<div style="float: left; padding: 0px 0px 0px 20px;">
+  <div style="float: left; margin-right: 20px;">
 	<label><i class="fa fa-search"></i></label>
 	<input id='context' type='text' value='{{.Context}}' size='30'/>
 	<button id="find" onClick="findLogs()" class="button" style="float: right;">Find</button>
-</div>
+  </div>
 
 <p/>
 <div>
 {{ if .Logs }}
 	{{if .HasMore}}
 		<button onClick="javascript:location.href='{{.URL}}'; return false;"
-			class="btn" style="float: right;"><i class="fa fa-arrow-right"></i></button>
+			class="btn" style="float: right; clear: right"><i class="fa fa-arrow-right"></i></button>
 	{{end}}
 	<table width='100%'>
 		<tr>
@@ -150,7 +152,7 @@ func getLegacyLogsTable() string {
 	{{range $n, $value := .Logs}}
 		<tr>
 			<td align='right'>{{ add $n $seq }}</td>
-			<td>{{ $value.Timestamp }}</td>
+			<td>{{ formatDateTime $value.Timestamp }}</td>
 			<td>{{ $value.Severity }}</td>
 			<td>{{ $value.Component }}</td>
 			<td>{{ $value.Context }}</td>
@@ -160,7 +162,7 @@ func getLegacyLogsTable() string {
 	</table>
 	{{if .HasMore}}
 		<button onClick="javascript:location.href='{{.URL}}'; return false;"
-			class="btn" style="float: right;"><i class="fa fa-arrow-right"></i></button>
+			class="btn" style="float: right; clear: right;"><i class="fa fa-arrow-right"></i></button>
 	{{end}}
 <div align='center'><hr/><p/>@simagix</div>
 {{end}}

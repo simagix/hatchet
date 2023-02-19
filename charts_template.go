@@ -24,12 +24,14 @@ func GetChartTemplate(chartType string) (*template.Template, error) {
 		html += getConnectionsChart()
 	}
 	html += `
-		<div align=left>
-			<input type='datetime-local' id='start' value='{{.Start}}'></input>
-			<input type='datetime-local' id='end' value='{{.End}}'></input>
-			<button onClick="refreshChart(); return false;" class="button">Refresh</button>
-			<div id='hatchetChart' align='center' width='100%'/>
-		</div></body></html>`
+	<div style="float: left; width: 100%; clear: left;">
+		<input type='datetime-local' id='start' value='{{.Start}}'></input>
+		<input type='datetime-local' id='end' value='{{.End}}'></input>
+		<button onClick="refreshChart(); return false;" class="button">Refresh</button>
+  	</div>
+  	<div id='hatchetChart' style="width: 100%; clear: left;"></div>
+  
+		</body></html>`
 
 	return template.New("hatchet").Funcs(template.FuncMap{
 		"descr": func(v OpCount) template.HTML {
@@ -84,6 +86,7 @@ func getOpStatsChart() string {
 			// 'hAxis': { textPosition: 'none' },
 			'hAxis': { slantedText: true, slantedTextAngle: 30 },
 			'vAxis': {title: '{{.VAxisLabel}}', minValue: 0},
+			'width': '100%',
 			'height': 480,
 			'titleTextStyle': {'fontSize': 20},
 	{{if eq $ctype "ops"}}
@@ -123,6 +126,7 @@ func getPieChart() string {
 		var options = {
 			'backgroundColor': { 'fill': 'transparent' },
 			'title': '{{.Chart.Title}}',
+			'width': '100%',
 			'height': 480,
 			'titleTextStyle': {'fontSize': 20},
 			'slices': {},
@@ -157,9 +161,9 @@ func getConnectionsChart() string {
 
 	{{range $i, $v := .Remote}}
 		{{if eq $ctype "connections-time"}}
-			[new Date("{{$v.Value}}"), {{$v.Accepted}}, {{$v.Ended}}],
+			[new Date("{{$v.IP}}"), {{$v.Accepted}}, {{$v.Ended}}],
 		{{else}}
-			['{{$v.Value}}', {{$v.Accepted}}, {{$v.Ended}}],
+			['{{$v.IP}}', {{$v.Accepted}}, {{$v.Ended}}],
 		{{end}}
 	{{end}}
 		]);
@@ -169,11 +173,16 @@ func getConnectionsChart() string {
 			'title': '{{.Chart.Title}}',
 			'hAxis': { slantedText: true, slantedTextAngle: 30 },
 			'vAxis': {title: 'Count', minValue: 0},
+			'width': '100%',
 			'height': 480,
 			'titleTextStyle': {'fontSize': 20},
 			'legend': { 'position': 'right' } };
 		// Instantiate and draw our chart, passing in some options.
+	{{if eq $ctype "connections-time"}}
+		var chart = new google.visualization.LineChart(document.getElementById('hatchetChart'));
+	{{else}}
 		var chart = new google.visualization.ColumnChart(document.getElementById('hatchetChart'));
+	{{end}}
 		chart.draw(data, options);
 	}
 </script>

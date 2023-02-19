@@ -35,8 +35,8 @@ The easiest way is to go to the home page `http://localhost:3721` and following 
 - `/hatchets/{hatchet}/charts/ops?type={}` views average ops time chart, types are:
   - stats
   - counts
-- `/hatchets/{hatchet}/charts/reslen?type={}` views response length chart, types are:
-  - ips
+- `/hatchets/{hatchet}/charts/reslen-ip?ip={}` views response length by IPs chart, types are:
+- `/hatchets/{hatchet}/charts/reslen-ns?ns={}` views response length by IPs chart, types are:
 ```
 
 ## Query SQLite3 Database
@@ -45,7 +45,7 @@ The database file is *data/hatchet.db*; use the *sqlite3* command as below:
 sqlite3 ./data/hatchet.db
 ```
 
-After a log file is processed, 3 tables are created in the SQLite3 database.  Part of the table name are from the processed log file.  For example, a table *mongod*_{hex} (e.g., mongod_1b3d5f7) is created after a log file $HOME/Downloads/**mongod**.log.gz is processed.  The other 3 tables are 1) mongod_{hex}_ops stores stats of slow ops, 2) mongod_{hex}_clients stores clients information, and 3) mongod_{hex}_audit keeps audit data.  A few SQL commands follow.
+After a log file is processed, 3 tables are created in the SQLite3 database.  Part of the table name are from the processed log file.  For example, a table *mongod*_{hex} (e.g., mongod_1b3d5f7) is created after a log file $HOME/Downloads/**mongod**.log.gz is processed.  The other 4 tables are 1) mongod_{hex}_ops stores stats of slow ops, 2) mongod_{hex}_clients stores clients information, 3) mongod_{hex}_audit keeps audit data, and 4) mongod_{hex}_drivers to store driver information.  A few SQL commands follow.
 
 ### Query All Data
 ```sqlite3
@@ -53,7 +53,7 @@ SELECT * FROM mongod_1b3d5f7;
 ```
 
 ```sqlite3
-SELECT date, severity, component, context, substr(message, 1, 60) message FROM mongod_1b3d5f7;
+SELECT date, severity, component, context, SUBSTR(message, 1, 60) message FROM mongod_1b3d5f7;
 ```
 
 ```sqlite3

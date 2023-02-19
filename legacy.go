@@ -74,7 +74,6 @@ func AddLegacyString(doc *Logv2Info) error {
 				b, _ := bson.MarshalExtJSON(attr.Value, false, false)
 				arr = append(arr, string(b))
 				if doc.Msg == "client metadata" {
-
 					data, ok := attr.Value.(bson.D)
 					if ok {
 						driver, ok := data.Map()["driver"].(bson.D)

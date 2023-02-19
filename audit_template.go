@@ -8,6 +8,7 @@ package hatchet
 import (
 	"fmt"
 	"html/template"
+	"math/rand"
 	"strings"
 	"time"
 
@@ -20,16 +21,21 @@ import (
 func GetAuditTablesTemplate() (*template.Template, error) {
 	html := headers + getContentHTML()
 	html += `{{$name := .Hatchet}}
-	<table style='border:none;'>
-		<tr><td style='border:none; vertical-align: top; padding: 5px;'>
-			<img class='rotate23' src='data:image/png;base64,{{ getTheGuyImage }}'></img></td>
-			<td class='summary'>{{getInfoSummary .Info}}<p/>{{getStatsSummary .Data}}</td></tr>
-	</table>
+	<div style='margin: 5px 5px; width=100%; clear: left;'>
+	  <table style='border: none; margin: 10px 10px; width=100%; clear: left;' width='100%'>
+		{{$flag := coinToss}}
+		<tr><td style='border:none; vertical-align: top; padding: 5px; background-color: #F3F7F4;'>
+			<img class='rotate23' src='data:image/png;base64,{{ assignConsultant $flag }}'></img></td>
+			<td class='summary'>
+				{{getInfoSummary .Info $flag}}<p/>{{getStatsSummary .Data}}</td>
+		</tr>
+	  </table>
+	</div>
 {{if hasData .Data "exception"}}
-	<h3><button class='btn'
+	<table style='float: left; margin: 10px 10px; clear: left;'>
+		<caption><button class='btn'
 			onClick="javascript:location.href='/hatchets/{{.Hatchet}}/logs/all?severity=W'; return false;">
-			<i class='fa fa-search'></i></button>Exceptions</h3>
-	<table>
+			<i class='fa fa-search'></i></button>Exceptions</caption>
 		<tr><th></th><th>Severity</th><th>Total</th></tr>
 	{{range $n, $val := index .Data "exception"}}
 		<tr><td align=right>{{add $n 1}}</td>
@@ -42,10 +48,10 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 {{end}}
 
 {{if hasData .Data "failed"}}
-	<h3><button class='btn'
+	<table style='float: left; margin: 10px 10px;'>
+		<caption><button class='btn'
 			onClick="javascript:location.href='/hatchets/{{.Hatchet}}/logs/all?context=failed'; return false;">
-			<i class='fa fa-search'></i></button>Failed Operations</h3>
-	<table>
+			<i class='fa fa-search'></i></button>Failed Operations</caption>
 		<tr><th></th><th>Failed Operation</th><th>Total</th></tr>
 	{{range $n, $val := index .Data "failed"}}
 		<tr><td align=right>{{add $n 1}}</td>
@@ -59,10 +65,10 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 {{end}}
 
 {{if hasData .Data "op"}}
-	<h3><button class='btn'
+	<table style='float: left; margin: 10px 10px; clear: left;'>
+		<caption><button class='btn'
 			onClick="javascript:location.href='/hatchets/{{.Hatchet}}/charts/ops?type=stats'; return false;">
-			<i class='fa fa-area-chart'></i></button>Operations Stats</h3>
-	<table>
+			<i class='fa fa-area-chart'></i></button>Operations Stats</caption>
 		<tr><th></th><th>Operation</th><th>Total</th></tr>
 	{{range $n, $val := index .Data "op"}}
 		<tr><td align=right>{{add $n 1}}</td>
@@ -75,10 +81,10 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 {{end}}
 
 {{if hasData .Data "ip"}}
-	<h3><button class='btn'
+	<table style='float: left; margin: 10px 10px;'>
+		<caption><button class='btn'
 			onClick="javascript:location.href='/hatchets/{{.Hatchet}}/charts/connections?type=accepted'; return false;">
-			<i class='fa fa-pie-chart'></i></button>Stats by IPs</h3>
-	<table>
+			<i class='fa fa-pie-chart'></i></button>Stats by IPs</caption>
 		<tr><th></th><th>IP</th><th>Accepted Connections</th><th>Response Length</th></tr>
 	{{range $n, $val := index .Data "ip"}}
 		<tr><td align=right>{{add $n 1}}</td>
@@ -91,10 +97,10 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 {{end}}
 
 {{if hasData .Data "ns"}}
-	<h3><button class='btn'
+	<table style='float: left; margin: 10px 10px; clear: left;'>
+		<caption><button class='btn'
 			onClick="javascript:location.href='/hatchets/{{.Hatchet}}/charts/reslen-ns?ns='; return false;">
-			<i class='fa fa-pie-chart'></i></button>Stats by Namespaces</h3>
-	<table>
+			<i class='fa fa-pie-chart'></i></button>Stats by Namespaces</caption>
 		<tr><th></th><th>Namespace</th><th>Accessed</th><th>Response Length</th></tr>
 	{{range $n, $val := index .Data "ns"}}
 		<tr><td align=right>{{add $n 1}}</td>
@@ -107,8 +113,8 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 {{end}}
 
 {{if hasData .Data "duration"}}
-	<h3><span style="font-size: 16px; padding: 5px 5px;"><i class="fa fa-shield"></i></span>Top N Long Lasting Connections</h3>
-	<table>
+	<table style='float: left; margin: 10px 10px; clear: left;'>
+		<caption><span style="font-size: 16px; padding: 5px 5px;"><i class="fa fa-shield"></i></span>Top N Long Lasting Connections</caption>
 		<tr><th></th><th>Context</th><th>Duration</th></tr>
 	{{range $n, $val := index .Data "duration"}}
 		{{if lt $n 23}}
@@ -122,7 +128,7 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 	{{end}}
 	</table>
 {{end}}
-	<div align='center'><hr/><p/>@simagix</div>
+	<div style='clear: left;' align='center'><hr/><p/>@simagix</div>
 	`
 	html += "</body></html>"
 	return template.New("hatchet").Funcs(template.FuncMap{
@@ -143,12 +149,20 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 			}
 			return toks[0]
 		},
-		"getTheGuyImage": func() string {
+		"assignConsultant": func(sage bool) string {
+			if sage {
+				return SAGE_PNG
+			}
 			return SIMONE_PNG
 		},
 		"getFormattedNumber": func(numbers []int, i int) string {
 			printer := message.NewPrinter(language.English)
 			return printer.Sprintf("%v", numbers[i])
+		},
+		"coinToss": func() bool {
+			rand.Seed(time.Now().UnixNano())
+			randomNum := rand.Intn(2)
+			return (randomNum%2 == 0)
 		},
 		"getDurationFromSeconds": func(s int) string {
 			return gox.GetDurationFromSeconds(float64(s))
@@ -162,8 +176,11 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 		"getFormattedSize": func(numbers []int, i int) string {
 			return gox.GetStorageSize(numbers[i])
 		},
-		"getInfoSummary": func(info HatchetInfo) template.HTML {
-			var html = "Hey there! My name is Simone and I am your assistant today. "
+		"getInfoSummary": func(info HatchetInfo, sage bool) template.HTML {
+			var html = "Hey there! My name is <i>Simone</i> and here is the summary I've prepared for you. "
+			if sage {
+				html = "Hello, my name is <i>Sage</i> and I'd like to share my thoughts with you on the findings. "
+			}
 			if info.Version == "" {
 				html += "There is not enough information in the log to determine what MongoDB version is used."
 			} else {
@@ -299,10 +316,20 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 							if seconds < (10 * 60) { // should be calculated with duration
 								html += printer.Sprintf("The total impact time from slowest operations was %s. ", gox.GetDurationFromSeconds(seconds))
 							} else if seconds < (60 * 60) {
-								html += printer.Sprintf("The total impact time from slowest operations was, ouch,<span style='color: orange;'>%s</span>. ", gox.GetDurationFromSeconds(seconds))
+								html += printer.Sprintf("The total impact time from slowest operations was, ouch, <span style='color: orange;'>%s</span>. ", gox.GetDurationFromSeconds(seconds))
 							} else {
 								totalImpact = seconds
 							}
+						}
+					}
+				} else if key == "collscan" && len(docs) > 0 {
+					html += "Let's move to the performance evaluation. "
+					for _, doc := range docs {
+						if doc.Name == "count" {
+							html += printer.Sprintf(`I found <span style='color: orange;'>%d</span> with <mark><i>COLLSCAN</i> </mark>plan summary. `, doc.Values[0])
+						} else if doc.Name == "totalMilli" {
+							seconds := float64(doc.Values[0]) / 1000
+							html += printer.Sprintf(`The <i>COLLSCAN</i> caused a total of <span style='color: orange;'>%s</span> wasted. `, gox.GetDurationFromSeconds(seconds))
 						}
 					}
 				}

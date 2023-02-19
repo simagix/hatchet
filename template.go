@@ -35,75 +35,88 @@ const headers = `<!DOCTYPE html>
   <link href="/favicon.ico" rel="icon" type="image/x-icon" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
   <style>
+    :root {
+      --text-color: #2C5234;
+      --header-color: #C1D8C5;
+      --row-color: #E8F1E9;
+      --background-color: #F3F7F4;
+      --accent-color-1: #7BAF9B;
+      --accent-color-2: #9FCCB3;
+      --accent-color-3: #5E8961;
+      --border-color: #DDD;
+    }
   	body {
       font-family: Helvetica, Arial, sans-serif;
       margin-top: 10px;
       margin-bottom: 10px;
       margin-right: 10px;
       margin-left: 10px;
-	  background-color: #f2f2f2;
+	    background-color: var(--background-color);
     }
     table {
-      font-family: Consolas, monaco, monospace;
       border-collapse:collapse;
-      min-width:600px;
+      min-width: 300px;
     }
     caption {
-      caption-side:top;
-      font-weight:bold;
-      font-style:italic;
-      margin:2px;
+      caption-side: top;
+      font-size: 1em;
+	  text-align: left;
     }
     table, th, td {
-      border: 1px solid #ccc;
+      border: 1px solid var(--border-color);
       vertical-align: middle;
     }
     th {
-      background-color: #333;
-      color: #fff;
-      vertical-align: middle;
-      font-size: .8em;
+      background-color: var(--header-color);
+      color: var(--text-color);
+      font-weight: bold;
+      padding: 0.1rem;
+      font-size: 0.9em;
+      text-align: left;    
     }
     td {
-      vertical-align: middle;
-      font-size: .8em;
+      background-color: var(--row-color);
+      padding: 0.1rem;
+      font-size: 0.9em;
+    }
+    tr:nth-child(even) td {
+      background-color: white;
     }
     .break {
       vertical-align: middle;
       font-size: .8em;
       word-break: break-all;
     }
-    tr:nth-child(even) {background-color: #fff;}
-    tr:nth-child(odd) {background-color: #f2f2f2;}
     ul, ol {
-      font-family: Consolas, monaco, monospace;
+      #font-family: Consolas, monaco, monospace;
       font-size: .8em;
     }
     .btn {
       background-color: transparent;
       border: none;
       outline:none;
-      color: #4285F4;
-      padding: 5px 5px;
+      color: var(--accent-color-3);
+      padding: 2px 2px;
       cursor: pointer;
       font-size: 16px;
+      font-weight: bold;
+      border-radius: .25em;
     }
     .btn:hover {
+      background-color: var(--border-color);
       color: #DB4437;
-      cursor: hand;
     }
-    .button {
-      font-family: "Trebuchet MS";
-      background-color: #4285F4;
+    .button { 
+      background-color: var(--text-color);
       border: none; 
       outline: none;
-      color: #f2f2f2;
+      color: var(--background-color);
       padding: 2px 15px;
       margin: 2px 10px;
       cursor: pointer;
       font-size: 1em;
       font-weight: bold;
-      border-radius: .25em;
+      border-radius: .3em;
     }
     .exclamation {
       background: none;
@@ -150,22 +163,18 @@ const headers = `<!DOCTYPE html>
       opacity: 1;
     }
     h1 {
-      font-family: "Trebuchet MS";
       font-size: 1.6em;
       font-weight: bold;
     }
     h2 {
-      font-family: "Trebuchet MS";
       font-size: 1.4em;
       font-weight: bold;
     }
     h3 {
-      font-family: "Trebuchet MS";
       font-size: 1.2em;
       font-weight: bold;
     }
     h4 {
-      font-family: "Trebuchet MS";
       font-size: 1em;
       font-weight: bold;
     }
@@ -184,11 +193,10 @@ const headers = `<!DOCTYPE html>
       font-family: "Trebuchet MS";
       appearance: auto;
       background-color: #fff;
-      color: #4285F4;
-      cursor: pointer;
+      color: #505950;
       border-radius: .25em;
-      font-size: 1em;
-      padding: 2px 2px;
+      font-size: .9em;
+      #padding: 5px 5px;
     }
     .rotate23:hover {
       -webkit-transform: rotate(23deg);
@@ -201,16 +209,18 @@ const headers = `<!DOCTYPE html>
       accent-color: red;
     }
     .sort {
-      color: #4285F4;
+      color: #FFF;
     }
     .sort:hover {
       color: #DB4437;
-	  cursor: hand;
     }
     .summary {
-	  background-color: black;
-      color: #CCC;
-	  padding: 5px;
+      font-family: Consolas, monaco, monospace;
+	    background-color: #111;
+      color: var(--border-color);
+	    padding: .5rem;
+	    margin: .5rem;
+      font-size: .8em;
     }
   </style>
 </head>
@@ -232,18 +242,17 @@ func getContentHTML() string {
 	}
 </script>
 <div align='center'>
-	<button id="title" onClick="javascript:location.href='/'; return false;"
-		class="btn" style="float: center;"><i class="fa fa-home"></i> Hatchet</button>
+	<div style="float: left; margin-right: 10px;"><button id="title" onClick="javascript:location.href='/'; return false;"
+		class="btn"><i class="fa fa-home"></i></button>Hatchet</div>
 
-  <button id="logs" onClick="javascript:location.href='/hatchets/{{.Hatchet}}/stats/audit'; return false;"
-		class="btn" style="float: left;"><i class="fa fa-shield"></i> Audit</button>
-	<button id="stats" onClick="javascript:location.href='/hatchets/{{.Hatchet}}/stats/slowops'; return false;"
-		class="btn" style="float: left;"><i class="fa fa-info"></i> Stats</button>
-	<button id="logs" onClick="javascript:location.href='/hatchets/{{.Hatchet}}/logs/slowops'; return false;"
-		class="btn" style="float: left;"><i class="fa fa-list"></i> Top N</button>
-	<button id="search" class="btn" style="float: left;"
-		onClick="javascript:location.href='/hatchets/{{.Hatchet}}/logs/all?component=NONE'; return false;">
-		<i class="fa fa-search"></i> Search</button>
+  <div style="float: left; margin-right: 10px;"><button id="logs" onClick="javascript:location.href='/hatchets/{{.Hatchet}}/stats/audit'; return false;"
+		class="btn"><i class="fa fa-shield"></i></button>Audit</div>
+  <div style="float: left; margin-right: 10px;"><button id="stats" onClick="javascript:location.href='/hatchets/{{.Hatchet}}/stats/slowops'; return false;"
+		class="btn"><i class="fa fa-info"></i></button>Stats</div>
+  <div style="float: left; margin-right: 10px;"><button id="logs" onClick="javascript:location.href='/hatchets/{{.Hatchet}}/logs/slowops'; return false;"
+		class="btn"><i class="fa fa-list"></i></button>Top N</div>
+  <div style="float: left; margin-right: 10px;"><button id="search" onClick="javascript:location.href='/hatchets/{{.Hatchet}}/logs/all?component=NONE'; return false;"
+    class="btn"><i class="fa fa-search"></i></button>Search</div>
 
 	<select id='nextChart' style="float: right;" onchange='gotoChart()'>`
 	items := []Chart{}
@@ -266,7 +275,6 @@ func getContentHTML() string {
 	<button id="chart" onClick="javascript:location.href='/hatchets/{{.Hatchet}}/charts/ops?type=stats'; return false;" 
     	class="btn" style="float: right;"><i class="fa fa-bar-chart"></i></button>
 </div>
-<p/>
 <script>
 	function setChartType() {
 		var sel = document.getElementById('nextChart')

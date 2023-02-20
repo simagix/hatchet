@@ -235,7 +235,9 @@ func (ptr *Logv2) Analyze(filename string) error {
 			if (doc.Client.Accepted + doc.Client.Ended) > 0 { // record connections
 				dbase.InsertClientConn(index, &doc)
 			} else if doc.Client.Driver != "" {
-				dbase.InsertDriver(index, &doc)
+				if isAppDriver(doc.Client) {
+					dbase.InsertDriver(index, &doc)
+				}
 			}
 		}
 	}
@@ -349,4 +351,16 @@ func (ptr *Logv2) PrintSummary() error {
 	}
 	fmt.Println(strings.Join(summaries, "\n"))
 	return err
+}
+
+func isAppDriver(client *RemoteClient) bool {
+	driver := client.Driver
+	version := client.Version
+
+	if driver == "NetworkInterfaceTL" || driver == "MongoDB Internal Client" {
+		return false
+	} else if driver == "mongo-go-driver" && strings.HasSuffix(version, "-cloud") {
+		return false
+	}
+	return true
 }

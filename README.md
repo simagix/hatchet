@@ -30,5 +30,10 @@ if you choose to view in the legacy format without a browser, use the command be
 
 For additional usages and integration details, see [developer's guide](README_DEV.md).
 
+## A Smart Log Analyzer
+How smart Hatchet is?  A picture is worth a thousand words.
+
+![Sage Says](sage_says.png)
+
 ## License
 [Apache-2.0 License](LICENSE)

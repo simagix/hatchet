@@ -80,16 +80,6 @@ SELECT SUBSTR(date, 1, 16), COUNT(op), op, ns
     GROUP by SUBSTR(date, 1, 16), op, ns;
 ```
 
-### Query Long Lasting Connection Duration and Relen
-```sqlite3
-SELECT ip, context, STRFTIME('%s', SUBSTR(etm,1,19))-STRFTIME('%s', SUBSTR(btm,1,19)) dur, reslen 
-  FROM (
-    SELECT MAX(a.date) etm, MIN(a.date) btm, a.context context, b.ip, SUM(a.reslen) reslen
-      FROM mongod_1b3d5f7 a, mongod_1b3d5f7_clients b WHERE a.ip = b.ip GROUP BY a.context
-  ) 
-  WHERE dur > 0 AND reslen > 0 order by dur DESC, reslen DESC limit 23;
-```
-
 ## Use SQLite3 API
 Different drivers are supported for most popular programming languages including Golang, NodeJS, Java, Python, and C#.
 

@@ -186,6 +186,7 @@ func (ptr *SQLite3DB) CreateMetaData() error {
 		return err
 	}
 
+	/* logs don't present trusted data from context, ignored
 	log.Printf("insert duration into %v_audit\n", ptr.hatchetName)
 	istmt = fmt.Sprintf(`INSERT INTO %v_audit
 		SELECT 'duration', context || ' (' || ip || ')', STRFTIME('%%s', SUBSTR(etm,1,19))-STRFTIME('%%s', SUBSTR(btm,1,19)) duration
@@ -194,6 +195,7 @@ func (ptr *SQLite3DB) CreateMetaData() error {
 	if _, err = ptr.db.Exec(istmt); err != nil {
 		return err
 	}
+	*/
 	return err
 }
 

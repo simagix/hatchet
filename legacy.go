@@ -74,7 +74,6 @@ func AddLegacyString(doc *Logv2Info) error {
 				b, _ := bson.MarshalExtJSON(attr.Value, false, false)
 				arr = append(arr, string(b))
 				if doc.Msg == "client metadata" {
-
 					data, ok := attr.Value.(bson.D)
 					if ok {
 						driver, ok := data.Map()["driver"].(bson.D)
@@ -98,6 +97,34 @@ func AddLegacyString(doc *Logv2Info) error {
 				arr = append(arr, fmt.Sprintf("%vms", attr.Value))
 			} else {
 				arr = append(arr, fmt.Sprintf("%v:%v", attr.Key, toLegacyString(attr.Value)))
+			}
+
+			// extra effort of retrieving driver info from COMMAND
+			if attr.Key == "command" {
+				remote := RemoteClient{}
+				_client, ok := attr.Value.(bson.D).Map()["$client"].(bson.D)
+				if ok {
+					driver, ok := _client.Map()["driver"].(bson.D)
+					if ok {
+						remote.Driver, _ = driver.Map()["name"].(string)
+						remote.Version, _ = driver.Map()["version"].(string)
+					}
+					mongos, ok := _client.Map()["mongos"].(bson.D)
+					if ok {
+						remote.IP, ok = mongos.Map()["client"].(string)
+						if ok {
+							if strings.Contains(remote.IP, ":") {
+								toks := strings.Split(remote.IP, ":")
+								remote.IP = toks[0]
+							}
+						}
+					} else {
+						log.Println("key 'mongos' under 'attr.command.$client' not found, report an issue at https://github.com/simagix/hatchet/issues")
+					}
+				}
+				if remote.IP != "" {
+					doc.Client = &remote
+				}
 			}
 		}
 	}

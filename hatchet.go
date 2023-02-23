@@ -37,6 +37,7 @@ func Run(fullVersion string) {
 		fmt.Println(fullVersion)
 		return
 	}
+	log.Println(fullVersion)
 
 	if *inMem {
 		if *dbfile != SQLITE3_FILE {

@@ -294,7 +294,7 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 							} else {
 								html += ". "
 							}
-						} else if doc.Name == "maxMilli" {
+						} else if doc.Name == "maxMilli" && doc.Values[0] > 0 {
 							milli := doc.Values[0]
 							html += "The slowest operation took "
 							if milli < 1000 {
@@ -303,7 +303,7 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 								seconds := float64(milli) / 1000
 								html += printer.Sprintf("<span style='color: orange;'>%s</span>. ", gox.GetDurationFromSeconds(seconds))
 							}
-						} else if doc.Name == "avgMilli" {
+						} else if doc.Name == "avgMilli" && doc.Values[0] > 0 {
 							milli := doc.Values[0]
 							html += printer.Sprintf("Moreover, the average operation time was <span style='color: orange;'>%d</span> milliseconds", milli)
 							if milli > 100 {
@@ -311,7 +311,7 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 							} else {
 								html += ". "
 							}
-						} else if doc.Name == "totalMilli" {
+						} else if doc.Name == "totalMilli" && doc.Values[0] > 0 {
 							seconds := float64(doc.Values[0]) / 1000
 							if seconds < (10 * 60) { // should be calculated with duration
 								html += printer.Sprintf("The total impact time from slowest operations was %s. ", gox.GetDurationFromSeconds(seconds))
@@ -342,7 +342,9 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 				html += `<iframe width="336" height="189" src="https://www.youtube.com/embed/n1wORkr_1xI" title="YouTube video player" style="margin-right: 5px;” frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`
 				html += "</div>"
 			}
-			html += "<p/>Check out the details below for additional information about this server."
+			if len(data) > 0 {
+				html += "<p/>Check out the details below for additional information about this server."
+			}
 			return template.HTML(html)
 		}}).Parse(html)
 }

@@ -148,6 +148,9 @@ func toLegacyString(o interface{}) interface{} {
 			arr := []string{}
 			if _, ok := list.(bson.D); ok {
 				for _, doc := range list.(bson.D) {
+					if doc.Key == "" {
+						doc.Key = `""`
+					}
 					arr = append(arr, fmt.Sprintf("{ %v:%v }", doc.Key, toLegacyString(doc.Value)))
 				}
 			} else {
@@ -159,6 +162,9 @@ func toLegacyString(o interface{}) interface{} {
 	case bson.D:
 		arr := []string{}
 		for _, doc := range data {
+			if doc.Key == "" {
+				doc.Key = `""`
+			}
 			arr = append(arr, fmt.Sprintf("%v:%v", doc.Key, toLegacyString(doc.Value)))
 		}
 		return " { " + strings.Join(arr, ", ") + " }"
@@ -166,6 +172,9 @@ func toLegacyString(o interface{}) interface{} {
 		val := toLegacyString(data.Value)
 		if strings.Index(data.Key, ".") > 0 {
 			return fmt.Sprintf(` { "%v":%v } `, data.Key, val)
+		}
+		if data.Key == "" {
+			data.Key = `""`
 		}
 		return fmt.Sprintf(" { %v:%v } ", data.Key, val)
 	case int, int32, int64, float32, float64:
@@ -188,8 +197,11 @@ func toLegacyString(o interface{}) interface{} {
 		return fmt.Sprintf(` "%v"`, o)
 	case primitive.Regex:
 		return fmt.Sprintf(" /%v/%v", data.Pattern, data.Options)
+	case primitive.MinKey, primitive.MaxKey:
+		return fmt.Sprintf(` %v`, o)
 	default:
 		log.Printf("unhandled data type %T, %v", o, o)
+		return fmt.Sprintf(` %v`, o)
 	}
 	return o
 }

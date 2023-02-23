@@ -27,7 +27,9 @@ func (ptr *SQLite3DB) GetAuditData() (map[string][]NameValues, error) {
 		_ = rows.Scan(&value)
 		doc.Name = "maxConns"
 		doc.Values = append(doc.Values, value)
-		data[category] = append(data[category], doc)
+		if value > 0 {
+			data[category] = append(data[category], doc)
+		}
 		rows.Close()
 	}
 
@@ -38,13 +40,15 @@ func (ptr *SQLite3DB) GetAuditData() (map[string][]NameValues, error) {
 	}
 	rows, err = db.Query(query)
 	if err == nil && rows.Next() {
-		var maxMilli, total, totalMilli int
-		if err = rows.Scan(&maxMilli, &total, &totalMilli); err != nil {
+		var maxMilli, count, totalMilli int
+		if err = rows.Scan(&maxMilli, &count, &totalMilli); err != nil {
 			return data, err
 		}
-		data[category] = append(data[category], NameValues{"maxMilli", []int{maxMilli}})
-		data[category] = append(data[category], NameValues{"avgMilli", []int{totalMilli / total}})
-		data[category] = append(data[category], NameValues{"totalMilli", []int{totalMilli}})
+		if count > 0 {
+			data[category] = append(data[category], NameValues{"maxMilli", []int{maxMilli}})
+			data[category] = append(data[category], NameValues{"avgMilli", []int{totalMilli / count}})
+			data[category] = append(data[category], NameValues{"totalMilli", []int{totalMilli}})
+		}
 		rows.Close()
 	}
 

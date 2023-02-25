@@ -117,14 +117,15 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 		<caption><span style="font-size: 16px; padding: 5px 5px;"><i class="fa fa-shield"></i></span>Top N Long Lasting Connections</caption>
 		<tr><th></th><th>Context</th><th>Duration</th></tr>
 	{{range $n, $val := index .Data "duration"}}
-		{{if lt $n 23}}
+		{{if gt $n 23}}
+			{{break}}
+		{{end}}
 			<tr><td align=right>{{add $n 1}}</td>
 				<td><button class='btn' onClick="javascript:location.href='/hatchets/{{$name}}/logs/all?context={{getContext $val.Name}}'; return false;">
 					<i class='fa fa-search'></i></button>{{$val.Name}}
 				</td>
 				<td align=right>{{getFormattedDuration $val.Values 0}}</td>
 			</tr>
-		{{end}}
 	{{end}}
 	</table>
 {{end}}

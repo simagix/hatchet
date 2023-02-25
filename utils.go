@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 )
 
 const (
@@ -53,6 +54,11 @@ func getHatchetName(filename string) string {
 	b := make([]byte, TAIL_SIZE)
 	rand.Read(b)
 	tail := fmt.Sprintf("%x", b)[:TAIL_SIZE-1]
+
+	r := []rune(hatchetName) // convert string to runes
+	if unicode.IsDigit(r[0]) {
+		hatchetName = "_" + hatchetName
+	}
 	return fmt.Sprintf("%v_%v", hatchetName, tail)
 }
 

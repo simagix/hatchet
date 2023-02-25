@@ -70,6 +70,15 @@ func TestGetHatchetName(t *testing.T) {
 	if len(hatchetName) != len(fname) {
 		t.Fatal("expected", len(fname), "but got", len(hatchetName))
 	}
+
+	filename = "testdata/0_errmsg.log.gz"
+	fname = filepath.Base((filename))
+	t.Log(fname)
+	hatchetName = getHatchetName(filename)
+	t.Log(hatchetName)
+	if len(hatchetName) != len(fname)+1 { // added _
+		t.Fatal("expected", len(fname), "but got", len(hatchetName))
+	}
 }
 
 func TestGetDateSubString(t *testing.T) {

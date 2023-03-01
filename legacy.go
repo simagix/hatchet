@@ -177,7 +177,7 @@ func toLegacyString(o interface{}) interface{} {
 			data.Key = `""`
 		}
 		return fmt.Sprintf(" { %v:%v } ", data.Key, val)
-	case int, int32, int64, float32, float64:
+	case int, int32, int64, float32, float64, primitive.Decimal128:
 		return o
 	case primitive.Binary:
 		if data.Subtype == 0 {
@@ -200,7 +200,7 @@ func toLegacyString(o interface{}) interface{} {
 	case primitive.MinKey, primitive.MaxKey:
 		return fmt.Sprintf(` %v`, o)
 	default:
-		log.Printf("unhandled data type %T, %v", o, o)
+		log.Printf("unhandled data type %T, returned original value: %v", o, o)
 		return fmt.Sprintf(` %v`, o)
 	}
 	return o

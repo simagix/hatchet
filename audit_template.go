@@ -117,9 +117,6 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 		<caption><span style="font-size: 16px; padding: 5px 5px;"><i class="fa fa-shield"></i></span>Top N Long Lasting Connections</caption>
 		<tr><th></th><th>Context</th><th>Duration</th></tr>
 	{{range $n, $val := index .Data "duration"}}
-		{{if gt $n 23}}
-			{{break}}
-		{{end}}
 			<tr><td align=right>{{add $n 1}}</td>
 				<td><button class='btn' onClick="javascript:location.href='/hatchets/{{$name}}/logs/all?context={{getContext $val.Name}}'; return false;">
 					<i class='fa fa-search'></i></button>{{$val.Name}}
@@ -218,7 +215,7 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 				if info.Provider != "" && info.Region != "" {
 					html += fmt.Sprintf("Bravo for the decision to host your servers on Atlas <span style='color: orange;'>%s</span> in the <span style='color: orange;'>%s</span> region. ",
 						info.Provider, info.Region)
-					html += "A gentle reminder to <mark>ensure your appplication servers reside in the same region</mark> which can save you more than a few bucks from data transfer charges. "
+					html += "A gentle reminder to <mark>ensure your application servers reside in the same region</mark> which can save you more than a few bucks from data transfer charges. "
 				}
 				if len(info.Drivers) == 1 {
 					for _, driver := range info.Drivers {

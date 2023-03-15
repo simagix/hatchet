@@ -35,5 +35,29 @@ How smart Hatchet is?  A picture is worth a thousand words.
 
 ![Sage Says](sage_says.png)
 
+## Other Usages
+Other than its ability to read from files, Hatchet offers additional functionality that includes reading from S3 and web servers, as well as MongoDB Atlas. This means that users can use Hatchet to conveniently access and download data from these sources, providing a more versatile and efficient data analysis experience.
+
+### Web Servers
+The tool supports reading from web servers using both the *http://* and *https://* protocols. The `-user` flag is optional when using basic authentication.
+
+```bash
+hatchet [-user {username}:{password}] https://{hostname}/{log name}
+```
+
+### Atlas
+To download logs directly from MongoDB Atlas, you will need to use the `-user` and `-digest` flags and provide the necessary information for both. These flags are used to authenticate and authorize your access to the database.
+
+```bash
+hatchet -user {pub key}:{private key} -digest https://cloud.mongodb.com/api/atlas/v1.0/groups/{group ID}/clusters/{hostname}/logs/mongodb.gz
+```
+
+### AWS S3
+Hatchet has the ability to download files from AWS S3. When downloading files, Hatchet will automatically retrieve the *Region* and *Credentials* information from the configuration files located at *${HOME}/.aws*. This means that there's no need to provide this information manually each time you download files from AWS S3 using Hatchet.
+
+```bash
+hatchet -s3 [--endpoint-url {test endpoint}] {bucket}/{key name}
+```
+
 ## License
 [Apache-2.0 License](LICENSE)

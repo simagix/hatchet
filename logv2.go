@@ -45,9 +45,11 @@ type Logv2 struct {
 	filename    string
 	legacy      bool
 	hatchetName string
+	isDigest    bool
 	s3client    *S3Client
 	testing     bool //test mode
 	totalLines  int
+	user        string
 	verbose     bool
 	version     string
 }
@@ -150,6 +152,24 @@ func (ptr *Logv2) Analyze(filename string) error {
 		}
 		if !ptr.legacy {
 			log.Println("s3 bucket", bucketName, "key", keyName)
+		}
+	} else if strings.HasPrefix(filename, "http://") || strings.HasPrefix(filename, "https://") {
+		var username, password string
+		if ptr.user != "" {
+			toks := strings.Split(ptr.user, ":")
+			if len(toks) == 2 {
+				username = toks[0]
+				password = toks[1]
+			}
+		}
+		if ptr.isDigest {
+			if reader, err = GetHTTPDigestContent(filename, username, password); err != nil {
+				return err
+			}
+		} else {
+			if reader, err = GetHTTPContent(filename, username, password); err != nil {
+				return err
+			}
 		}
 	} else {
 		dirname := filepath.Dir(ptr.dbfile)

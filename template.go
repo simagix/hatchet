@@ -111,7 +111,7 @@ const headers = `<!DOCTYPE html>
       border: none; 
       outline: none;
       color: var(--background-color);
-      padding: 2px 15px;
+      padding: 0px 15px;
       margin: 2px 10px;
       cursor: pointer;
       font-size: 1em;

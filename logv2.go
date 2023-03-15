@@ -45,6 +45,7 @@ type Logv2 struct {
 	filename    string
 	legacy      bool
 	hatchetName string
+	s3client    *S3Client
 	testing     bool //test mode
 	totalLines  int
 	verbose     bool
@@ -127,22 +128,39 @@ type HatchetInfo struct {
 func (ptr *Logv2) Analyze(filename string) error {
 	var err error
 	var buf []byte
-	ptr.filename = filename
-
 	var file *os.File
 	var reader *bufio.Reader
 	ptr.filename = filename
-	log.Println("processing", filename)
-	dirname := filepath.Dir(ptr.dbfile)
-	os.Mkdir(dirname, 0755)
 	ptr.hatchetName = getHatchetName(ptr.filename)
-	log.Println("hatchet name is", ptr.hatchetName)
-	if file, err = os.Open(filename); err != nil {
-		return err
+	if !ptr.legacy {
+		log.Println("processing", filename)
+		log.Println("hatchet name is", ptr.hatchetName)
 	}
-	defer file.Close()
-	if reader, err = gox.NewReader(file); err != nil {
-		return err
+
+	if ptr.s3client != nil {
+		var buf []byte
+		toks := strings.Split(filename, "/")
+		bucketName := toks[0]
+		keyName := strings.Join(toks[1:], "/")
+		if buf, err = ptr.s3client.GetObject(bucketName, keyName); err != nil {
+			return err
+		}
+		if reader, err = GetBufioReader(buf); err != nil {
+			return err
+		}
+		if !ptr.legacy {
+			log.Println("s3 bucket", bucketName, "key", keyName)
+		}
+	} else {
+		dirname := filepath.Dir(ptr.dbfile)
+		os.Mkdir(dirname, 0755)
+		if file, err = os.Open(filename); err != nil {
+			return err
+		}
+		defer file.Close()
+		if reader, err = gox.NewReader(file); err != nil {
+			return err
+		}
 	}
 
 	for { // check if it is in the logv2 format
@@ -159,14 +177,14 @@ func (ptr *Logv2) Analyze(filename string) error {
 		break
 	}
 
-	// get total counts of logs
-	if !ptr.legacy {
+	if !ptr.legacy && ptr.s3client != nil {
+		// get total counts of logs
 		log.Println("fast counting", filename, "...")
 		ptr.totalLines, _ = gox.CountLines(reader)
-	}
-	file.Seek(0, 0)
-	if reader, err = gox.NewReader(file); err != nil {
-		return err
+		file.Seek(0, 0)
+		if reader, err = gox.NewReader(file); err != nil {
+			return err
+		}
 	}
 
 	var isPrefix bool

@@ -23,9 +23,14 @@ const SQLITE3_FILE = "./data/hatchet.db"
 
 func Run(fullVersion string) {
 	dbfile := flag.String("dbfile", SQLITE3_FILE, "database file name")
+	digest := flag.Bool("digest", false, "HTTP digest")
+	endpoint := flag.String("endpoint-url", "", "AWS endpoint")
 	inMem := flag.Bool("in-memory", false, "use in-memory mode")
 	legacy := flag.Bool("legacy", false, "view logs in legacy format")
 	port := flag.Int("port", 3721, "web server port number")
+	profile := flag.String("aws-profile", "default", "AWS profile name")
+	s3 := flag.Bool("s3", false, "files from AWS S3")
+	user := flag.String("user", "", "HTTP Auth (username:password)")
 	ver := flag.Bool("version", false, "print version number")
 	verbose := flag.Bool("verbose", false, "turn on verbose")
 	web := flag.Bool("web", false, "starts a web server")
@@ -37,7 +42,9 @@ func Run(fullVersion string) {
 		fmt.Println(fullVersion)
 		return
 	}
-	log.Println(fullVersion)
+	if !*legacy {
+		log.Println(fullVersion)
+	}
 
 	if *inMem {
 		if *dbfile != SQLITE3_FILE {
@@ -59,8 +66,13 @@ func Run(fullVersion string) {
 				return conn.RegisterFunc("regexp", regex, true)
 			},
 		})
-
-	logv2 := Logv2{version: fullVersion, dbfile: *dbfile, verbose: *verbose, legacy: *legacy}
+	logv2 := Logv2{version: fullVersion, dbfile: *dbfile, verbose: *verbose, legacy: *legacy, user: *user, isDigest: *digest}
+	if *s3 {
+		var err error
+		if logv2.s3client, err = NewS3Client(*profile, *endpoint); err != nil {
+			log.Fatal(err)
+		}
+	}
 	instance = &logv2
 	for _, filename := range flag.Args() {
 		err := logv2.Analyze(filename)

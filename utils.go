@@ -6,6 +6,9 @@
 package hatchet
 
 import (
+	"bufio"
+	"bytes"
+	"compress/gzip"
 	"fmt"
 	"math/rand"
 	"path/filepath"
@@ -131,4 +134,28 @@ func GetOffsetLimit(str string) (int, int) {
 func getDateTimeStr(tm time.Time) string {
 	dt := tm.Format("2006-01-02T15:04:05.000-0000")
 	return dt
+}
+
+func GetBufioReader(data []byte) (*bufio.Reader, error) {
+	isGzipped := false
+	if len(data) > 2 && data[0] == 0x1f && data[1] == 0x8b {
+		isGzipped = true
+	}
+
+	if isGzipped {
+		gzipReader, err := gzip.NewReader(bytes.NewReader(data))
+		if err != nil {
+			return nil, err
+		}
+		defer gzipReader.Close()
+
+		var buf bytes.Buffer
+		if _, err = buf.ReadFrom(gzipReader); err != nil {
+			return nil, err
+		}
+
+		return bufio.NewReader(&buf), nil
+	}
+
+	return bufio.NewReader(bytes.NewReader(data)), nil
 }

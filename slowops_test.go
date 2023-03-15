@@ -1,4 +1,7 @@
-// Copyright 2022-present Kuei-chun Chen. All rights reserved.
+/*
+ * Copyright 2022-present Kuei-chun Chen. All rights reserved.
+ * slowops_test.go
+ */
 
 package hatchet
 
@@ -17,7 +20,7 @@ func TestAnalyzeLog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := `{"status":{"$in":[...]}}`
+	expected := `{ status:{ $in:[...] } }`
 	if stat.QueryPattern != expected {
 		t.Fatal("expected", expected, "but got", stat.QueryPattern)
 	}
@@ -41,7 +44,7 @@ func TestAnalyzeSlowOp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := `{"status":{"$in":[...]}}`
+	expected := `{ status:{ $in:[...] } }`
 	if stat.QueryPattern != expected {
 		t.Fatal("expected", expected, "but got", stat.QueryPattern)
 	}

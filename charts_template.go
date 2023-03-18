@@ -89,6 +89,7 @@ func getOpStatsChart() string {
 			'width': '100%',
 			'height': 480,
 			'titleTextStyle': {'fontSize': 20},
+			'explorer': { actions: ['dragToZoom', 'rightClickToReset'] },
 	{{if eq $ctype "ops"}}
 			'sizeAxis': {minValue: 0, minSize: 5, maxSize: 30},
 	{{else}}
@@ -176,6 +177,7 @@ func getConnectionsChart() string {
 			'width': '100%',
 			'height': 480,
 			'titleTextStyle': {'fontSize': 20},
+			'explorer': { actions: ['dragToZoom', 'rightClickToReset'] },
 			'legend': { 'position': 'right' } };
 		// Instantiate and draw our chart, passing in some options.
 	{{if eq $ctype "connections-time"}}

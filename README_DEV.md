@@ -102,6 +102,7 @@ Hatchet provides a number of APIs to output JSON data. They work similarly to th
   - reslen
 - /api/hatchet/v1.0/hatchets/{hatchet}/logs/all
 - /api/hatchet/v1.0/hatchets/{hatchet}/logs/slowops[?topN=] ; The default value of topN is 23.
+- /api/hatchet/v1.0/mongodb/{version}/drivers/{driver}[?compatibleWith={driver version}]
 
 ## Output Logs in Legacy Format
 ```bash

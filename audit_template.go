@@ -47,8 +47,28 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 	</table>
 {{end}}
 
-{{if hasData .Data "failed"}}
+{{if hasData .Data "driver"}}
 	<table style='float: left; margin: 10px 10px;'>
+		<caption><button class='btn'><i class='fa fa-comment-o'></i></button>Drivers Compatibility</caption>
+		<tr><th></th><th>Driver</th><th>Version</th><th>IP</th><th>Compatibility</th></tr>
+	{{$mver := .Info.Version}}
+	{{range $n, $val := index .Data "driver"}}
+		<tr><td align=right>{{add $n 1}}</td>
+			<td>{{index $val.Values 0}}</td><td>{{index $val.Values 1}}</td>
+			<td>{{$val.Name}}</td>
+			{{$err := checkDriver $mver $val.Values}}
+			{{if eq $err nil}}
+				<td align='center'><i class='fa fa-check'></i></td>
+			{{else}}
+				<td><mark>{{$err}}</mark></td>
+			{{end}}
+		</tr>
+	{{end}}
+	</table>
+{{end}}
+
+{{if hasData .Data "failed"}}
+	<table style='float: left; margin: 10px 10px; clear: left;'>
 		<caption><button class='btn'
 			onClick="javascript:location.href='/hatchets/{{.Hatchet}}/logs/all?context=failed'; return false;">
 			<i class='fa fa-search'></i></button>Failed Operations</caption>
@@ -60,22 +80,6 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 			</td>
 			<td align=right>{{getFormattedNumber $val.Values 0}}</td>
 		</tr>
-	{{end}}
-	</table>
-{{end}}
-
-{{if hasData .Data "op"}}
-	<table style='float: left; margin: 10px 10px; clear: left;'>
-		<caption><button class='btn'
-			onClick="javascript:location.href='/hatchets/{{.Hatchet}}/charts/ops?type=stats'; return false;">
-			<i class='fa fa-area-chart'></i></button>Operations Stats</caption>
-		<tr><th></th><th>Operation</th><th>Total</th></tr>
-	{{range $n, $val := index .Data "op"}}
-		<tr><td align=right>{{add $n 1}}</td>
-		<td>
-			<button class='btn' onClick="javascript:location.href='/hatchets/{{$name}}/charts/ops?type=stats&op={{$val.Name}}'; return false;"><i class='fa fa-area-chart'></i></button>{{$val.Name}}
-		</td>
-		<td align=right>{{getFormattedNumber $val.Values 0}}</td></tr>
 	{{end}}
 	</table>
 {{end}}
@@ -96,8 +100,24 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 	</table>
 {{end}}
 
-{{if hasData .Data "ns"}}
+{{if hasData .Data "op"}}
 	<table style='float: left; margin: 10px 10px; clear: left;'>
+		<caption><button class='btn'
+			onClick="javascript:location.href='/hatchets/{{.Hatchet}}/charts/ops?type=stats'; return false;">
+			<i class='fa fa-area-chart'></i></button>Operations Stats</caption>
+		<tr><th></th><th>Operation</th><th>Total</th></tr>
+	{{range $n, $val := index .Data "op"}}
+		<tr><td align=right>{{add $n 1}}</td>
+		<td>
+			<button class='btn' onClick="javascript:location.href='/hatchets/{{$name}}/charts/ops?type=stats&op={{$val.Name}}'; return false;"><i class='fa fa-area-chart'></i></button>{{$val.Name}}
+		</td>
+		<td align=right>{{getFormattedNumber $val.Values 0}}</td></tr>
+	{{end}}
+	</table>
+{{end}}
+
+{{if hasData .Data "ns"}}
+	<table style='float: left; margin: 10px 10px;'>
 		<caption><button class='btn'
 			onClick="javascript:location.href='/hatchets/{{.Hatchet}}/charts/reslen-ns?ns='; return false;">
 			<i class='fa fa-pie-chart'></i></button>Stats by Namespaces</caption>
@@ -153,7 +173,10 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 			}
 			return SIMONE_PNG
 		},
-		"getFormattedNumber": func(numbers []int, i int) string {
+		"checkDriver": func(version string, values []interface{}) error {
+			return CheckDriverCompatibility(version, values[0].(string), values[1].(string))
+		},
+		"getFormattedNumber": func(numbers []interface{}, i int) string {
 			printer := message.NewPrinter(language.English)
 			return printer.Sprintf("%v", numbers[i])
 		},
@@ -165,13 +188,13 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 		"getDurationFromSeconds": func(s int) string {
 			return gox.GetDurationFromSeconds(float64(s))
 		},
-		"getFormattedDuration": func(numbers []int, i int) string {
-			return gox.GetDurationFromSeconds(float64(numbers[i]))
+		"getFormattedDuration": func(numbers []interface{}, i int) string {
+			return gox.GetDurationFromSeconds(float64(numbers[i].(int)))
 		},
 		"getStorageSize": func(s int) string {
 			return gox.GetStorageSize(float64(s))
 		},
-		"getFormattedSize": func(numbers []int, i int) string {
+		"getFormattedSize": func(numbers []interface{}, i int) string {
 			return gox.GetStorageSize(numbers[i])
 		},
 		"getInfoSummary": func(info HatchetInfo, sage bool) template.HTML {
@@ -224,7 +247,7 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 							html += fmt.Sprintf("<span style='color: orange;'>%s</span> version <span style='color: orange;'>%s</span>. ", key, value)
 						}
 					}
-					html += "You should confirm the driver you use is <mark>compatible with the MongoDB server version</mark>. "
+					html += "See Drivers Compatibility table below for a list of drivers in use. "
 				} else if len(info.Drivers) > 1 {
 					html += "It looks like your applications have used a number of drivers, and they are "
 					cnt := 0
@@ -238,7 +261,7 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 							}
 						}
 					}
-					html += "You should double check the drivers you use are <mark>compatible with the MongoDB server version</mark>. "
+					html += "See Drivers Compatibility table below for a list of drivers in use. "
 				}
 			}
 			return template.HTML(html)
@@ -258,7 +281,7 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 				} else if key == "ip" && len(docs) > 0 {
 					conns := 0
 					for _, doc := range docs {
-						conns += doc.Values[0]
+						conns += doc.Values[0].(int)
 					}
 					html += printer.Sprintf("During the time, there were a total of <span style='color: orange;'>%d</span> accepted connections from <span style='color: orange;'>%d</span> ", conns, len(docs))
 					if len(docs) < 2 {
@@ -269,18 +292,18 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 				} else if key == "ns" && len(docs) > 0 {
 					count := 0
 					for _, doc := range docs {
-						count += doc.Values[0]
+						count += doc.Values[0].(int)
 					}
 					html += printer.Sprintf("As many as <span style='color: orange;'>%d</span> different namespaces were accessed a total of <span style='color: orange;'>%d</span> times. ", len(docs), count)
 					reslen := 0
 					for _, doc := range docs {
-						reslen += doc.Values[1]
+						reslen += doc.Values[1].(int)
 					}
 					html += printer.Sprintf("The total response length was around <span style='color: orange;'>%v</span>. ", gox.GetStorageSize(reslen))
 				} else if key == "stats" && len(docs) > 0 {
 					for _, doc := range docs {
 						if doc.Name == "maxConns" {
-							milli := doc.Values[0]
+							milli := doc.Values[0].(int)
 							if milli == 0 {
 								html += "I didn't find any connections information. "
 								continue
@@ -292,8 +315,8 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 							} else {
 								html += ". "
 							}
-						} else if doc.Name == "maxMilli" && doc.Values[0] > 0 {
-							milli := doc.Values[0]
+						} else if doc.Name == "maxMilli" && doc.Values[0].(int) > 0 {
+							milli := doc.Values[0].(int)
 							html += "The slowest operation took "
 							if milli < 1000 {
 								html += printer.Sprintf("<span style='color: orange;'>%d</span> milliseconds. ", doc.Values[0])
@@ -301,16 +324,16 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 								seconds := float64(milli) / 1000
 								html += printer.Sprintf("<span style='color: orange;'>%s</span>. ", gox.GetDurationFromSeconds(seconds))
 							}
-						} else if doc.Name == "avgMilli" && doc.Values[0] > 0 {
-							milli := doc.Values[0]
+						} else if doc.Name == "avgMilli" && doc.Values[0].(int) > 0 {
+							milli := doc.Values[0].(int)
 							html += printer.Sprintf("Moreover, the average operation time was <span style='color: orange;'>%d</span> milliseconds", milli)
 							if milli > 100 {
 								html += `, where operation time <mark>greater than 100 milliseconds is, IMO, "slow"</mark>. `
 							} else {
 								html += ". "
 							}
-						} else if doc.Name == "totalMilli" && doc.Values[0] > 0 {
-							seconds := float64(doc.Values[0]) / 1000
+						} else if doc.Name == "totalMilli" && doc.Values[0].(int) > 0 {
+							seconds := float64(doc.Values[0].(int)) / 1000
 							if seconds < (10 * 60) { // should be calculated with duration
 								html += printer.Sprintf("The total impact time from slowest operations was %s. ", gox.GetDurationFromSeconds(seconds))
 							} else if seconds < (60 * 60) {
@@ -326,7 +349,7 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 						if doc.Name == "count" {
 							html += printer.Sprintf(`I found <span style='color: orange;'>%d</span> with <mark><i>COLLSCAN</i> </mark>plan summary. `, doc.Values[0])
 						} else if doc.Name == "totalMilli" {
-							seconds := float64(doc.Values[0]) / 1000
+							seconds := float64(doc.Values[0].(int)) / 1000
 							html += printer.Sprintf(`The <i>COLLSCAN</i> caused a total of <span style='color: orange;'>%s</span> wasted. `, gox.GetDurationFromSeconds(seconds))
 						}
 					}

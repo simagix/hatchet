@@ -91,6 +91,7 @@ func Run(fullVersion string) {
 	router.GET("/", Handler)
 	router.GET("/favicon.ico", FaviconHandler)
 
+	router.GET("/api/hatchet/v1.0/mongodb/:mongo/drivers/:driver", DriverHandler)
 	router.GET("/api/hatchet/v1.0/hatchets/:hatchet/:category/:attr", APIHandler)
 
 	router.GET("/hatchets/:hatchet/charts/:attr", ChartsHandler)

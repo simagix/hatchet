@@ -45,9 +45,9 @@ func (ptr *SQLite3DB) GetAuditData() (map[string][]NameValues, error) {
 			return data, err
 		}
 		if count > 0 {
-			data[category] = append(data[category], NameValues{"maxMilli", []int{maxMilli}})
-			data[category] = append(data[category], NameValues{"avgMilli", []int{totalMilli / count}})
-			data[category] = append(data[category], NameValues{"totalMilli", []int{totalMilli}})
+			data[category] = append(data[category], NameValues{"maxMilli", []interface{}{maxMilli}})
+			data[category] = append(data[category], NameValues{"avgMilli", []interface{}{totalMilli / count}})
+			data[category] = append(data[category], NameValues{"totalMilli", []interface{}{totalMilli}})
 		}
 		rows.Close()
 	}
@@ -65,9 +65,9 @@ func (ptr *SQLite3DB) GetAuditData() (map[string][]NameValues, error) {
 			return data, err
 		}
 		if count > 0 {
-			data[category] = append(data[category], NameValues{"count", []int{count}})
-			data[category] = append(data[category], NameValues{"maxMilli", []int{maxMilli}})
-			data[category] = append(data[category], NameValues{"totalMilli", []int{totalMilli}})
+			data[category] = append(data[category], NameValues{"count", []interface{}{count}})
+			data[category] = append(data[category], NameValues{"maxMilli", []interface{}{maxMilli}})
+			data[category] = append(data[category], NameValues{"totalMilli", []interface{}{totalMilli}})
 		}
 		rows.Close()
 	}
@@ -149,5 +149,30 @@ func (ptr *SQLite3DB) GetAuditData() (map[string][]NameValues, error) {
 	if rows != nil {
 		rows.Close()
 	}
+
+	category = "driver"
+	query = fmt.Sprintf(`SELECT distinct ip, driver, version FROM %v_drivers ORDER BY driver, version DESC;`,
+		ptr.hatchetName)
+	if ptr.verbose {
+		log.Println(query)
+	}
+	rows, err = db.Query(query)
+	if err != nil {
+		return data, err
+	}
+	for rows.Next() {
+		var doc NameValues
+		var val1, val2 string
+		if err = rows.Scan(&doc.Name, &val1, &val2); err != nil {
+			return data, err
+		}
+		doc.Values = append(doc.Values, val1)
+		doc.Values = append(doc.Values, val2)
+		data[category] = append(data[category], doc)
+	}
+	if rows != nil {
+		rows.Close()
+	}
+
 	return data, err
 }

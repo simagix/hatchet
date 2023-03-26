@@ -12,7 +12,7 @@ type NameValue struct {
 
 type NameValues struct {
 	Name   string
-	Values []int
+	Values []interface{}
 }
 
 type Database interface {

@@ -50,6 +50,7 @@ func AddLegacyString(doc *Logv2Info) error {
 			}
 		}
 	} else if doc.Component == "NETWORK" {
+		arr = []string{}
 		remote := RemoteClient{}
 		for _, attr := range doc.Attr {
 			if attr.Key == "remote" {
@@ -62,9 +63,11 @@ func AddLegacyString(doc *Logv2Info) error {
 				} else if doc.Msg == "Connection accepted" {
 					remote.Accepted = 1
 					arr = append(arr, fmt.Sprintf("from %v", attr.Value))
+				} else {
+					arr = append(arr, fmt.Sprintf(`"%v":"%v"`, attr.Key, attr.Value))
 				}
 			} else if attr.Key == "client" {
-				arr = append(arr, fmt.Sprintf("%v:", attr.Value))
+				arr = append(arr, fmt.Sprintf(`"%v":"%v"`, attr.Key, attr.Value))
 			} else if attr.Key == "connectionId" && doc.Msg != "Connection ended" {
 				arr = append(arr, fmt.Sprintf("#%v", attr.Value))
 			} else if attr.Key == "connectionCount" {
@@ -72,7 +75,7 @@ func AddLegacyString(doc *Logv2Info) error {
 				remote.Conns = ToInt(attr.Value)
 			} else if attr.Key == "doc" {
 				b, _ := bson.MarshalExtJSON(attr.Value, false, false)
-				arr = append(arr, string(b))
+				arr = append(arr, fmt.Sprintf(`"%v":"%v"`, attr.Key, string(b)))
 				if doc.Msg == "client metadata" {
 					data, ok := attr.Value.(bson.D)
 					if ok {
@@ -83,6 +86,9 @@ func AddLegacyString(doc *Logv2Info) error {
 						}
 					}
 				}
+			} else {
+				b, _ := bson.MarshalExtJSON(attr.Value, false, false)
+				arr = append(arr, fmt.Sprintf(`"%v":"%v"`, attr.Key, string(b)))
 			}
 		}
 		if remote.IP != "" {

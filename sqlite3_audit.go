@@ -151,7 +151,8 @@ func (ptr *SQLite3DB) GetAuditData() (map[string][]NameValues, error) {
 	}
 
 	category = "driver"
-	query = fmt.Sprintf(`SELECT distinct ip, driver, version FROM %v_drivers;`, ptr.hatchetName)
+	query = fmt.Sprintf(`SELECT distinct ip, driver, version FROM %v_drivers ORDER BY driver, version DESC;`,
+		ptr.hatchetName)
 	if ptr.verbose {
 		log.Println(query)
 	}

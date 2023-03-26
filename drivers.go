@@ -12,15 +12,14 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
 )
 
-var DriversIns *map[string]interface{}
+var driversIns *map[string]interface{}
 
 // GetDrivers returns *map[string]interface{} instance
 func GetDrivers() *map[string]interface{} {
-	if DriversIns == nil {
+	if driversIns == nil {
 		filename := "drivers.json"
 		data, err := os.ReadFile(filename)
 		if err != nil {
@@ -45,49 +44,63 @@ func GetDrivers() *map[string]interface{} {
 		if err := json.Unmarshal(data, &m); err != nil {
 			return nil
 		}
-
-		DriversIns = &m
+		driversIns = &m
 	}
-	return DriversIns
+	return driversIns
 }
 
-func CheckDriverCompatibility(mongo string, driver string, version string) error {
+func GetDriverVersions(mongo string, driver string) ([]interface{}, error) {
+	var versions []interface{}
+	if mongo == "" {
+		return versions, fmt.Errorf("missing MongoDB version")
+	} else if driver == "" {
+		return versions, fmt.Errorf("missing driver info")
+	}
 	mongo = strings.TrimPrefix(mongo, "v")
 	toks := strings.Split(mongo, ".")
 	mongo = strings.Join(toks[:2], ".")
-	version = strings.TrimPrefix(version, "v")
-	toks = strings.Split(version, ".")
-	version = strings.Join(toks[:2], ".")
 
 	drivers := GetDrivers()
 	if drivers == nil {
-		return fmt.Errorf("missing drivers info")
+		return versions, fmt.Errorf("missing driver data")
 	}
-	driverData, ok := (*drivers)[driver].(map[string]interface{})
+	driverData, ok := (*drivers)[mongo].(map[string]interface{})
 	if !ok {
-		return fmt.Errorf("missing %v driver info", driver)
+		return versions, fmt.Errorf("missing MongoDB v%v driver data", mongo)
 	}
-	driverVerData, ok := driverData[mongo].([]interface{})
-	if !ok || len(driverVerData) < 1 {
-		return fmt.Errorf(`missing "%v" driver info for MongoDB v%v`, driver, mongo)
+	versions, ok = driverData[driver].([]interface{})
+	if !ok || len(versions) < 1 {
+		return versions, fmt.Errorf(`missing MongoDB v%v driver "%v" data`, mongo, driver)
 	}
-	if compareVersions(version, driverVerData[0].(string)) < 0 {
-		return fmt.Errorf("MongoDB v%v requires a minimum version of v%v", mongo, driverVerData[0])
-	}
+	return versions, nil
+}
 
+func CheckDriverCompatibility(mongo string, driver string, version string) error {
+	versions, err := GetDriverVersions(mongo, driver)
+	if err != nil {
+		return err
+	}
+	if version == "" {
+		return fmt.Errorf("missing driver info")
+	}
+	version = strings.TrimPrefix(version, "v")
+	toks := strings.Split(version, ".")
+	version = strings.Join(toks[:2], ".")
+	if compareVersions(version, versions[0].(string)) < 0 {
+		return fmt.Errorf("MongoDB v%v requires a minimum driver version of v%v", mongo, versions[0])
+	}
 	return nil
 }
 
 func compareVersions(v1 string, v2 string) int {
 	// Split the version strings into their respective integers
 	v1Split := strings.Split(v1, ".")
+	a1 := ToInt(v1Split[0])
+	b1 := ToInt(v1Split[1])
+
 	v2Split := strings.Split(v2, ".")
-
-	a1, _ := strconv.Atoi(v1Split[0])
-	b1, _ := strconv.Atoi(v1Split[1])
-
-	a2, _ := strconv.Atoi(v2Split[0])
-	b2, _ := strconv.Atoi(v2Split[1])
+	a2 := ToInt(v2Split[0])
+	b2 := ToInt(v2Split[1])
 
 	// Compare the integers
 	if a1 < a2 || (a1 == a2 && b1 < b2) {

@@ -355,6 +355,7 @@ func getMainPage() string {
 	<li>/api/hatchet/v1.0/hatchets/{hatchet}/logs/slowops[?topN={int}]</li>
 	<li>/api/hatchet/v1.0/hatchets/{hatchet}/stats/audit</li>
 	<li>/api/hatchet/v1.0/hatchets/{hatchet}/stats/slowops[?COLLSCAN={bool}&orderBy={str}]</li>
+	<li>/api/hatchet/v1.0/mongodb/{version}/drivers/{driver}?compatibleWith={driver version}</li>
 </ul>
 <h4 align='center'><hr/>{{.Version}}</h4>
 `

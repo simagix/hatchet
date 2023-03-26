@@ -50,11 +50,18 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 {{if hasData .Data "driver"}}
 	<table style='float: left; margin: 10px 10px;'>
 		<caption><button class='btn'><i class='fa fa-comment-o'></i></button>Drivers Compatibility</caption>
-		<tr><th></th><th>IP</th><th>Driver</th><th>Version</th><th>Compatible?</th></tr>
+		<tr><th></th><th>Driver</th><th>Version</th><th>IP</th><th>Compatibility</th></tr>
 	{{$mver := .Info.Version}}
 	{{range $n, $val := index .Data "driver"}}
 		<tr><td align=right>{{add $n 1}}</td>
-			<td>{{$val.Name}}</td><td>{{index $val.Values 0}}</td><td>{{index $val.Values 1}}</td><td>{{checkDriver $mver $val.Values}}</td>
+			<td>{{index $val.Values 0}}</td><td>{{index $val.Values 1}}</td>
+			<td>{{$val.Name}}</td>
+			{{$err := checkDriver $mver $val.Values}}
+			{{if eq $err nil}}
+				<td align='center'><i class='fa fa-check'></i></td>
+			{{else}}
+				<td><mark>{{$err}}</mark></td>
+			{{end}}
 		</tr>
 	{{end}}
 	</table>
@@ -166,12 +173,8 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 			}
 			return SIMONE_PNG
 		},
-		"checkDriver": func(version string, values []interface{}) string {
-			if err := CheckDriverCompatibility(version, values[0].(string), values[1].(string)); err != nil {
-				return err.Error()
-			} else {
-				return "Yes"
-			}
+		"checkDriver": func(version string, values []interface{}) error {
+			return CheckDriverCompatibility(version, values[0].(string), values[1].(string))
 		},
 		"getFormattedNumber": func(numbers []interface{}, i int) string {
 			printer := message.NewPrinter(language.English)

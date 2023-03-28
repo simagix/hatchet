@@ -183,18 +183,16 @@ func (ptr *Logv2) Analyze(filename string) error {
 		}
 	}
 
-	for { // check if it is in the logv2 format
-		if buf, _, err = reader.ReadLine(); err != nil { // 0x0A separator = newline
-			return errors.New("no valid log format found")
-		}
-		if len(buf) == 0 {
-			continue
-		}
-		str := string(buf)
+	// parse each line and validate it is in the logv2 format
+	scanner := bufio.NewScanner(reader)
+	for scanner.Scan() {
+		str := scanner.Text()
 		if !regexp.MustCompile("^{.*}$").MatchString(str) {
 			return errors.New("log format not supported")
 		}
-		break
+	}
+	if _, err = file.Seek(0, 0); err != nil {
+		return err
 	}
 
 	if !ptr.legacy && ptr.s3client != nil {

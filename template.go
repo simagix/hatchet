@@ -111,12 +111,12 @@ const headers = `<!DOCTYPE html>
       border: none; 
       outline: none;
       color: var(--background-color);
-      padding: 0px 15px;
-      margin: 2px 10px;
+      padding: 3px 15px;
+      margin: 0px 10px;
       cursor: pointer;
-      font-size: 1em;
+      font-size: 14px;
       font-weight: bold;
-      border-radius: .3em;
+      border-radius: 3px;
     }
     .exclamation {
       background: none;

@@ -20,6 +20,7 @@ type Database interface {
 	Close() error
 	Commit() error
 	CreateMetaData() error
+	Drop() error
 	GetAcceptedConnsCounts(duration string) ([]NameValue, error)
 	GetAuditData() (map[string][]NameValues, error)
 	GetAverageOpTime(op string, duration string) ([]OpCount, error)

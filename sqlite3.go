@@ -95,6 +95,33 @@ func (ptr *SQLite3DB) Close() error {
 	return err
 }
 
+// Drop drops all tables of a hatchet
+func (ptr *SQLite3DB) Drop() error {
+	var err error
+	hatchetName := ptr.hatchetName
+	stmts := fmt.Sprintf(`
+			DROP TABLE IF EXISTS %v;
+			DROP TABLE IF EXISTS %v_ops;
+			DROP TABLE IF EXISTS %v_audit;
+			DROP INDEX IF EXISTS %v_idx_component;
+			DROP INDEX IF EXISTS %v_idx_context;
+			DROP INDEX IF EXISTS %v_idx_severity;
+			DROP INDEX IF EXISTS %v_idx_op;
+			DROP TABLE IF EXISTS %v_drivers;
+			DROP TABLE IF EXISTS %v_clients;
+			DROP INDEX IF EXISTS %v_clients_idx_context`,
+		hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName)
+	if _, err = ptr.db.Exec(stmts); err != nil {
+		return err
+	}
+
+	stmt := fmt.Sprintf(`DELETE FROM hatchet WHERE name = '%v'`, ptr.hatchetName)
+	if _, err := ptr.db.Exec(stmt); err != nil {
+		return err
+	}
+	return err
+}
+
 func (ptr *SQLite3DB) InsertLog(index int, end string, doc *Logv2Info, stat *OpStat) error {
 	var err error
 	_, err = ptr.pstmt.Exec(index, end, doc.Severity, doc.Component, doc.Context,
@@ -233,7 +260,6 @@ func (ptr *SQLite3DB) GetHatchetInitStmt() string {
 			CREATE INDEX IF NOT EXISTS %v_clients_idx_context ON %v_clients (context,ip);`,
 		hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName,
 		hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName)
-
 }
 
 // GetHatchetPreparedStmt returns prepared statement of the hatchet table

@@ -8,12 +8,10 @@ package hatchet
 import (
 	"bufio"
 	"bytes"
-	"errors"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
@@ -132,6 +130,7 @@ func (ptr *Logv2) Analyze(filename string) error {
 	var buf []byte
 	var file *os.File
 	var reader *bufio.Reader
+	var isFile bool
 	ptr.filename = filename
 	ptr.hatchetName = getHatchetName(ptr.filename)
 	if !ptr.legacy {
@@ -172,6 +171,7 @@ func (ptr *Logv2) Analyze(filename string) error {
 			}
 		}
 	} else {
+		isFile = true
 		dirname := filepath.Dir(ptr.dbfile)
 		os.Mkdir(dirname, 0755)
 		if file, err = os.Open(filename); err != nil {
@@ -183,25 +183,14 @@ func (ptr *Logv2) Analyze(filename string) error {
 		}
 	}
 
-	for { // check if it is in the logv2 format
-		if buf, _, err = reader.ReadLine(); err != nil { // 0x0A separator = newline
-			return errors.New("no valid log format found")
-		}
-		if len(buf) == 0 {
-			continue
-		}
-		str := string(buf)
-		if !regexp.MustCompile("^{.*}$").MatchString(str) {
-			return errors.New("log format not supported")
-		}
-		break
-	}
-
-	if !ptr.legacy && ptr.s3client != nil {
+	if isFile && !ptr.legacy {
 		// get total counts of logs
 		log.Println("fast counting", filename, "...")
 		ptr.totalLines, _ = gox.CountLines(reader)
-		file.Seek(0, 0)
+		log.Println(ptr.totalLines, "lines")
+		if _, err = file.Seek(0, 0); err != nil {
+			return err
+		}
 		if reader, err = gox.NewReader(file); err != nil {
 			return err
 		}
@@ -245,7 +234,9 @@ func (ptr *Logv2) Analyze(filename string) error {
 
 		doc := Logv2Info{}
 		if err = bson.UnmarshalExtJSON([]byte(str), false, &doc); err != nil {
-			continue
+			log.Println("clean up database due to error:", err)
+			dbase.Drop()
+			return fmt.Errorf("line %d: %v", index, err)
 		}
 
 		if err = AddLegacyString(&doc); err != nil {

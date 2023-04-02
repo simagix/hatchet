@@ -24,7 +24,7 @@ func TestAnalyze(t *testing.T) {
 			},
 		})
 	filename := "testdata/mongod_ops.log.gz"
-	logv2 := &Logv2{testing: true, dbfile: SQLITE3_FILE}
+	logv2 := &Logv2{testing: true, url: SQLITE3_FILE}
 	err := logv2.Analyze(filename)
 	if err != nil {
 		t.Fatal(err)

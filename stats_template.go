@@ -111,4 +111,3 @@ func getStatsTable(collscan bool, orderBy string, download string) string {
 </div>`
 	return html
 }
-

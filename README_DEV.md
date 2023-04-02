@@ -7,6 +7,8 @@ The Hatchet provides many flexible ways to access data.  After processing logs, 
 - Access data directly in applications using SQLite3 API
 - Output data from the SQLite3 database to a TSV file to be used in a spreadsheet
 - Output the legacy-formatted logs to a file for other tools
+- Can serve as a RESTful to check drivers compatibility
+- Supported databases are SQLite3 and MongoDB (with `-url {URL}`)
 
 Note that there are a few indexes created during the logs processings  But, you may create additional indexes to support additional needs.
 
@@ -63,7 +65,7 @@ SELECT date, severity, message FROM mongod_1b3d5f7 WHERE component = 'NETWORK';
 ### Query Ops Stats
 ```sqlite3
 SELECT op, COUNT(*) "count", ROUND(AVG(milli),1) avg_ms, MAX(milli) max_ms, SUM(milli) total_ms,
-       ns, _index "index", SUM(reslen) "reslen", filter "query pattern"
+       ns, _index "index", SUM(reslen) "reslen", filter "query_pattern"
     FROM mongod_1b3d5f7
     WHERE op != "" GROUP BY op, ns, filter ORDER BY avg_ms DESC;
 ```

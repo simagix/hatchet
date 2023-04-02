@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -26,12 +25,17 @@ const (
 	TOP_N      = 23
 )
 
+const (
+	SQLite3 = iota
+	Mongo
+)
+
 var instance *Logv2
 
 // GetLogv2 returns Logv2 instance
 func GetLogv2() *Logv2 {
 	if instance == nil {
-		instance = &Logv2{dbfile: SQLITE3_FILE}
+		instance = &Logv2{url: SQLITE3_FILE}
 	}
 	return instance
 }
@@ -39,14 +43,14 @@ func GetLogv2() *Logv2 {
 // Logv2 keeps Logv2 object
 type Logv2 struct {
 	buildInfo   map[string]interface{}
-	dbfile      string
-	filename    string
+	logname     string
 	legacy      bool
 	hatchetName string
 	isDigest    bool
 	s3client    *S3Client
 	testing     bool //test mode
 	totalLines  int
+	url         string // connection string
 	user        string
 	verbose     bool
 	version     string
@@ -79,80 +83,80 @@ type Attributes struct {
 }
 
 type RemoteClient struct {
-	Accepted int    `json:"accepted"`
-	Conns    int    `json:"conns"`
-	Ended    int    `json:"ended"`
-	IP       string `json:"value"`
-	Port     string `json:"port"`
+	Accepted int    `json:"accepted" bson:"accepted"`
+	Conns    int    `json:"conns" bson:"conns"`
+	Ended    int    `json:"ended" bson:"ended"`
+	IP       string `json:"value" bson:"ip"`
+	Port     string `json:"port" bson:"port"`
 
-	Driver  string // driver name
-	Version string // driver version
+	Driver  string `bsno:"driver"`  // driver name
+	Version string `bsno:"version"` // driver version
 }
 
 // OpStat stores performance data
 type OpStat struct {
-	AvgMilli     float64 `json:"avg_ms"`        // max millisecond
-	Count        int     `json:"count"`         // number of ops
-	Index        string  `json:"index"`         // index used
-	MaxMilli     int     `json:"max_ms"`        // max millisecond
-	Namespace    string  `json:"ns"`            // database.collectin
-	Op           string  `json:"op"`            // count, delete, find, remove, and update
-	QueryPattern string  `json:"query_pattern"` // query pattern
-	Reslen       int     `json:"total_reslen"`  // total reslen
-	TotalMilli   int     `json:"total_ms"`      // total milliseconds
+	AvgMilli     float64 `json:"avg_ms" bson:"avg_ms"`               // avg millisecond
+	Count        int     `json:"count" bson:"count"`                 // number of ops
+	Index        string  `json:"index" bson:"index"`                 // index used
+	MaxMilli     int     `json:"max_ms" bson:"max_ms"`               // max millisecond
+	Namespace    string  `json:"ns" bson:"ns"`                       // database.collectin
+	Op           string  `json:"op" bson:"op"`                       // count, delete, find, remove, and update
+	QueryPattern string  `json:"query_pattern" bson:"query_pattern"` // query pattern
+	Reslen       int     `json:"total_reslen" bson:"total_reslen"`   // total reslen
+	TotalMilli   int     `json:"total_ms" bson:"total_ms"`           // total milliseconds
 }
 
 type LegacyLog struct {
-	Timestamp string `json:"date"`
-	Severity  string `json:"severity"`
-	Component string `json:"component"`
-	Context   string `json:"context"`
-	Message   string `json:"message"` // remaining legacy message
+	Timestamp string `json:"date" bson:"date"`
+	Severity  string `json:"severity" bson:"severity"`
+	Component string `json:"component" bson:"component"`
+	Context   string `json:"context" bson:"context"`
+	Message   string `json:"message" bson:"message"` // remaining legacy message
 }
 
 type HatchetInfo struct {
-	Arch    string
-	End     string
-	Module  string
-	Name    string
-	OS      string
-	Start   string
-	Version string
+	Arch    string `bson:"arch"`
+	End     string `bson:"end"`
+	Module  string `bson:"module"`
+	Name    string `bson:"name"`
+	OS      string `bson:"os"`
+	Start   string `bson:"start"`
+	Version string `bson:"version"`
 
 	Drivers  []map[string]string
-	Provider string
-	Region   string
+	Provider string `bson:"region"`
+	Region   string `bson:"provider"`
+}
+
+func (ptr *Logv2) GetDBType() int {
+	if strings.HasPrefix(ptr.url, "mongodb://") || strings.HasPrefix(ptr.url, "mongodb+srv://") {
+		return Mongo
+	}
+	return SQLite3
 }
 
 // Analyze analyzes logs from a file
-func (ptr *Logv2) Analyze(filename string) error {
+func (ptr *Logv2) Analyze(logname string) error {
 	var err error
 	var buf []byte
 	var file *os.File
 	var reader *bufio.Reader
-	var isFile bool
-	ptr.filename = filename
-	ptr.hatchetName = getHatchetName(ptr.filename)
+	ptr.logname = logname
+	ptr.hatchetName = getHatchetName(ptr.logname)
 	if !ptr.legacy {
-		log.Println("processing", filename)
+		log.Println("processing", logname)
 		log.Println("hatchet name is", ptr.hatchetName)
 	}
 
 	if ptr.s3client != nil {
 		var buf []byte
-		toks := strings.Split(filename, "/")
-		bucketName := toks[0]
-		keyName := strings.Join(toks[1:], "/")
-		if buf, err = ptr.s3client.GetObject(bucketName, keyName); err != nil {
+		if buf, err = ptr.s3client.GetObject(logname); err != nil {
 			return err
 		}
 		if reader, err = GetBufioReader(buf); err != nil {
 			return err
 		}
-		if !ptr.legacy {
-			log.Println("s3 bucket", bucketName, "key", keyName)
-		}
-	} else if strings.HasPrefix(filename, "http://") || strings.HasPrefix(filename, "https://") {
+	} else if strings.HasPrefix(logname, "http://") || strings.HasPrefix(logname, "https://") {
 		var username, password string
 		if ptr.user != "" {
 			toks := strings.Split(ptr.user, ":")
@@ -162,37 +166,32 @@ func (ptr *Logv2) Analyze(filename string) error {
 			}
 		}
 		if ptr.isDigest {
-			if reader, err = GetHTTPDigestContent(filename, username, password); err != nil {
+			if reader, err = GetHTTPDigestContent(logname, username, password); err != nil {
 				return err
 			}
 		} else {
-			if reader, err = GetHTTPContent(filename, username, password); err != nil {
+			if reader, err = GetHTTPContent(logname, username, password); err != nil {
 				return err
 			}
 		}
 	} else {
-		isFile = true
-		dirname := filepath.Dir(ptr.dbfile)
-		os.Mkdir(dirname, 0755)
-		if file, err = os.Open(filename); err != nil {
+		if file, err = os.Open(logname); err != nil {
 			return err
 		}
 		defer file.Close()
 		if reader, err = gox.NewReader(file); err != nil {
 			return err
 		}
-	}
-
-	if isFile && !ptr.legacy {
-		// get total counts of logs
-		log.Println("fast counting", filename, "...")
-		ptr.totalLines, _ = gox.CountLines(reader)
-		log.Println(ptr.totalLines, "lines")
-		if _, err = file.Seek(0, 0); err != nil {
-			return err
-		}
-		if reader, err = gox.NewReader(file); err != nil {
-			return err
+		if !ptr.legacy {
+			log.Println("fast counting", logname, "...")
+			ptr.totalLines, _ = gox.CountLines(reader)
+			log.Println(ptr.totalLines, "lines")
+			if _, err = file.Seek(0, 0); err != nil {
+				return err
+			}
+			if reader, err = gox.NewReader(file); err != nil {
+				return err
+			}
 		}
 	}
 

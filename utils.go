@@ -16,6 +16,8 @@ import (
 	"strings"
 	"time"
 	"unicode"
+
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 const (
@@ -40,8 +42,8 @@ func replaceSpecialChars(name string) string {
 	return name
 }
 
-func getHatchetName(filename string) string {
-	temp := filepath.Base(filename)
+func getHatchetName(logname string) string {
+	temp := filepath.Base(logname)
 	hatchetName := replaceSpecialChars(temp)
 	i := strings.LastIndex(hatchetName, "_log")
 	if i >= 0 && i >= len(temp)-len(".log.gz") {
@@ -73,7 +75,7 @@ func EscapeString(value string) string {
 	return value
 }
 
-func GetDateSubString(start string, end string) string {
+func GetSQLDateSubString(start string, end string) string {
 	var err error
 	substr := "SUBSTR(date, 1, 16)"
 	if len(start) < 16 || len(end) < 16 {
@@ -100,6 +102,36 @@ func GetDateSubString(start string, end string) string {
 		return "SUBSTR(date, 1, 13)||':59:59'"
 	} else {
 		return "SUBSTR(date, 1, 10)||'T23:59:59'"
+	}
+}
+
+func GetMongoDateSubString(start string, end string) bson.M {
+	var err error
+	substr := bson.M{"$substr": bson.A{"$date", 0, 10}}
+	if len(start) < 16 || len(end) < 16 {
+		return substr
+	}
+	var stime, etime time.Time
+	layout := "2006-01-02T15:04"
+	if stime, err = time.Parse(layout, start[:16]); err != nil {
+		return substr
+	}
+	if etime, err = time.Parse(layout, end[:16]); err != nil {
+		return substr
+	}
+	minutes := etime.Sub(stime).Minutes()
+	if minutes < 1 {
+		return bson.M{"$substr": bson.A{"$date", 0, 19}}
+	} else if minutes < 10 {
+		return bson.M{"$substr": bson.A{"$date", 0, 18}}
+	} else if minutes < 60 {
+		return bson.M{"$substr": bson.A{"$date", 0, 16}}
+	} else if minutes < 600 {
+		return bson.M{"$substr": bson.A{"$date", 0, 15}}
+	} else if minutes < 3600 {
+		return bson.M{"$substr": bson.A{"$date", 0, 13}}
+	} else {
+		return bson.M{"$substr": bson.A{"$date", 0, 10}}
 	}
 }
 

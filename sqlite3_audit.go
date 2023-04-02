@@ -52,7 +52,7 @@ func (ptr *SQLite3DB) GetAuditData() (map[string][]NameValues, error) {
 		rows.Close()
 	}
 
-	// get max operation time
+	// get max operation time of collscan
 	category = "collscan"
 	query = fmt.Sprintf(`SELECT IFNULL(MAX(max_ms), 0), IFNULL(SUM(count), 0), IFNULL(SUM(total_ms), 0) FROM %v_ops WHERE _index = 'COLLSCAN';`, ptr.hatchetName)
 	if ptr.verbose {
@@ -73,8 +73,7 @@ func (ptr *SQLite3DB) GetAuditData() (map[string][]NameValues, error) {
 	}
 
 	// get audit data
-	query = fmt.Sprintf(`SELECT type, name, value FROM %v_audit
-		WHERE type IN ('exception', 'failed', 'op', 'duration') ORDER BY type, value DESC;`, ptr.hatchetName)
+	query = fmt.Sprintf(`SELECT type, name, value FROM %v_audit WHERE type IN ('exception', 'failed', 'op', 'duration') ORDER BY type, value DESC;`, ptr.hatchetName)
 	if ptr.verbose {
 		log.Println(query)
 	}
@@ -151,7 +150,7 @@ func (ptr *SQLite3DB) GetAuditData() (map[string][]NameValues, error) {
 	}
 
 	category = "driver"
-	query = fmt.Sprintf(`SELECT distinct ip, driver, version FROM %v_drivers ORDER BY driver, version DESC;`,
+	query = fmt.Sprintf(`SELECT DISTINCT ip, driver, version FROM %v_drivers ORDER BY driver, version DESC;`,
 		ptr.hatchetName)
 	if ptr.verbose {
 		log.Println(query)

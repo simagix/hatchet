@@ -10,17 +10,22 @@ git clone --depth 1 git@github.com:simagix/hatchet.git
 cd hatchet ; ./build.sh
 ```
 
-An executable *hatchet* is output to the directory *dist/*.
+An executable *hatchet* is output to the directory *dist/*.  Note that the script also works and tested on Windows x64 using MingGW and Git Bash.
 
 ## Quick Start
-Use the command below to process a log file, mongod.log.gz and start a web server listening to port 3721.
+Use the command below to process a log file, mongod.log.gz and start a web server listening to port 3721.  The default database is SQLite3.
 ```bash
 ./dist/hatchet -web mongod.log.gz
 ```
 
-Use the URL `http://localhost:3721/` in a browser to view reports and charts.  Alternatively, you can use the in-memory mode without persisting data, for example:
+Use the URL `http://localhost:3721/` in a browser to view reports and charts.  Alternatively, you can use the *in-memory* mode without persisting data, for example:
 ```bash
-./dist/hatchet -in-memory mongod.log.gz
+./dist/hatchet -url in-memory mongod.log.gz
+```
+
+Using MongoDB as the database is also supported.  The example below stores data in collections under *hatchet* database.
+```bash
+./dist/hatchet -url mongodb+srv://{user}:{password}@localhost/hatchet mongod.log.gz
 ```
 
 if you choose to view in the legacy format without a browser, use the command below:

@@ -14,6 +14,7 @@ import (
 	"net"
 	"net/http"
 	"regexp"
+	"strings"
 
 	"github.com/julienschmidt/httprouter"
 	"github.com/mattn/go-sqlite3"
@@ -22,14 +23,14 @@ import (
 const SQLITE3_FILE = "./data/hatchet.db"
 
 func Run(fullVersion string) {
-	dbfile := flag.String("dbfile", SQLITE3_FILE, "database file name")
+	dbfile := flag.String("dbfile", SQLITE3_FILE, "deprecated, use -url")
 	digest := flag.Bool("digest", false, "HTTP digest")
 	endpoint := flag.String("endpoint-url", "", "AWS endpoint")
-	inMem := flag.Bool("in-memory", false, "use in-memory mode")
 	legacy := flag.Bool("legacy", false, "view logs in legacy format")
 	port := flag.Int("port", 3721, "web server port number")
 	profile := flag.String("aws-profile", "default", "AWS profile name")
 	s3 := flag.Bool("s3", false, "files from AWS S3")
+	connstr := flag.String("url", SQLITE3_FILE, "database file name or connection string")
 	user := flag.String("user", "", "HTTP Auth (username:password)")
 	ver := flag.Bool("version", false, "print version number")
 	verbose := flag.Bool("verbose", false, "turn on verbose")
@@ -45,38 +46,50 @@ func Run(fullVersion string) {
 	if !*legacy {
 		log.Println(fullVersion)
 	}
+	if *connstr == "" {
+		connstr = dbfile
+	}
 
-	if *inMem {
-		if *dbfile != SQLITE3_FILE {
-			log.Fatalln("cannot use -dbfile and -in-memory together")
-		} else if len(flag.Args()) == 0 {
+	if *connstr == "in-memory" {
+		if len(flag.Args()) == 0 {
 			log.Fatalln("cannot use -in-memory without a log file")
 		}
 		log.Println("in-memory mode is enabled, no data will be persisted")
-		*dbfile = "file::memory:?cache=shared"
+		*connstr = "file::memory:?cache=shared"
 		*web = true
 	}
 
-	regex := func(re, s string) (bool, error) {
-		return regexp.MatchString(re, s)
+	logv2 := Logv2{version: fullVersion, url: *connstr, verbose: *verbose,
+		legacy: *legacy, user: *user, isDigest: *digest}
+	instance = &logv2
+	str := *connstr
+	if strings.HasPrefix(*connstr, "mongodb") {
+		pattern := regexp.MustCompile(`mongodb(\+srv)?:\/\/(.+):(.+)@(.+)`)
+		matches := pattern.FindStringSubmatch(str)
+		if matches != nil {
+			str = fmt.Sprintf("mongodb%s://%s@%s", matches[1], matches[2], matches[4])
+		}
 	}
-	sql.Register("sqlite3_extended",
-		&sqlite3.SQLiteDriver{
-			ConnectHook: func(conn *sqlite3.SQLiteConn) error {
-				return conn.RegisterFunc("regexp", regex, true)
-			},
-		})
-	logv2 := Logv2{version: fullVersion, dbfile: *dbfile, verbose: *verbose, legacy: *legacy, user: *user, isDigest: *digest}
+	log.Println("using database", str)
+	if GetLogv2().GetDBType() == SQLite3 {
+		regex := func(re, s string) (bool, error) {
+			return regexp.MatchString(re, s)
+		}
+		sql.Register("sqlite3_extended",
+			&sqlite3.SQLiteDriver{
+				ConnectHook: func(conn *sqlite3.SQLiteConn) error {
+					return conn.RegisterFunc("regexp", regex, true)
+				},
+			})
+	}
 	if *s3 {
 		var err error
 		if logv2.s3client, err = NewS3Client(*profile, *endpoint); err != nil {
 			log.Fatal(err)
 		}
 	}
-	instance = &logv2
-	for _, filename := range flag.Args() {
-		err := logv2.Analyze(filename)
-		if err != nil {
+	for _, logname := range flag.Args() {
+		if err := logv2.Analyze(logname); err != nil {
 			log.Fatal(err)
 		}
 	}
@@ -103,9 +116,6 @@ func Run(fullVersion string) {
 		log.Fatal(err)
 	} else {
 		listener.Close()
-		if !*inMem {
-			log.Println("using data file", *dbfile)
-		}
 		log.Println("starting web server at", addr)
 		log.Fatal(http.ListenAndServe(addr, router))
 	}

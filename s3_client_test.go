@@ -7,6 +7,7 @@ package hatchet
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"testing"
 )
@@ -52,7 +53,7 @@ func TestNewS3Client(t *testing.T) {
 
 	// download the file from S3
 	var buf []byte
-	buf, err = s3client.GetObject(bucketName, fileName)
+	buf, err = s3client.GetObject(fmt.Sprintf("%v/%v", bucketName, fileName))
 	if err != nil {
 		t.Fatalf("failed to download file from S3: %v", err)
 	}

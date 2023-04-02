@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -98,7 +99,10 @@ func (c *S3Client) PutObject(bucket, key, filePath string) error {
 }
 
 // GetObject retrieves an object from S3 and returns its contents as a byte slice.
-func (c *S3Client) GetObject(bucket, key string) ([]byte, error) {
+func (c *S3Client) GetObject(logname string) ([]byte, error) {
+	toks := strings.Split(logname, "/")
+	bucket := toks[0]
+	key := strings.Join(toks[1:], "/")
 	resp, err := c.service.GetObject(&s3.GetObjectInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(key),

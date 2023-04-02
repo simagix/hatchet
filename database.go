@@ -6,8 +6,8 @@
 package hatchet
 
 type NameValue struct {
-	Name  string
-	Value int
+	Name  string `bson:"name"`
+	Value int    `bson:"value"`
 }
 
 type NameValues struct {
@@ -24,12 +24,9 @@ type Database interface {
 	GetAcceptedConnsCounts(duration string) ([]NameValue, error)
 	GetAuditData() (map[string][]NameValues, error)
 	GetAverageOpTime(op string, duration string) ([]OpCount, error)
-	GetClientPreparedStmt() string
 	GetConnectionStats(chartType string, duration string) ([]RemoteClient, error)
 	GetHatchetInfo() HatchetInfo
-	GetHatchetInitStmt() string
 	GetHatchetNames() ([]string, error)
-	GetHatchetPreparedStmt() string
 	GetLogs(opts ...string) ([]LegacyLog, error)
 	GetOpsCounts(duration string) ([]NameValue, error)
 	GetReslenByNamespace(ip string, duration string) ([]NameValue, error)
@@ -46,5 +43,8 @@ type Database interface {
 }
 
 func GetDatabase(hatchetName string) (Database, error) {
+	if GetLogv2().GetDBType() == Mongo {
+		return GetMongoDB(hatchetName)
+	}
 	return GetSQLite3DB(hatchetName)
 }

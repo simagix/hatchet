@@ -9,6 +9,8 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 )
 
 type SQLite3DB struct {
@@ -27,9 +29,9 @@ func GetSQLite3DB(hatchetName string) (Database, error) {
 	var err error
 	logv2 := GetLogv2()
 	if logv2.verbose {
-		log.Println("dbfile", logv2.dbfile, "hatchet name", hatchetName)
+		log.Println("dbfile", logv2.url, "hatchet name", hatchetName)
 	}
-	if dbase, err = NewSQLite3DB(logv2.dbfile, hatchetName); err != nil {
+	if dbase, err = NewSQLite3DB(logv2.url, hatchetName); err != nil {
 		return dbase, err
 	}
 	dbase.SetVerbose(logv2.verbose)
@@ -39,6 +41,8 @@ func GetSQLite3DB(hatchetName string) (Database, error) {
 func NewSQLite3DB(dbfile string, hatchetName string) (*SQLite3DB, error) {
 	var err error
 	sqlite := &SQLite3DB{dbfile: dbfile, hatchetName: hatchetName}
+	dirname := filepath.Dir(dbfile)
+	os.Mkdir(dirname, 0755)
 	if sqlite.db, err = sql.Open("sqlite3_extended", dbfile); err != nil {
 		return sqlite, err
 	}
@@ -56,20 +60,20 @@ func (ptr *SQLite3DB) SetVerbose(b bool) {
 func (ptr *SQLite3DB) Begin() error {
 	var err error
 	log.Println("creating hatchet", ptr.hatchetName)
-	stmts := ptr.GetHatchetInitStmt()
+	stmts := GetHatchetInitStmt(ptr.hatchetName)
 	if _, err = ptr.db.Exec(stmts); err != nil {
 		return err
 	}
 	if ptr.tx, err = ptr.db.Begin(); err != nil {
 		return err
 	}
-	if ptr.pstmt, err = ptr.tx.Prepare(ptr.GetHatchetPreparedStmt()); err != nil {
+	if ptr.pstmt, err = ptr.tx.Prepare(GetHatchetPreparedStmt(ptr.hatchetName)); err != nil {
 		return err
 	}
-	if ptr.clientStmt, err = ptr.tx.Prepare(ptr.GetClientPreparedStmt()); err != nil {
+	if ptr.clientStmt, err = ptr.tx.Prepare(GetClientPreparedStmt(ptr.hatchetName)); err != nil {
 		return err
 	}
-	if ptr.driverStmt, err = ptr.tx.Prepare(ptr.GetDriverPreparedStmt()); err != nil {
+	if ptr.driverStmt, err = ptr.tx.Prepare(GetDriverPreparedStmt(ptr.hatchetName)); err != nil {
 		return err
 	}
 	return err
@@ -153,7 +157,7 @@ func (ptr *SQLite3DB) UpdateHatchetInfo(info HatchetInfo) error {
 
 func (ptr *SQLite3DB) CreateMetaData() error {
 	var err error
-	log.Printf("insert into %v_ops\n", ptr.hatchetName)
+	log.Printf("insert ops into %v_ops\n", ptr.hatchetName)
 	istmt := fmt.Sprintf(`INSERT INTO %v_ops
 			SELECT op, COUNT(*), ROUND(AVG(milli),1), MAX(milli), SUM(milli), ns, _index, SUM(reslen), filter
 				FROM %v WHERE op != "" GROUP BY op, ns, filter, _index`, ptr.hatchetName, ptr.hatchetName)
@@ -161,7 +165,7 @@ func (ptr *SQLite3DB) CreateMetaData() error {
 		return err
 	}
 
-	log.Printf("insert exception into %v_audit\n", ptr.hatchetName)
+	log.Printf("insert [exception] into %v_audit\n", ptr.hatchetName)
 	istmt = fmt.Sprintf(`INSERT INTO %v_audit
 		SELECT 'exception', severity, COUNT(*) count FROM %v WHERE severity IN ('W', 'E', 'F') 
 		GROUP by severity`, ptr.hatchetName, ptr.hatchetName)
@@ -169,7 +173,7 @@ func (ptr *SQLite3DB) CreateMetaData() error {
 		return err
 	}
 
-	log.Printf("insert failed into %v_audit\n", ptr.hatchetName)
+	log.Printf("insert [failed] into %v_audit\n", ptr.hatchetName)
 	istmt = fmt.Sprintf(`INSERT INTO %v_audit
 		SELECT 'failed', SUBSTR(message, 1, INSTR(message, 'failed')+6) matched, COUNT(*) count FROM %v 
 		WHERE message REGEXP "(\w\sfailed\s)" GROUP by matched`, ptr.hatchetName, ptr.hatchetName)
@@ -177,21 +181,21 @@ func (ptr *SQLite3DB) CreateMetaData() error {
 		return err
 	}
 
-	log.Printf("insert op into %v_audit\n", ptr.hatchetName)
+	log.Printf("insert [op] into %v_audit\n", ptr.hatchetName)
 	istmt = fmt.Sprintf(`INSERT INTO %v_audit
 		SELECT 'op', op, COUNT(*) count FROM %v WHERE op != '' GROUP by op`, ptr.hatchetName, ptr.hatchetName)
 	if _, err = ptr.db.Exec(istmt); err != nil {
 		return err
 	}
 
-	log.Printf("insert ip into %v_audit\n", ptr.hatchetName)
+	log.Printf("insert [ip] into %v_audit\n", ptr.hatchetName)
 	istmt = fmt.Sprintf(`INSERT INTO %v_audit
 		SELECT 'ip', ip, SUM(accepted) open FROM %v_clients GROUP by ip`, ptr.hatchetName, ptr.hatchetName)
 	if _, err = ptr.db.Exec(istmt); err != nil {
 		return err
 	}
 
-	log.Printf("insert reslen-ip into %v_audit\n", ptr.hatchetName)
+	log.Printf("insert [reslen-ip] into %v_audit\n", ptr.hatchetName)
 	istmt = fmt.Sprintf(`INSERT INTO %v_audit
 		SELECT 'reslen-ip', b.ip, SUM(a.reslen) reslen FROM %v a, %v_clients b WHERE a.op != "" AND reslen > 0 AND a.context = b.context GROUP by b.ip`,
 		ptr.hatchetName, ptr.hatchetName, ptr.hatchetName)
@@ -199,14 +203,14 @@ func (ptr *SQLite3DB) CreateMetaData() error {
 		return err
 	}
 
-	log.Printf("insert ns into %v_audit\n", ptr.hatchetName)
+	log.Printf("insert [ns] into %v_audit\n", ptr.hatchetName)
 	istmt = fmt.Sprintf(`INSERT INTO %v_audit
 		SELECT 'ns', ns, COUNT(*) count FROM %v WHERE op != "" GROUP by ns`, ptr.hatchetName, ptr.hatchetName)
 	if _, err = ptr.db.Exec(istmt); err != nil {
 		return err
 	}
 
-	log.Printf("insert reslen-ns into %v_audit\n", ptr.hatchetName)
+	log.Printf("insert [reslen-ns] into %v_audit\n", ptr.hatchetName)
 	istmt = fmt.Sprintf(`INSERT INTO %v_audit
 		SELECT 'reslen-ns', ns, SUM(reslen) reslen FROM %v WHERE ns != "" AND reslen > 0 GROUP by ns`, ptr.hatchetName, ptr.hatchetName)
 	if _, err = ptr.db.Exec(istmt); err != nil {
@@ -214,7 +218,7 @@ func (ptr *SQLite3DB) CreateMetaData() error {
 	}
 
 	/* logs don't present trusted data from context, ignored
-	log.Printf("insert duration into %v_audit\n", ptr.hatchetName)
+	log.Printf("insert [duration] into %v_audit\n", ptr.hatchetName)
 	istmt = fmt.Sprintf(`INSERT INTO %v_audit
 		SELECT 'duration', context || ' (' || ip || ')', STRFTIME('%%s', SUBSTR(etm,1,19))-STRFTIME('%%s', SUBSTR(btm,1,19)) duration
 			FROM ( SELECT MAX(a.date) etm, MIN(a.date) btm, a.context, b.ip FROM %v a, %v_clients b WHERE a.id = b.id GROUP BY a.context)
@@ -227,8 +231,7 @@ func (ptr *SQLite3DB) CreateMetaData() error {
 }
 
 // GetHatchetInitStmt returns init statement
-func (ptr *SQLite3DB) GetHatchetInitStmt() string {
-	hatchetName := ptr.hatchetName
+func GetHatchetInitStmt(hatchetName string) string {
 	return fmt.Sprintf(`
 			CREATE TABLE IF NOT EXISTS hatchet ( name text not null primary key,
 				version text, module text, arch text, os text, start text, end text);
@@ -263,20 +266,20 @@ func (ptr *SQLite3DB) GetHatchetInitStmt() string {
 }
 
 // GetHatchetPreparedStmt returns prepared statement of the hatchet table
-func (ptr *SQLite3DB) GetHatchetPreparedStmt() string {
+func GetHatchetPreparedStmt(hatchetName string) string {
 	return fmt.Sprintf(`INSERT INTO %v (id, date, severity, component, context,
 		msg, plan, type, ns, message, op, filter, _index, milli, reslen)
-		VALUES(?,?,?,?,?, ?,?,?,?,?, ?,?,?,?,?)`, ptr.hatchetName)
+		VALUES(?,?,?,?,?, ?,?,?,?,?, ?,?,?,?,?)`, hatchetName)
 }
 
 // GetClientPreparedStmt returns prepared statement of clients table
-func (ptr *SQLite3DB) GetClientPreparedStmt() string {
+func GetClientPreparedStmt(hatchetName string) string {
 	return fmt.Sprintf(`INSERT INTO %v_clients (id, ip, port, conns, accepted, ended, context)
-		VALUES(?,?,?,?,?, ?,?)`, ptr.hatchetName)
+		VALUES(?,?,?,?,?, ?,?)`, hatchetName)
 }
 
 // GetDriverPreparedStmt returns prepared statement of drivers table
-func (ptr *SQLite3DB) GetDriverPreparedStmt() string {
+func GetDriverPreparedStmt(hatchetName string) string {
 	return fmt.Sprintf(`INSERT INTO %v_drivers (id, ip, driver, version)
-		VALUES(?,?,?,?)`, ptr.hatchetName)
+		VALUES(?,?,?,?)`, hatchetName)
 }

@@ -13,23 +13,23 @@ import (
 )
 
 type OpCount struct {
-	Date      string
-	Count     int
-	Milli     float64
-	Op        string
-	Namespace string
-	Filter    string
+	Date      string  `bson:"date"`
+	Count     int     `bson:"count"`
+	Milli     float64 `bson:"milli"`
+	Op        string  `bson:"op"`
+	Namespace string  `bson:"ns"`
+	Filter    string  `bson:"filter"`
 }
 
 func (ptr *SQLite3DB) GetSlowOps(orderBy string, order string, collscan bool) ([]OpStat, error) {
 	ops := []OpStat{}
 	db := ptr.db
 	query := fmt.Sprintf(`SELECT op, count, avg_ms, max_ms,
-			total_ms, ns, _index "index", reslen, filter "query pattern"
+			total_ms, ns, _index "index", reslen, filter "query_pattern"
 			FROM %v_ops ORDER BY %v %v`, ptr.hatchetName, orderBy, order)
 	if collscan {
 		query = fmt.Sprintf(`SELECT op, count, avg_ms, max_ms,
-				total_ms, ns, _index "index", reslen, filter "query pattern"
+				total_ms, ns, _index "index", reslen, filter "query_pattern"
 				FROM %v_ops WHERE _index = "COLLSCAN" ORDER BY %v %v`, ptr.hatchetName, orderBy, order)
 	}
 	if ptr.verbose {
@@ -206,10 +206,10 @@ func (ptr *SQLite3DB) GetAverageOpTime(op string, duration string) ([]OpCount, e
 	if duration != "" {
 		toks := strings.Split(duration, ",")
 		durcond = fmt.Sprintf("AND date BETWEEN '%v' AND '%v'", toks[0], toks[1])
-		substr = GetDateSubString(toks[0], toks[1])
+		substr = GetSQLDateSubString(toks[0], toks[1])
 	} else {
 		info := ptr.GetHatchetInfo()
-		substr = GetDateSubString(info.Start, info.End)
+		substr = GetSQLDateSubString(info.Start, info.End)
 	}
 	query := fmt.Sprintf(`SELECT %v, AVG(milli), COUNT(*), op, ns, filter FROM %v 
 		WHERE %v %v GROUP by %v, op, ns, filter;`, substr, ptr.hatchetName, opcond, durcond, substr)
@@ -287,25 +287,25 @@ func (ptr *SQLite3DB) GetHatchetInfo() HatchetInfo {
 }
 
 func (ptr *SQLite3DB) GetHatchetNames() ([]string, error) {
-	hatchets := []string{}
-	query := "SELECT name, version, module, os, arch FROM hatchet ORDER BY name"
+	names := []string{}
+	query := "SELECT name FROM hatchet ORDER BY name"
 	db := ptr.db
 	if ptr.verbose {
 		log.Println(query)
 	}
 	rows, err := db.Query(query)
 	if err != nil {
-		return hatchets, err
+		return names, err
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var name, version, module, os, arch string
-		if err = rows.Scan(&name, &version, &module, &os, &arch); err != nil {
-			return hatchets, err
+		var name string
+		if err = rows.Scan(&name); err != nil {
+			return names, err
 		}
-		hatchets = append(hatchets, name)
+		names = append(names, name)
 	}
-	return hatchets, err
+	return names, err
 }
 
 // GetAcceptedConnsCounts returns opened connection counts
@@ -350,10 +350,10 @@ func (ptr *SQLite3DB) GetConnectionStats(chartType string, duration string) ([]R
 	if duration != "" {
 		toks := strings.Split(duration, ",")
 		durcond = fmt.Sprintf("AND date BETWEEN '%v' AND '%v'", toks[0], toks[1])
-		substr = GetDateSubString(toks[0], toks[1])
+		substr = GetSQLDateSubString(toks[0], toks[1])
 	} else {
 		info := ptr.GetHatchetInfo()
-		substr = GetDateSubString(info.Start, info.End)
+		substr = GetSQLDateSubString(info.Start, info.End)
 	}
 	if chartType == "time" {
 		query = fmt.Sprintf(`SELECT %v dt, SUM(b.accepted), SUM(b.ended)

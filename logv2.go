@@ -185,7 +185,7 @@ func (ptr *Logv2) Analyze(logname string) error {
 		if !ptr.legacy {
 			log.Println("fast counting", logname, "...")
 			ptr.totalLines, _ = gox.CountLines(reader)
-			log.Println(ptr.totalLines, "lines")
+			log.Println("counted", ptr.totalLines, "lines")
 			if _, err = file.Seek(0, 0); err != nil {
 				return err
 			}
@@ -306,18 +306,19 @@ func (ptr *Logv2) PrintSummary() error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("\n", "*", GetHatchetSummary(dbase.GetHatchetInfo()))
+	log.Println(GetHatchetSummary(dbase.GetHatchetInfo()))
 	summaries := []string{}
 	var buffer bytes.Buffer
-	buffer.WriteString("\r+----------+--------+------+--------+------+---------------------------------+--------------------------------------------------------------+\n")
-	buffer.WriteString(fmt.Sprintf("| Command  |COLLSCAN|avg ms| max ms | Count| %-32s| %-60s |\n", "Namespace", "Query Pattern"))
-	buffer.WriteString("|----------+--------+------+--------+------+---------------------------------+--------------------------------------------------------------|\n")
+	buffer.WriteString("\r+----------+--------+------+------+---------------------------------+----------------------------------------------------+\n")
+	buffer.WriteString(fmt.Sprintf("| Command  |COLLSCAN|avg ms| Count| %-32s| %-50s |\n", "Namespace", "Query Pattern"))
+	buffer.WriteString("|----------+--------+------+------+---------------------------------+----------------------------------------------------|\n")
 	var ops []OpStat
 	if ops, err = dbase.GetSlowOps("avg_ms", "DESC", false); err != nil {
 		return err
 	}
+	lines := 5
 	for count, value := range ops {
-		if count > TOP_N {
+		if count > lines {
 			break
 		}
 		str := value.QueryPattern
@@ -329,7 +330,7 @@ func (ptr *Logv2) PrintSummary() error {
 			value.Namespace = value.Namespace[:1] + "*" + value.Namespace[(length-31):]
 		}
 		if len(str) > 60 {
-			str = value.QueryPattern[:60]
+			str = value.QueryPattern[:50]
 			idx := strings.LastIndex(str, " ")
 			if idx > 0 {
 				str = value.QueryPattern[:idx]
@@ -340,8 +341,8 @@ func (ptr *Logv2) PrintSummary() error {
 		if value.Index == COLLSCAN {
 			collscan = COLLSCAN
 		}
-		output = fmt.Sprintf("|%-10s %8s %6d %8d %6d %-33s %-62s|\n", value.Op, collscan,
-			int(value.AvgMilli), value.MaxMilli, value.Count, value.Namespace, str)
+		output = fmt.Sprintf("|%-10s %8s %6d %6d %-33s %-52s|\n", value.Op, collscan,
+			int(value.AvgMilli), value.Count, value.Namespace, str)
 		buffer.WriteString(output)
 		if len(value.QueryPattern) > 60 {
 			remaining := value.QueryPattern[len(str):]
@@ -362,20 +363,20 @@ func (ptr *Logv2) PrintSummary() error {
 						i -= (60 - len(str))
 					}
 				}
-				output = fmt.Sprintf("|%74s   %-62s|\n", " ", pstr)
+				output = fmt.Sprintf("|%74s   %-52s|\n", " ", pstr)
 				buffer.WriteString(output)
 			}
 		}
 		if value.Index != "" && value.Index != COLLSCAN {
-			output = fmt.Sprintf("|...index:  %-128s|\n", value.Index)
+			output = fmt.Sprintf("|...index: %-110s|\n", value.Index)
 			buffer.WriteString(output)
 		}
 	}
-	buffer.WriteString("+----------+--------+------+--------+------+---------------------------------+--------------------------------------------------------------+\n")
+	buffer.WriteString("+----------+--------+------+------+---------------------------------+----------------------------------------------------+")
 	summaries = append(summaries, buffer.String())
-	if TOP_N < len(ops) {
+	if lines < len(ops) {
 		summaries = append(summaries,
-			fmt.Sprintf(` * %v: slowest %d of %d ops displayed`, ptr.hatchetName, TOP_N, len(ops)))
+			fmt.Sprintf(`+ %v: slowest %d of %d ops displayed`, ptr.hatchetName, lines, len(ops)))
 	}
 	fmt.Println(strings.Join(summaries, "\n"))
 	return err

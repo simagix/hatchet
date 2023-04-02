@@ -157,7 +157,7 @@ func (ptr *SQLite3DB) UpdateHatchetInfo(info HatchetInfo) error {
 
 func (ptr *SQLite3DB) CreateMetaData() error {
 	var err error
-	log.Printf("insert into %v_ops\n", ptr.hatchetName)
+	log.Printf("insert ops into %v_ops\n", ptr.hatchetName)
 	istmt := fmt.Sprintf(`INSERT INTO %v_ops
 			SELECT op, COUNT(*), ROUND(AVG(milli),1), MAX(milli), SUM(milli), ns, _index, SUM(reslen), filter
 				FROM %v WHERE op != "" GROUP BY op, ns, filter, _index`, ptr.hatchetName, ptr.hatchetName)
@@ -165,7 +165,7 @@ func (ptr *SQLite3DB) CreateMetaData() error {
 		return err
 	}
 
-	log.Printf("insert exception into %v_audit\n", ptr.hatchetName)
+	log.Printf("insert [exception] into %v_audit\n", ptr.hatchetName)
 	istmt = fmt.Sprintf(`INSERT INTO %v_audit
 		SELECT 'exception', severity, COUNT(*) count FROM %v WHERE severity IN ('W', 'E', 'F') 
 		GROUP by severity`, ptr.hatchetName, ptr.hatchetName)
@@ -173,7 +173,7 @@ func (ptr *SQLite3DB) CreateMetaData() error {
 		return err
 	}
 
-	log.Printf("insert failed into %v_audit\n", ptr.hatchetName)
+	log.Printf("insert [failed] into %v_audit\n", ptr.hatchetName)
 	istmt = fmt.Sprintf(`INSERT INTO %v_audit
 		SELECT 'failed', SUBSTR(message, 1, INSTR(message, 'failed')+6) matched, COUNT(*) count FROM %v 
 		WHERE message REGEXP "(\w\sfailed\s)" GROUP by matched`, ptr.hatchetName, ptr.hatchetName)
@@ -181,21 +181,21 @@ func (ptr *SQLite3DB) CreateMetaData() error {
 		return err
 	}
 
-	log.Printf("insert op into %v_audit\n", ptr.hatchetName)
+	log.Printf("insert [op] into %v_audit\n", ptr.hatchetName)
 	istmt = fmt.Sprintf(`INSERT INTO %v_audit
 		SELECT 'op', op, COUNT(*) count FROM %v WHERE op != '' GROUP by op`, ptr.hatchetName, ptr.hatchetName)
 	if _, err = ptr.db.Exec(istmt); err != nil {
 		return err
 	}
 
-	log.Printf("insert ip into %v_audit\n", ptr.hatchetName)
+	log.Printf("insert [ip] into %v_audit\n", ptr.hatchetName)
 	istmt = fmt.Sprintf(`INSERT INTO %v_audit
 		SELECT 'ip', ip, SUM(accepted) open FROM %v_clients GROUP by ip`, ptr.hatchetName, ptr.hatchetName)
 	if _, err = ptr.db.Exec(istmt); err != nil {
 		return err
 	}
 
-	log.Printf("insert reslen-ip into %v_audit\n", ptr.hatchetName)
+	log.Printf("insert [reslen-ip] into %v_audit\n", ptr.hatchetName)
 	istmt = fmt.Sprintf(`INSERT INTO %v_audit
 		SELECT 'reslen-ip', b.ip, SUM(a.reslen) reslen FROM %v a, %v_clients b WHERE a.op != "" AND reslen > 0 AND a.context = b.context GROUP by b.ip`,
 		ptr.hatchetName, ptr.hatchetName, ptr.hatchetName)
@@ -203,14 +203,14 @@ func (ptr *SQLite3DB) CreateMetaData() error {
 		return err
 	}
 
-	log.Printf("insert ns into %v_audit\n", ptr.hatchetName)
+	log.Printf("insert [ns] into %v_audit\n", ptr.hatchetName)
 	istmt = fmt.Sprintf(`INSERT INTO %v_audit
 		SELECT 'ns', ns, COUNT(*) count FROM %v WHERE op != "" GROUP by ns`, ptr.hatchetName, ptr.hatchetName)
 	if _, err = ptr.db.Exec(istmt); err != nil {
 		return err
 	}
 
-	log.Printf("insert reslen-ns into %v_audit\n", ptr.hatchetName)
+	log.Printf("insert [reslen-ns] into %v_audit\n", ptr.hatchetName)
 	istmt = fmt.Sprintf(`INSERT INTO %v_audit
 		SELECT 'reslen-ns', ns, SUM(reslen) reslen FROM %v WHERE ns != "" AND reslen > 0 GROUP by ns`, ptr.hatchetName, ptr.hatchetName)
 	if _, err = ptr.db.Exec(istmt); err != nil {
@@ -218,7 +218,7 @@ func (ptr *SQLite3DB) CreateMetaData() error {
 	}
 
 	/* logs don't present trusted data from context, ignored
-	log.Printf("insert duration into %v_audit\n", ptr.hatchetName)
+	log.Printf("insert [duration] into %v_audit\n", ptr.hatchetName)
 	istmt = fmt.Sprintf(`INSERT INTO %v_audit
 		SELECT 'duration', context || ' (' || ip || ')', STRFTIME('%%s', SUBSTR(etm,1,19))-STRFTIME('%%s', SUBSTR(btm,1,19)) duration
 			FROM ( SELECT MAX(a.date) etm, MIN(a.date) btm, a.context, b.ip FROM %v a, %v_clients b WHERE a.id = b.id GROUP BY a.context)

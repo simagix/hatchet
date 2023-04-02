@@ -193,7 +193,7 @@ func (ptr *MongoDB) UpdateHatchetInfo(info HatchetInfo) error {
 
 func (ptr *MongoDB) CreateMetaData() error {
 	var err error
-	log.Printf("insert into %v_ops\n", ptr.hatchetName)
+	log.Printf("insert ops into %v_ops\n", ptr.hatchetName)
 	pipeline := []bson.M{
 		{"$match": bson.M{
 			"op": bson.M{
@@ -233,7 +233,7 @@ func (ptr *MongoDB) CreateMetaData() error {
 		return err
 	}
 
-	log.Printf("insert exception into %v_audit\n", ptr.hatchetName)
+	log.Printf("insert [exception] into %v_audit\n", ptr.hatchetName)
 	pipeline = []bson.M{
 		{"$match": bson.M{
 			"severity": bson.M{
@@ -260,7 +260,7 @@ func (ptr *MongoDB) CreateMetaData() error {
 		return err
 	}
 
-	log.Printf("insert failed into %v_audit\n", ptr.hatchetName)
+	log.Printf("insert [failed] into %v_audit\n", ptr.hatchetName)
 	pipeline = []bson.M{
 		{"$match": bson.M{
 			"message": bson.M{
@@ -294,7 +294,7 @@ func (ptr *MongoDB) CreateMetaData() error {
 		return err
 	}
 
-	log.Printf("insert op into %v_audit\n", ptr.hatchetName)
+	log.Printf("insert [op] into %v_audit\n", ptr.hatchetName)
 	pipeline = []bson.M{
 		{"$match": bson.M{
 			"op": bson.M{
@@ -321,7 +321,7 @@ func (ptr *MongoDB) CreateMetaData() error {
 		return err
 	}
 
-	log.Printf("insert ip into %v_audit\n", ptr.hatchetName)
+	log.Printf("insert [ip] into %v_audit\n", ptr.hatchetName)
 	pipeline = []bson.M{
 		{"$group": bson.M{
 			"_id": bson.M{
@@ -343,7 +343,7 @@ func (ptr *MongoDB) CreateMetaData() error {
 		return err
 	}
 
-	log.Printf("insert reslen-ip into %v_audit\n", ptr.hatchetName)
+	log.Printf("insert [reslen-ip] into %v_audit\n", ptr.hatchetName)
 	pipeline = []bson.M{
 		{"$match": bson.M{
 			"op": bson.M{
@@ -352,14 +352,22 @@ func (ptr *MongoDB) CreateMetaData() error {
 			"reslen": bson.M{"$gt": 0},
 		}},
 		{"$lookup": bson.M{
-			"from":         ptr.hatchetName + "_clients",
-			"localField":   "context",
-			"foreignField": "context",
-			"as":           "client",
+			"from": ptr.hatchetName + "_clients",
+			"let":  bson.M{"context": "$context"},
+			"pipeline": []bson.M{
+				{"$match": bson.M{
+					"$expr": bson.M{"$eq": []interface{}{"$context", "$$context"}},
+				}},
+				{"$project": bson.M{
+					"_id": 0,
+					"ip":  1,
+				}},
+			},
+			"as": "clients",
 		}},
-		{"$unwind": bson.M{"path": "$client"}},
+		{"$unwind": bson.M{"path": "$clients"}},
 		{"$group": bson.M{
-			"_id":    "$client.ip",
+			"_id":    "$clients.ip",
 			"reslen": bson.M{"$sum": "$reslen"},
 		}},
 		{"$project": bson.M{
@@ -376,7 +384,7 @@ func (ptr *MongoDB) CreateMetaData() error {
 		return err
 	}
 
-	log.Printf("insert ns into %v_audit\n", ptr.hatchetName)
+	log.Printf("insert [ns] into %v_audit\n", ptr.hatchetName)
 	pipeline = []bson.M{
 		{"$match": bson.M{
 			"op": bson.M{
@@ -403,7 +411,7 @@ func (ptr *MongoDB) CreateMetaData() error {
 		return err
 	}
 
-	log.Printf("insert reslen-ns into %v_audit\n", ptr.hatchetName)
+	log.Printf("insert [reslen-ns] into %v_audit\n", ptr.hatchetName)
 	pipeline = []bson.M{
 		{"$match": bson.M{
 			"ns": bson.M{

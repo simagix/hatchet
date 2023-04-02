@@ -29,7 +29,7 @@ func (ptr *MongoDB) GetAverageOpTime(op string, duration string) ([]OpCount, err
 		substr = GetMongoDateSubString(toks[0], toks[1])
 		opcond["$and"] = []bson.M{
 			{"date": bson.M{"$gte": toks[0]}},
-			{"date": bson.M{"$lte": toks[1]}},
+			{"date": bson.M{"$lt": toks[1]}},
 		}
 	} else {
 		info := ptr.GetHatchetInfo()
@@ -178,7 +178,6 @@ func (ptr *MongoDB) GetAcceptedConnsCounts(duration string) ([]NameValue, error)
 	var err error
 	ctx := context.Background()
 	docs := []NameValue{}
-	var filter bson.M
 	pipeline := []bson.M{
 		{"$match": bson.M{"accepted": 1}},
 		{"$group": bson.M{
@@ -193,17 +192,28 @@ func (ptr *MongoDB) GetAcceptedConnsCounts(duration string) ([]NameValue, error)
 	}
 	if duration != "" {
 		toks := strings.Split(duration, ",")
-		filter = bson.M{"clients.date": bson.M{"$gte": toks[0], "$lte": toks[1]}}
 		pipeline = []bson.M{
 			{"$match": bson.M{"accepted": 1}},
 			{"$lookup": bson.M{
-				"from":         ptr.hatchetName,
-				"localField":   "_id",
-				"foreignField": "_id",
-				"as":           "clients",
+				"from": ptr.hatchetName,
+				"let":  bson.M{"id": "$_id"},
+				"pipeline": []bson.M{
+					{"$match": bson.M{
+						"$expr": bson.M{
+							"$and": []bson.M{
+								{"$eq": []interface{}{"$_id", "$$id"}},
+								{"$gte": []interface{}{"$date", toks[0]}},
+								{"$lt": []interface{}{"$date", toks[1]}},
+							}},
+					}},
+					{"$project": bson.M{
+						"_id":  0,
+						"date": 1,
+					}},
+				},
+				"as": "clients",
 			}},
 			{"$unwind": "$clients"},
-			{"$match": filter},
 			{"$group": bson.M{
 				"_id":   "$ip",
 				"total": bson.M{"$sum": "$accepted"},
@@ -237,30 +247,44 @@ func (ptr *MongoDB) GetConnectionStats(chartType string, duration string) ([]Rem
 	var err error
 	ctx := context.Background()
 	docs := []RemoteClient{}
-	var filter bson.M
-	var substr bson.M
-	if duration != "" {
-		toks := strings.Split(duration, ",")
-		substr = GetMongoDateSubString(toks[0], toks[1])
-		filter = bson.M{"clients.date": bson.M{"$gte": toks[0], "$lte": toks[1]}}
-	} else {
-		info := ptr.GetHatchetInfo()
-		filter = bson.M{"clients.date": bson.M{"$gte": info.Start, "$lte": info.End}}
-		substr = GetMongoDateSubString(info.Start, info.End)
-	}
 	collection := ptr.db.Collection(ptr.hatchetName + "_clients")
 	var cursor *mongo.Cursor
 	var pipeline []bson.M
 	if chartType == "time" {
+		var substr bson.M
+		var sd, ed string
+		if duration != "" {
+			toks := strings.Split(duration, ",")
+			substr = GetMongoDateSubString(toks[0], toks[1])
+			sd = toks[0]
+			ed = toks[1]
+		} else {
+			info := ptr.GetHatchetInfo()
+			sd = info.Start
+			ed = info.End
+			substr = GetMongoDateSubString(info.Start, info.End)
+		}
 		pipeline = []bson.M{
 			{"$lookup": bson.M{
-				"from":         ptr.hatchetName,
-				"localField":   "_id",
-				"foreignField": "_id",
-				"as":           "clients",
+				"from": ptr.hatchetName,
+				"let":  bson.M{"id": "$_id"},
+				"pipeline": []bson.M{
+					{"$match": bson.M{
+						"$expr": bson.M{
+							"$and": []bson.M{
+								{"$eq": []interface{}{"$_id", "$$id"}},
+								{"$gte": []interface{}{"$date", sd}},
+								{"$lt": []interface{}{"$date", ed}},
+							}},
+					}},
+					{"$project": bson.M{
+						"_id":  0,
+						"date": 1,
+					}},
+				},
+				"as": "clients",
 			}},
 			{"$unwind": "$clients"},
-			{"$match": filter},
 			{"$project": bson.M{
 				"_id":      0,
 				"date":     "$clients.date",
@@ -298,15 +322,28 @@ func (ptr *MongoDB) GetConnectionStats(chartType string, duration string) ([]Rem
 			{"$sort": bson.M{"accepted": -1}},
 		}
 		if duration != "" {
+			toks := strings.Split(duration, ",")
 			pipeline = []bson.M{
 				{"$lookup": bson.M{
-					"from":         ptr.hatchetName,
-					"localField":   "_id",
-					"foreignField": "_id",
-					"as":           "clients",
+					"from": ptr.hatchetName,
+					"let":  bson.M{"id": "$_id"},
+					"pipeline": []bson.M{
+						{"$match": bson.M{
+							"$expr": bson.M{
+								"$and": []bson.M{
+									{"$eq": []interface{}{"$_id", "$$id"}},
+									{"$gte": []interface{}{"$date", toks[0]}},
+									{"$lt": []interface{}{"$date", toks[1]}},
+								}},
+						}},
+						{"$project": bson.M{
+							"_id":  0,
+							"date": 1,
+						}},
+					},
+					"as": "clients",
 				}},
 				{"$unwind": "$clients"},
-				{"$match": filter},
 				{"$group": bson.M{
 					"_id":      "$ip",
 					"accepted": bson.M{"$sum": "$accepted"},
@@ -352,7 +389,7 @@ func (ptr *MongoDB) GetOpsCounts(duration string) ([]NameValue, error) {
 		toks := strings.Split(duration, ",")
 		opcond["$and"] = []bson.M{
 			{"date": bson.M{"$gte": toks[0]}},
-			{"date": bson.M{"$lte": toks[1]}},
+			{"date": bson.M{"$lt": toks[1]}},
 		}
 	}
 	group := bson.M{
@@ -397,10 +434,18 @@ func (ptr *MongoDB) GetReslenByIP(ip string, duration string) ([]NameValue, erro
 			"reslen": bson.M{"$gt": 0},
 		}},
 		{"$lookup": bson.M{
-			"from":         ptr.hatchetName + "_clients",
-			"localField":   "context",
-			"foreignField": "context",
-			"as":           "clients",
+			"from": ptr.hatchetName + "_clients",
+			"let":  bson.M{"context": "$context"},
+			"pipeline": []bson.M{
+				{"$match": bson.M{
+					"$expr": bson.M{"$eq": []interface{}{"$context", "$$context"}},
+				}},
+				{"$project": bson.M{
+					"_id": 0,
+					"ip":  1,
+				}},
+			},
+			"as": "clients",
 		}},
 		{"$unwind": "$clients"},
 		{"$group": bson.M{
@@ -421,8 +466,12 @@ func (ptr *MongoDB) GetReslenByIP(ip string, duration string) ([]NameValue, erro
 			"pipeline": []bson.M{
 				{"$match": bson.M{
 					"ip":    ip,
-					"$expr": bson.M{"$eq": []interface{}{"$context", "$$context"}}},
-				},
+					"$expr": bson.M{"$eq": []interface{}{"$context", "$$context"}},
+				}},
+				{"$project": bson.M{
+					"_id": 0,
+					"ip":  1,
+				}},
 			},
 			"as": "clients",
 		}
@@ -431,7 +480,7 @@ func (ptr *MongoDB) GetReslenByIP(ip string, duration string) ([]NameValue, erro
 	if duration != "" {
 		match := pipeline[0]["$match"].(bson.M)
 		toks := strings.Split(duration, ",")
-		match["date"] = bson.M{"$gte": toks[0], "$lte": toks[1]}
+		match["date"] = bson.M{"$gte": toks[0], "$lt": toks[1]}
 		pipeline[0]["$match"] = match
 	}
 	collection := ptr.db.Collection(ptr.hatchetName)
@@ -480,7 +529,7 @@ func (ptr *MongoDB) GetReslenByNamespace(ns string, duration string) ([]NameValu
 	if duration != "" {
 		match := pipeline[0]["$match"].(bson.M)
 		toks := strings.Split(duration, ",")
-		match["date"] = bson.M{"$gte": toks[0], "$lte": toks[1]}
+		match["date"] = bson.M{"$gte": toks[0], "$lt": toks[1]}
 		pipeline[0]["$match"] = match
 	}
 	collection := ptr.db.Collection(ptr.hatchetName)

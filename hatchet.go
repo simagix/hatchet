@@ -59,23 +59,35 @@ func Run(fullVersion string) {
 		*web = true
 	}
 
-	regex := func(re, s string) (bool, error) {
-		return regexp.MatchString(re, s)
+	logv2 := Logv2{version: fullVersion, url: *connstr, verbose: *verbose,
+		legacy: *legacy, user: *user, isDigest: *digest}
+	instance = &logv2
+	str := *connstr
+	if strings.HasPrefix(*connstr, "mongodb") {
+		pattern := regexp.MustCompile(`mongodb(\+srv)?:\/\/(.+):(.+)@(.+)`)
+		matches := pattern.FindStringSubmatch(str)
+		if matches != nil {
+			str = fmt.Sprintf("mongodb%s://%s@%s", matches[1], matches[2], matches[4])
+		}
 	}
-	sql.Register("sqlite3_extended",
-		&sqlite3.SQLiteDriver{
-			ConnectHook: func(conn *sqlite3.SQLiteConn) error {
-				return conn.RegisterFunc("regexp", regex, true)
-			},
-		})
-	logv2 := Logv2{version: fullVersion, url: *connstr, verbose: *verbose, legacy: *legacy, user: *user, isDigest: *digest}
+	log.Println("using database", str)
+	if GetLogv2().GetDBType() == SQLite3 {
+		regex := func(re, s string) (bool, error) {
+			return regexp.MatchString(re, s)
+		}
+		sql.Register("sqlite3_extended",
+			&sqlite3.SQLiteDriver{
+				ConnectHook: func(conn *sqlite3.SQLiteConn) error {
+					return conn.RegisterFunc("regexp", regex, true)
+				},
+			})
+	}
 	if *s3 {
 		var err error
 		if logv2.s3client, err = NewS3Client(*profile, *endpoint); err != nil {
 			log.Fatal(err)
 		}
 	}
-	instance = &logv2
 	for _, logname := range flag.Args() {
 		if err := logv2.Analyze(logname); err != nil {
 			log.Fatal(err)
@@ -104,15 +116,6 @@ func Run(fullVersion string) {
 		log.Fatal(err)
 	} else {
 		listener.Close()
-		str := *connstr
-		if strings.HasPrefix(*connstr, "mongodb") {
-			pattern := regexp.MustCompile(`mongodb(\+srv)?:\/\/(.+):(.+)@(.+)`)
-			matches := pattern.FindStringSubmatch(str)
-			if matches != nil {
-				str = fmt.Sprintf("mongodb%s://%s@%s", matches[1], matches[2], matches[4])
-			}
-		}
-		log.Println("using database", str)
 		log.Println("starting web server at", addr)
 		log.Fatal(http.ListenAndServe(addr, router))
 	}

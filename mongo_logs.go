@@ -103,7 +103,7 @@ func (ptr *MongoDB) GetLogs(opts ...string) ([]LegacyLog, error) {
 		}
 		if toks[0] == "duration" {
 			dates := strings.Split(toks[1], ",")
-			filter["date"] = bson.M{"$gte": dates[0], "$lte": dates[1]}
+			filter["date"] = bson.M{"$gte": dates[0], "$lt": dates[1]}
 		} else if toks[0] == "limit" {
 			offset, nlimit = GetOffsetLimit(toks[1])
 			qlimit = ToInt(nlimit) + 1
@@ -158,7 +158,7 @@ func (ptr *MongoDB) SearchLogs(opts ...string) ([]LegacyLog, error) {
 		}
 		if toks[0] == "duration" {
 			dates := strings.Split(toks[1], ",")
-			filter["date"] = bson.M{"$gte": dates[0], "$lte": dates[1]}
+			filter["date"] = bson.M{"$gte": dates[0], "$lt": dates[1]}
 		} else if toks[0] == "limit" {
 			offset, nlimit = GetOffsetLimit(toks[1])
 			qlimit = ToInt(nlimit) + 1

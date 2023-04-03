@@ -7,7 +7,6 @@ package hatchet
 
 import (
 	"context"
-	"log"
 	"regexp"
 	"strings"
 
@@ -55,7 +54,6 @@ func (ptr *MongoDB) GetAverageOpTime(op string, duration string) ([]OpCount, err
 		"filter": "$_id.filter",
 	}
 	opts := options.Aggregate().SetAllowDiskUse(true)
-	log.Println(opcond)
 	cursor, err := ptr.db.Collection(ptr.hatchetName).Aggregate(ctx, []bson.M{
 		{"$match": opcond},
 		{"$group": group},

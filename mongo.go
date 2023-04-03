@@ -55,10 +55,10 @@ func NewMongoDB(connstr string, hatchetName string) (*MongoDB, error) {
 	}
 	u, err := url.Parse(connstr)
 	dbName := u.Path[1:]
-	if dbName == "" {
-		dbName = "hatchet"
+	if dbName == "" || dbName == "admin" {
+		dbName = "logdb"
 	}
-	// log.Println("mongo database is", dbName)
+	log.Println("use database", dbName)
 	mongodb.db = client.Database(dbName)
 	return mongodb, err
 }

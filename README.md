@@ -23,9 +23,9 @@ Use the URL `http://localhost:3721/` in a browser to view reports and charts.  A
 ./dist/hatchet -url in-memory mongod.log.gz
 ```
 
-Using MongoDB as the database is also supported.  The example below stores data in collections under *hatchet* database.
+Using MongoDB as the database is also supported.  The example below stores data in collections under *logdb* database.
 ```bash
-./dist/hatchet -url mongodb+srv://{user}:{password}@localhost/hatchet mongod.log.gz
+./dist/hatchet -url mongodb+srv://{user}:{password}@demo.host.mongodb.net/logdb mongod.log.gz
 ```
 
 if you choose to view in the legacy format without a browser, use the command below:

@@ -60,7 +60,7 @@ const headers = `<!DOCTYPE html>
     caption {
       caption-side: top;
       font-size: 1em;
-	  text-align: left;
+	    text-align: left;
     }
     table, th, td {
       border: 1px solid var(--border-color);
@@ -86,6 +86,18 @@ const headers = `<!DOCTYPE html>
       vertical-align: middle;
       font-size: .8em;
       word-break: break-all;
+    }
+    table a:link {
+      color: var(--text-color);
+      text-decoration: none;
+    }
+    table a:visited {
+      color: var(-accent-color-1);
+      text-decoration: none;
+    }
+    table a:hover {
+      color: red;
+      text-decoration: none;
     }
     ul, ol {
       #font-family: Consolas, monaco, monospace;

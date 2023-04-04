@@ -90,13 +90,14 @@ func getSlowOpsLogsTable() string {
 			<th>context</th>
 			<th>message</th>
 		</tr>
+{{$hatchet := .Hatchet}}
 {{range $n, $value := .Logs}}
 		<tr>
 			<td align='right'>{{ add $n 1 }}</td>
 			<td>{{ formatDateTime $value.Timestamp }}</td>
 			<td>{{ $value.Severity }}</td>
 			<td>{{ $value.Component }}</td>
-			<td>{{ $value.Context }}</td>
+			<td><a href='/hatchets/{{$hatchet}}/logs/all?context={{$value.Context}}'>{{ $value.Context }}</a></td>
 			<td>{{ highlightLog $value.Message }}</td>
 		</tr>
 {{end}}
@@ -149,13 +150,14 @@ func getLegacyLogsTable() string {
 		</tr>
 	{{$search := .Context}}
 	{{$seq := .Seq}}
+	{{$hatchet := .Hatchet}}
 	{{range $n, $value := .Logs}}
 		<tr>
 			<td align='right'>{{ add $n $seq }}</td>
 			<td>{{ formatDateTime $value.Timestamp }}</td>
 			<td>{{ $value.Severity }}</td>
 			<td>{{ $value.Component }}</td>
-			<td>{{ $value.Context }}</td>
+			<td><a href='/hatchets/{{$hatchet}}/logs/all?context={{$value.Context}}'>{{ $value.Context }}</a></td>
 			<td>{{ highlightLog $value.Message $search }}</td>
 		</tr>
 	{{end}}

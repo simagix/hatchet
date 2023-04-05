@@ -155,14 +155,14 @@ func getConnectionsChart() string {
 	{{$ctype := .Type}}
 		var data = google.visualization.arrayToDataTable([
 	{{if eq $ctype "connections-time"}}
-			['Date/Time', 'Accepted', 'Ended'],
+			['Date/Time', 'Connections'],
 	{{else}}
 			['IP', 'Accepted', 'Ended'],
 	{{end}}
 
 	{{range $i, $v := .Remote}}
 		{{if eq $ctype "connections-time"}}
-			[new Date("{{$v.IP}}"), {{$v.Accepted}}, {{$v.Ended}}],
+			[new Date("{{$v.IP}}"), {{$v.Accepted}}],
 		{{else}}
 			['{{$v.IP}}', {{$v.Accepted}}, {{$v.Ended}}],
 		{{end}}

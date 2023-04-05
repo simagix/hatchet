@@ -96,12 +96,8 @@ func GetSQLDateSubString(start string, end string) string {
 		return "SUBSTR(date, 1, 18)||'9'"
 	} else if minutes < 60 {
 		return "SUBSTR(date, 1, 16)||':59'"
-	} else if minutes < 600 {
-		return "SUBSTR(date, 1, 15)||'9:59'"
-	} else if minutes < 3600 {
-		return "SUBSTR(date, 1, 13)||':59:59'"
 	} else {
-		return "SUBSTR(date, 1, 10)||'T23:59:59'"
+		return "SUBSTR(date, 1, 15)||'9:59'"
 	}
 }
 
@@ -126,12 +122,8 @@ func GetMongoDateSubString(start string, end string) bson.M {
 		return bson.M{"$substr": bson.A{"$date", 0, 18}}
 	} else if minutes < 60 {
 		return bson.M{"$substr": bson.A{"$date", 0, 16}}
-	} else if minutes < 600 {
-		return bson.M{"$substr": bson.A{"$date", 0, 15}}
-	} else if minutes < 3600 {
-		return bson.M{"$substr": bson.A{"$date", 0, 13}}
 	} else {
-		return bson.M{"$substr": bson.A{"$date", 0, 10}}
+		return bson.M{"$substr": bson.A{"$date", 0, 15}}
 	}
 }
 

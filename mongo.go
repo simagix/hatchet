@@ -58,7 +58,6 @@ func NewMongoDB(connstr string, hatchetName string) (*MongoDB, error) {
 	if dbName == "" || dbName == "admin" {
 		dbName = "logdb"
 	}
-	log.Println("use database", dbName)
 	mongodb.db = client.Database(dbName)
 	return mongodb, err
 }

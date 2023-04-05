@@ -7,9 +7,11 @@ package hatchet
 
 import (
 	"context"
+	"fmt"
 	"regexp"
 	"strings"
 
+	"github.com/simagix/gox"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -128,6 +130,9 @@ func (ptr *MongoDB) GetHatchetInfo() HatchetInfo {
 			"version": "$_id.version",
 		}},
 	}
+	if ptr.verbose {
+		fmt.Println(gox.Stringify(pipeline))
+	}
 	cursor, err := ptr.db.Collection(ptr.hatchetName+"_drivers").Aggregate(ctx, pipeline)
 	if err != nil {
 		return info
@@ -225,6 +230,9 @@ func (ptr *MongoDB) GetAcceptedConnsCounts(duration string) ([]NameValue, error)
 	}
 	collection := ptr.db.Collection(ptr.hatchetName + "_clients")
 	opts := options.Aggregate().SetAllowDiskUse(true)
+	if ptr.verbose {
+		fmt.Println(gox.Stringify(pipeline))
+	}
 	cursor, err := collection.Aggregate(ctx, pipeline, opts)
 	if err != nil {
 		return docs, err
@@ -284,23 +292,33 @@ func (ptr *MongoDB) GetConnectionStats(chartType string, duration string) ([]Rem
 			}},
 			{"$unwind": "$clients"},
 			{"$project": bson.M{
+				"_id":   0,
+				"date":  "$clients.date",
+				"conns": 1,
+				"ip":    1,
+			}},
+			{"$group": bson.M{
+				"_id": bson.M{
+					"date": "$date",
+					"ip":   "$ip",
+				},
+				"accepted": bson.M{"$sum": "$conns"},
+			}},
+			{"$project": bson.M{
 				"_id":      0,
-				"date":     "$clients.date",
+				"date":     "$_id.date",
 				"accepted": 1,
 				"ended":    1,
 			}},
 			{"$group": bson.M{
-				"_id": bson.M{
-					"date": substr,
-				},
-				"accepted": bson.M{"$sum": "$accepted"},
-				"ended":    bson.M{"$sum": "$ended"},
+				"_id":      substr,
+				"accepted": bson.M{"$avg": "$accepted"},
 			}},
 			{"$project": bson.M{
 				"_id":      0,
-				"ip":       "$_id.date",
-				"accepted": 1,
-				"ended":    1,
+				"ip":       "$_id",
+				"accepted": bson.M{"$toInt": "$accepted"},
+				"ended":    bson.M{"$literal": 0},
 			}},
 			{"$sort": bson.M{"ip": 1}},
 		}
@@ -356,6 +374,9 @@ func (ptr *MongoDB) GetConnectionStats(chartType string, duration string) ([]Rem
 				{"$sort": bson.M{"accepted": -1}},
 			}
 		}
+	}
+	if ptr.verbose {
+		fmt.Println(gox.Stringify(pipeline))
 	}
 	opts := options.Aggregate().SetAllowDiskUse(true)
 	cursor, err = collection.Aggregate(ctx, pipeline, opts)
@@ -483,6 +504,9 @@ func (ptr *MongoDB) GetReslenByIP(ip string, duration string) ([]NameValue, erro
 	}
 	collection := ptr.db.Collection(ptr.hatchetName)
 	opts := options.Aggregate().SetAllowDiskUse(true)
+	if ptr.verbose {
+		fmt.Println(gox.Stringify(pipeline))
+	}
 	cursor, err := collection.Aggregate(ctx, pipeline, opts)
 	if err != nil {
 		return docs, err
@@ -532,6 +556,9 @@ func (ptr *MongoDB) GetReslenByNamespace(ns string, duration string) ([]NameValu
 	}
 	collection := ptr.db.Collection(ptr.hatchetName)
 	opts := options.Aggregate().SetAllowDiskUse(true)
+	if ptr.verbose {
+		fmt.Println(gox.Stringify(pipeline))
+	}
 	cursor, err := collection.Aggregate(ctx, pipeline, opts)
 	if err != nil {
 		return docs, err

@@ -136,7 +136,7 @@ func getLegacyLogsTable() string {
 <div>
 {{ if .Logs }}
 	{{if .HasMore}}
-		<button onClick="javascript:location.href='{{.URL}}'; return false;"
+		<button onClick="javascript:loadData('{{.URL}}'); return false;"
 			class="btn" style="float: right; clear: right"><i class="fa fa-arrow-right"></i></button>
 	{{end}}
 	<table width='100%'>
@@ -163,7 +163,7 @@ func getLegacyLogsTable() string {
 	{{end}}
 	</table>
 	{{if .HasMore}}
-		<button onClick="javascript:location.href='{{.URL}}'; return false;"
+		<button onClick="javascript:loadData('{{.URL}}'); return false;"
 			class="btn" style="float: right; clear: right;"><i class="fa fa-arrow-right"></i></button>
 	{{end}}
 <div align='center'><hr/><p/>@simagix</div>
@@ -184,7 +184,7 @@ func getLegacyLogsTable() string {
 		sel = document.getElementById('severity')
 		var severity = sel.options[sel.selectedIndex].value;
 		var context = document.getElementById('context').value
-		window.location.href = '/hatchets/{{.Hatchet}}/logs/all?component='+component+'&severity='+severity+'&context='+context;
+		loadData('/hatchets/{{.Hatchet}}/logs/all?component='+component+'&severity='+severity+'&context='+context);
 	}
 </script>
 `

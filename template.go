@@ -234,10 +234,55 @@ const headers = `<!DOCTYPE html>
 	    margin: .5rem;
       font-size: .8em;
     }
+    #loading {
+      position: fixed;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      right: 0;
+      background-color: rgba(0, 0, 0, 0.5);
+      z-index: 9999;
+	  display: none;
+    }
+    .spinner {
+      border: 5px solid #f3f3f3;
+      border-top: 5px solid #3498db;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 2s linear infinite;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
   </style>
+  <script>
+    function loadData(url) {
+    	var loading = document.getElementById('loading');
+    	loading.style.display = 'block';
+    	fetch(url)
+        	.then(response => response.text())
+        	.then(data => {
+      			loading.style.display = 'none';
+				document.open();
+				document.write(data);
+				document.close();
+        	})
+        	.catch(error => {
+      			loading.style.display = 'none';
+        	});
+    }
+  </script>
 </head>
-
 <body>
+  <div id="loading">
+    <div class="spinner"></div>
+  </div>
 `
 
 func getContentHTML() string {
@@ -250,21 +295,26 @@ func getContentHTML() string {
 		if(value == "") {
 			return;
 		}
-		window.location.href = value
+		loadData(value);
 	}
 </script>
 <div align='center'>
-	<div style="float: left; margin-right: 10px;"><button id="title" onClick="javascript:location.href='/'; return false;"
+	<div style="float: left; margin-right: 10px;">
+	  <button id="title" onClick="javascript:location.href='/'; return false;"
 		class="btn"><i class="fa fa-home"></i></button>Hatchet</div>
 
-  <div style="float: left; margin-right: 10px;"><button id="logs" onClick="javascript:location.href='/hatchets/{{.Hatchet}}/stats/audit'; return false;"
+  <div style="float: left; margin-right: 10px;">
+  	<button id="logs" onClick="javascript:loadData('/hatchets/{{.Hatchet}}/stats/audit'); return false;"
 		class="btn"><i class="fa fa-shield"></i></button>Audit</div>
-  <div style="float: left; margin-right: 10px;"><button id="stats" onClick="javascript:location.href='/hatchets/{{.Hatchet}}/stats/slowops'; return false;"
+  <div style="float: left; margin-right: 10px;">
+  	<button id="stats" onClick="javascript:loadData('/hatchets/{{.Hatchet}}/stats/slowops'); return false;"
 		class="btn"><i class="fa fa-info"></i></button>Stats</div>
-  <div style="float: left; margin-right: 10px;"><button id="logs" onClick="javascript:location.href='/hatchets/{{.Hatchet}}/logs/slowops'; return false;"
+  <div style="float: left; margin-right: 10px;">
+  	<button id="logs" onClick="javascript:loadData('/hatchets/{{.Hatchet}}/logs/slowops'); return false;"
 		class="btn"><i class="fa fa-list"></i></button>Top N</div>
-  <div style="float: left; margin-right: 10px;"><button id="search" onClick="javascript:location.href='/hatchets/{{.Hatchet}}/logs/all?component=NONE'; return false;"
-    class="btn"><i class="fa fa-search"></i></button>Search</div>
+  <div style="float: left; margin-right: 10px;">
+  	<button id="search" onClick="javascript:loadData('/hatchets/{{.Hatchet}}/logs/all?component=NONE'); return false;"
+    	class="btn"><i class="fa fa-search"></i></button>Search</div>
 
 	<select id='nextChart' style="float: right;" onchange='gotoChart()'>`
 	items := []Chart{}
@@ -284,7 +334,7 @@ func getContentHTML() string {
 	}
 
 	html += `</select>
-	<button id="chart" onClick="javascript:location.href='/hatchets/{{.Hatchet}}/charts/ops?type=stats'; return false;" 
+	<button id="chart" onClick="javascript:loadData('/hatchets/{{.Hatchet}}/charts/ops?type=stats'); return false;" 
     	class="btn" style="float: right;"><i class="fa fa-bar-chart"></i></button>
 </div>
 <script>
@@ -296,7 +346,7 @@ func getContentHTML() string {
 	function refreshChart() {
 		var sd = document.getElementById('start').value;
 		var ed = document.getElementById('end').value;
-		window.location.href = '/hatchets/{{.Hatchet}}/charts{{.Chart.URL}}&duration=' + sd + ',' + ed;
+		loadData('/hatchets/{{.Hatchet}}/charts{{.Chart.URL}}&duration=' + sd + ',' + ed);
 	}
 </script>
 `
@@ -313,13 +363,13 @@ func getMainPage() string {
 		if(value == "") {
 			return;
 		}
-		window.location.href='/hatchets/' + value + '/stats/audit'
+		loadData('/hatchets/' + value + '/stats/audit'); 
 	} 
 </script>
 
 <div align='center'>
 	<h2><img class='rotate23' width='60' valign="middle" src='data:image/png;base64,{{ getHatchetImage }}'>Hatchet - MongoDB JSON Log Analyzer</img></h2>
-	<select id='table' class='hatchet-sel' onchange='redirect()'>
+	<select id='table' class='hatchet-sel' onchange='javascript:redirect(); return false'>
 		<option value=''>select a hatchet</option>
 {{range $n, $value := .Hatchets}}
 		<option value='{{$value}}'>{{$value}}</option>

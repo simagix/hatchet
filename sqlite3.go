@@ -251,7 +251,8 @@ func GetHatchetInitStmt(hatchetName string) string {
 			CREATE INDEX IF NOT EXISTS %v_idx_component ON %v (component);
 			CREATE INDEX IF NOT EXISTS %v_idx_context ON %v (context,date);
 			CREATE INDEX IF NOT EXISTS %v_idx_severity ON %v (severity);
-			CREATE INDEX IF NOT EXISTS %v_idx_op ON %v (op,ns,filter);
+			CREATE INDEX IF NOT EXISTS %v_idx_op_ns ON %v (op,ns,filter);
+			CREATE INDEX IF NOT EXISTS %v_idx_op_milli ON %v (op,milli);
 
 			DROP TABLE IF EXISTS %v_drivers;
 			CREATE TABLE %v_drivers (
@@ -262,7 +263,8 @@ func GetHatchetInitStmt(hatchetName string) string {
 				id integer not null primary key, ip text, port text, conns integer, accepted integer, ended integer, context string);
 			CREATE INDEX IF NOT EXISTS %v_clients_idx_context ON %v_clients (context,ip);`,
 		hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName,
-		hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName)
+		hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName,
+		hatchetName, hatchetName)
 }
 
 // GetHatchetPreparedStmt returns prepared statement of the hatchet table

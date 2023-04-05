@@ -45,9 +45,8 @@ func getStatsTable(collscan bool, orderBy string, download string) string {
 <script>
 	function getSlowopsStats() {
 		var b = document.getElementById('collscan').checked;
-		window.location.href = '/hatchets/{{.Hatchet}}/stats/slowops?orderBy=%v&COLLSCAN=' + b;
+		loadData('/hatchets/{{.Hatchet}}/stats/slowops?orderBy=%v&COLLSCAN='+b);
 	}
-	
 	function downloadStats() {
         anchor = document.createElement('a');
         anchor.download = '{{.Hatchet}}_stats.html';

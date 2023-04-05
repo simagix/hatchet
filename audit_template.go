@@ -34,13 +34,13 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 {{if hasData .Data "exception"}}
 	<table style='float: left; margin: 10px 10px; clear: left;'>
 		<caption><button class='btn'
-			onClick="javascript:location.href='/hatchets/{{.Hatchet}}/logs/all?severity=W'; return false;">
+			onClick="javascript:loadData('/hatchets/{{.Hatchet}}/logs/all?severity=W'); return false;">
 			<i class='fa fa-search'></i></button>Exceptions</caption>
 		<tr><th></th><th>Severity</th><th>Total</th></tr>
 	{{range $n, $val := index .Data "exception"}}
 		<tr><td align=right>{{add $n 1}}</td>
 		<td>
-			<button class='btn' onClick="javascript:location.href='/hatchets/{{$name}}/logs/all?severity={{slice $val.Name 0 1}}'; return false;"><i class='fa fa-search'></i></button>{{$val.Name}}
+			<button class='btn' onClick="javascript:loadData('/hatchets/{{$name}}/logs/all?severity={{slice $val.Name 0 1}}'); return false;"><i class='fa fa-search'></i></button>{{$val.Name}}
 		</td>
 		<td align=right>{{getFormattedNumber $val.Values 0}}</td></tr>
 	{{end}}
@@ -70,13 +70,13 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 {{if hasData .Data "failed"}}
 	<table style='float: left; margin: 10px 10px; clear: left;'>
 		<caption><button class='btn'
-			onClick="javascript:location.href='/hatchets/{{.Hatchet}}/logs/all?context=failed'; return false;">
+			onClick="javascript:loadData('/hatchets/{{.Hatchet}}/logs/all?context=failed'); return false;">
 			<i class='fa fa-search'></i></button>Failed Operations</caption>
 		<tr><th></th><th>Failed Operation</th><th>Total</th></tr>
 	{{range $n, $val := index .Data "failed"}}
 		<tr><td align=right>{{add $n 1}}</td>
 			<td>
-				<button class='btn' onClick="javascript:location.href='/hatchets/{{$name}}/logs/all?context={{$val.Name}}'; return false;"><i class='fa fa-search'></i></button>{{$val.Name}}
+				<button class='btn' onClick="javascript:loadData('/hatchets/{{$name}}/logs/all?context={{$val.Name}}'); return false;"><i class='fa fa-search'></i></button>{{$val.Name}}
 			</td>
 			<td align=right>{{getFormattedNumber $val.Values 0}}</td>
 		</tr>
@@ -87,13 +87,13 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 {{if hasData .Data "ip"}}
 	<table style='float: left; margin: 10px 10px;'>
 		<caption><button class='btn'
-			onClick="javascript:location.href='/hatchets/{{.Hatchet}}/charts/connections?type=accepted'; return false;">
+			onClick="javascript:loadData('/hatchets/{{.Hatchet}}/charts/connections?type=accepted'); return false;">
 			<i class='fa fa-pie-chart'></i></button>Stats by IPs</caption>
 		<tr><th></th><th>IP</th><th>Accepted Connections</th><th>Response Length</th></tr>
 	{{range $n, $val := index .Data "ip"}}
 		<tr><td align=right>{{add $n 1}}</td>
 		<td>
-			<button class='btn' onClick="javascript:location.href='/hatchets/{{$name}}/charts/reslen-ip?ip={{$val.Name}}'; return false;"><i class='fa fa-pie-chart'></i></button>{{$val.Name}}
+			<button class='btn' onClick="javascript:loadData('/hatchets/{{$name}}/charts/reslen-ip?ip={{$val.Name}}'); return false;"><i class='fa fa-pie-chart'></i></button>{{$val.Name}}
 		</td>
 		<td align=right>{{getFormattedNumber $val.Values 0}}</td><td align=right>{{getFormattedSize $val.Values 1}}</td></tr>
 	{{end}}
@@ -103,13 +103,13 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 {{if hasData .Data "op"}}
 	<table style='float: left; margin: 10px 10px; clear: left;'>
 		<caption><button class='btn'
-			onClick="javascript:location.href='/hatchets/{{.Hatchet}}/charts/ops?type=stats'; return false;">
+			onClick="javascript:loadData('/hatchets/{{.Hatchet}}/charts/ops?type=stats'); return false;">
 			<i class='fa fa-area-chart'></i></button>Operations Stats</caption>
 		<tr><th></th><th>Operation</th><th>Total</th></tr>
 	{{range $n, $val := index .Data "op"}}
 		<tr><td align=right>{{add $n 1}}</td>
 		<td>
-			<button class='btn' onClick="javascript:location.href='/hatchets/{{$name}}/charts/ops?type=stats&op={{$val.Name}}'; return false;"><i class='fa fa-area-chart'></i></button>{{$val.Name}}
+			<button class='btn' onClick="javascript:loadData('/hatchets/{{$name}}/charts/ops?type=stats&op={{$val.Name}}'); return false;"><i class='fa fa-area-chart'></i></button>{{$val.Name}}
 		</td>
 		<td align=right>{{getFormattedNumber $val.Values 0}}</td></tr>
 	{{end}}
@@ -119,13 +119,13 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 {{if hasData .Data "ns"}}
 	<table style='float: left; margin: 10px 10px;'>
 		<caption><button class='btn'
-			onClick="javascript:location.href='/hatchets/{{.Hatchet}}/charts/reslen-ns?ns='; return false;">
+			onClick="javascript:loadData('/hatchets/{{.Hatchet}}/charts/reslen-ns?ns='); return false;">
 			<i class='fa fa-pie-chart'></i></button>Stats by Namespaces</caption>
 		<tr><th></th><th>Namespace</th><th>Accessed</th><th>Response Length</th></tr>
 	{{range $n, $val := index .Data "ns"}}
 		<tr><td align=right>{{add $n 1}}</td>
 		<td>
-			<button class='btn' onClick="javascript:location.href='/hatchets/{{$name}}/logs/all?context={{$val.Name}}'; return false;"><i class='fa fa-search'></i></button>{{$val.Name}}
+			<button class='btn' onClick="javascript:loadData('/hatchets/{{$name}}/logs/all?context={{$val.Name}}'); return false;"><i class='fa fa-search'></i></button>{{$val.Name}}
 		</td>
 		<td align=right>{{getFormattedNumber $val.Values 0}}</td><td align=right>{{getFormattedSize $val.Values 1}}</td></tr>
 	{{end}}
@@ -138,7 +138,7 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 		<tr><th></th><th>Context</th><th>Duration</th></tr>
 	{{range $n, $val := index .Data "duration"}}
 			<tr><td align=right>{{add $n 1}}</td>
-				<td><button class='btn' onClick="javascript:location.href='/hatchets/{{$name}}/logs/all?context={{getContext $val.Name}}'; return false;">
+				<td><button class='btn' onClick="javascript:loadData('/hatchets/{{$name}}/logs/all?context={{getContext $val.Name}}'); return false;">
 					<i class='fa fa-search'></i></button>{{$val.Name}}
 				</td>
 				<td align=right>{{getFormattedDuration $val.Values 0}}</td>

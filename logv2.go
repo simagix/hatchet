@@ -25,11 +25,6 @@ const (
 	TOP_N      = 23
 )
 
-const (
-	SQLite3 = iota
-	Mongo
-)
-
 var instance *Logv2
 
 // GetLogv2 returns Logv2 instance

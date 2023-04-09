@@ -5,6 +5,13 @@
 
 package hatchet
 
+import "log"
+
+const (
+	SQLite3 = iota
+	Mongo
+)
+
 type NameValue struct {
 	Name  string `bson:"name"`
 	Value int    `bson:"value"`
@@ -43,8 +50,21 @@ type Database interface {
 }
 
 func GetDatabase(hatchetName string) (Database, error) {
-	if GetLogv2().GetDBType() == Mongo {
-		return GetMongoDB(hatchetName)
+	var err error
+	var dbase Database
+	logv2 := GetLogv2()
+	if logv2.verbose {
+		log.Println("url", logv2.url, "hatchet name", hatchetName)
 	}
-	return GetSQLite3DB(hatchetName)
+	if GetLogv2().GetDBType() == Mongo {
+		if dbase, err = NewMongoDB(logv2.url, hatchetName); err != nil {
+			return nil, err
+		}
+	} else { // default is SQLite3
+		if dbase, err = NewSQLite3DB(logv2.url, hatchetName); err != nil {
+			return nil, err
+		}
+	}
+	dbase.SetVerbose(logv2.verbose)
+	return dbase, err
 }

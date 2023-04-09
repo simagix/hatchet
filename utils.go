@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	MAX_SIZE  = 128
+	MAX_SIZE  = 64
 	TAIL_SIZE = 7
 )
 

@@ -24,20 +24,6 @@ type SQLite3DB struct {
 	verbose     bool
 }
 
-func GetSQLite3DB(hatchetName string) (Database, error) {
-	var dbase Database
-	var err error
-	logv2 := GetLogv2()
-	if logv2.verbose {
-		log.Println("dbfile", logv2.url, "hatchet name", hatchetName)
-	}
-	if dbase, err = NewSQLite3DB(logv2.url, hatchetName); err != nil {
-		return dbase, err
-	}
-	dbase.SetVerbose(logv2.verbose)
-	return dbase, err
-}
-
 func NewSQLite3DB(dbfile string, hatchetName string) (*SQLite3DB, error) {
 	var err error
 	sqlite := &SQLite3DB{dbfile: dbfile, hatchetName: hatchetName}
@@ -243,10 +229,11 @@ func GetHatchetInitStmt(hatchetName string) string {
 				op text, filter text, _index text, milli integer, reslen integer);
 
 			DROP TABLE IF EXISTS %v_ops;
-			CREATE TABLE %v_ops ( op, count, avg_ms, max_ms, total_ms, ns, _index, reslen, filter);
+			CREATE TABLE %v_ops (op text, count integer, avg_ms numeric, max_ms integer, total_ms integer,
+				ns text, _index text, reslen integer, filter text);
 
 			DROP TABLE IF EXISTS %v_audit;
-			CREATE TABLE %v_audit ( type, name, value);
+			CREATE TABLE %v_audit (type text, name text, value integer);
 
 			CREATE INDEX IF NOT EXISTS %v_idx_component ON %v (component);
 			CREATE INDEX IF NOT EXISTS %v_idx_context ON %v (context,date);
@@ -260,7 +247,7 @@ func GetHatchetInitStmt(hatchetName string) string {
 
 			DROP TABLE IF EXISTS %v_clients;
 			CREATE TABLE %v_clients(
-				id integer not null primary key, ip text, port text, conns integer, accepted integer, ended integer, context string);
+				id integer not null primary key, ip text, port text, conns integer, accepted integer, ended integer, context text);
 			CREATE INDEX IF NOT EXISTS %v_clients_idx_context ON %v_clients (context,ip);`,
 		hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName,
 		hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName,

@@ -31,20 +31,6 @@ type MongoDB struct {
 	logs    []interface{}
 }
 
-func GetMongoDB(hatchetName string) (Database, error) {
-	var dbase Database
-	var err error
-	logv2 := GetLogv2()
-	if logv2.verbose {
-		log.Println("url", logv2.url, "hatchet name", hatchetName)
-	}
-	if dbase, err = NewMongoDB(logv2.url, hatchetName); err != nil {
-		return dbase, err
-	}
-	dbase.SetVerbose(logv2.verbose)
-	return dbase, err
-}
-
 func NewMongoDB(connstr string, hatchetName string) (*MongoDB, error) {
 	var err error
 	mongodb := &MongoDB{url: connstr, hatchetName: hatchetName}

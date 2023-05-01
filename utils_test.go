@@ -114,3 +114,301 @@ func TestGetOffsetLimit(t *testing.T) {
 		t.Fatal("expected", 100, 100, "but got", o, l)
 	}
 }
+
+func TestIsCreditCardNo(t *testing.T) {
+	validCases := []struct {
+		input    string
+		expected bool
+	}{
+		{"4111111111111111", true}, // Visa
+		{"4012888888881881", true}, // Visa
+		{"4012 8888 8888 1881", true},
+		{"4222222222222", true},       // Visa
+		{"4917610000000000003", true}, // Visa
+		{"5105105105105100", true},    // Mastercard
+		{"5555555555554444", true},    // Mastercard
+		{"6011111111111117", true},    // Discover
+		{"6011000990139424", true},    // Discover
+		{"371449635398431", true},     // American Express
+		{"378282246310005", true},     // American Express
+		{"30569309025904", true},      // Diners Club
+		{"38520000023237", true},      // Diners Club
+		{"3530111333300000", true},    // JCB
+	}
+
+	invalidCases := []struct {
+		input    string
+		expected bool
+	}{
+		{"1234567890123456", false},
+		{"1234 5678 9012 3456", false},
+		{"1234567", false},
+		{"4111-1111-1111-1112", false},
+		{"4222222222222000", false},
+		{"4917610000000000004", false},
+		{"4917610000000000003000", false},
+		{"5105105105105101", false},
+		{"30569309025905", false},
+		{"3530111333300001", false},
+	}
+
+	// Iterate over the valid test cases
+	for _, tc := range validCases {
+		result := IsCreditCardNo(tc.input)
+
+		if result != tc.expected {
+			t.Errorf("IsCreditCardNo(%v) = %v; want %v", tc.input, result, tc.expected)
+		}
+	}
+
+	// Iterate over the invalid test cases
+	for _, tc := range invalidCases {
+		result := IsCreditCardNo(tc.input)
+
+		if result != tc.expected {
+			t.Errorf("IsCreditCardNo(%v) = %v; want %v", tc.input, result, tc.expected)
+		}
+	}
+}
+
+func TestIsEmail(t *testing.T) {
+	validCases := []struct {
+		input    string
+		expected bool
+	}{
+		{"test@example.com", true},
+		{"test.one+two@example.com", true},
+		{"test@subdomain.example.com", true},
+		{"test@example.co.uk", true},
+		{"test@example.travel", true},
+	}
+
+	invalidCases := []struct {
+		input    string
+		expected bool
+	}{
+		{"not an email address", false},
+		{"test@example.", false},
+		{"@example.com", false},
+	}
+
+	// Iterate over the valid test cases
+	for _, tc := range validCases {
+		result := IsEmail(tc.input)
+
+		if result != tc.expected {
+			t.Errorf("IsEmail(%v) = %v; want %v", tc.input, result, tc.expected)
+		}
+	}
+
+	// Iterate over the invalid test cases
+	for _, tc := range invalidCases {
+		result := IsEmail(tc.input)
+
+		if result != tc.expected {
+			t.Errorf("IsEmail(%v) = %v; want %v", tc.input, result, tc.expected)
+		}
+	}
+}
+
+func TestIsIP(t *testing.T) {
+	validCases := []struct {
+		input    string
+		expected bool
+	}{
+		{"192.168.1.1", true},
+		{"10.0.0.1", true},
+		{"172.16.0.1", true},
+		{"255.255.255.255", true},
+	}
+
+	invalidCases := []struct {
+		input    string
+		expected bool
+	}{
+		{"not an IP address", false},
+		{"192.168.1", false},
+		{"192.168.1.1.1", false},
+		{"192.168.1.", false},
+		{"192.168.1.-1", false},
+	}
+
+	// Iterate over the valid test cases
+	for _, tc := range validCases {
+		result := IsIP(tc.input)
+
+		if result != tc.expected {
+			t.Errorf("IsIP(%v) = %v; want %v", tc.input, result, tc.expected)
+		}
+	}
+
+	// Iterate over the invalid test cases
+	for _, tc := range invalidCases {
+		result := IsIP(tc.input)
+
+		if result != tc.expected {
+			t.Errorf("IsIP(%v) = %v; want %v", tc.input, result, tc.expected)
+		}
+	}
+}
+
+func TestIsFQDN(t *testing.T) {
+	validCases := []struct {
+		input    string
+		expected bool
+	}{
+		{"example.com", true},
+		{"subdomain.example.com", true},
+		{"www.example.com", true},
+		{"mail.google.com", true},
+		{"my.site123.info", true},
+	}
+
+	invalidCases := []struct {
+		input    string
+		expected bool
+	}{
+		{"not a valid FQDN", false},
+		{"example", false},
+		{"example.c", false},
+		{"example-.com", false},
+		{"example._com", false},
+		{"example..com", false},
+	}
+
+	// Iterate over the valid test cases
+	for _, tc := range validCases {
+		result := IsFQDN(tc.input)
+
+		if result != tc.expected {
+			t.Errorf("IsFQDN(%v) = %v; want %v", tc.input, result, tc.expected)
+		}
+	}
+
+	// Iterate over the invalid test cases
+	for _, tc := range invalidCases {
+		result := IsFQDN(tc.input)
+
+		if result != tc.expected {
+			t.Errorf("IsFQDN(%v) = %v; want %v", tc.input, result, tc.expected)
+		}
+	}
+}
+
+func TestIsSSN(t *testing.T) {
+	validCases := []struct {
+		input    string
+		expected bool
+	}{
+		{"123-45-6789", true},
+		{"111-22-3333", true},
+		{"999999999", true},
+		{"111223333", true},
+		{"123456789", true},
+	}
+
+	invalidCases := []struct {
+		input    string
+		expected bool
+	}{
+		{"not an SSN", false},
+		{"123-4-6789", false},
+		{"123-45-67890", false},
+		{"1234-56-7890", false},
+		{"1234567890", false},
+		{"ABC-DE-FGHI", false},
+		{"123-45-6ABC", false},
+	}
+
+	// Iterate over the valid test cases
+	for _, tc := range validCases {
+		result := IsSSN(tc.input)
+
+		if result != tc.expected {
+			t.Errorf("IsSSN(%v) = %v; want %v", tc.input, result, tc.expected)
+		}
+	}
+
+	// Iterate over the invalid test cases
+	for _, tc := range invalidCases {
+		result := IsSSN(tc.input)
+
+		if result != tc.expected {
+			t.Errorf("IsSSN(%v) = %v; want %v", tc.input, result, tc.expected)
+		}
+	}
+}
+
+func TestIsPhoneNo(t *testing.T) {
+	validCases := []struct {
+		input    string
+		expected bool
+	}{
+		{"1234567890", true},
+		{"123-456-7890", true},
+		{"(123) 456-7890", true},
+		{"+1 123-456-7890", true},
+		{"+91 1234567890", true},
+		{"011-12345678", true},
+		{"011-1234567890", true},
+		{"+1 (123) 456-7890", true},
+		{"+1 1234567890", true},
+		{"+86 13912345678", true},
+	}
+
+	invalidCases := []struct {
+		input    string
+		expected bool
+	}{
+		{"not a phone number", false},
+		{"123-4567", false},
+		{"123-45-6789", false},
+		{"(123)-456-7890", false},
+		{"+1 1234567", false},
+		{"011-123456", false},
+	}
+
+	// Iterate over the valid test cases
+	for _, tc := range validCases {
+		result := IsPhoneNo(tc.input)
+
+		if result != tc.expected {
+			t.Errorf("IsPhoneNo(%v) = %v; want %v", tc.input, result, tc.expected)
+		}
+	}
+
+	// Iterate over the invalid test cases
+	for _, tc := range invalidCases {
+		result := IsPhoneNo(tc.input)
+
+		if result != tc.expected {
+			t.Errorf("IsPhoneNo(%v) = %v; want %v", tc.input, result, tc.expected)
+		}
+	}
+}
+
+func TestCheckLuhn(t *testing.T) {
+	cases := []struct {
+		card     string
+		expected bool
+	}{
+		{"4111111111111111", true},
+		{"4111111111111", false},
+		{"4012888888881881", true},
+		{"378282246310005", true},
+		{"6011111111111117", true},
+		{"5105105105105100", true},
+		{"5105105105105106", false},
+		{"1234567812345670", true},
+		{"1234567812345678", false},
+		{"0000000000000000", true},
+		{"0000000000000010", false},
+	}
+
+	for _, c := range cases {
+		got := CheckLuhn(c.card)
+		if got != c.expected {
+			t.Errorf("CheckLuhn(%q) == %v, expected %v", c.card, got, c.expected)
+		}
+	}
+}

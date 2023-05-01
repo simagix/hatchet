@@ -371,7 +371,7 @@ func (ptr *Logv2) PrintSummary() error {
 	summaries = append(summaries, buffer.String())
 	if lines < len(ops) {
 		summaries = append(summaries,
-			fmt.Sprintf(`+ %v: slowest %d of %d ops displayed`, ptr.hatchetName, lines, len(ops)))
+			fmt.Sprintf(`+ %v: slowest %d of %d ops displayed`, ptr.hatchetName, lines+1, len(ops)))
 	}
 	fmt.Println(strings.Join(summaries, "\n"))
 	return err

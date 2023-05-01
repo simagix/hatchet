@@ -64,5 +64,12 @@ Hatchet has the ability to download files from AWS S3. When downloading files, H
 hatchet -s3 [--endpoint-url {test endpoint}] {bucket}/{key name}
 ```
 
+## Logs Obfuscation
+Use Hatchet to obfuscate logs. It automatically obfuscates the values of the matched patterns under the "attr" field, such as SSN, credit card numbers, phone numbers, email addresses, IP addresses, FQDNs, port numbers, namespaces, and other numbers. Note that, for example, replacing "host.example.com" with "rose.taipei.com" in the log file will consistently replace all other occurrences of "host.example.com" with "rose.taipei.com". To obfuscate logs and redirect them to a file, use the following syntax:
+
+```bash
+hatchet -obfuscate {log file} > {output file}
+```
+
 ## License
 [Apache-2.0 License](LICENSE)

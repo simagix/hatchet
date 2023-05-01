@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"math/rand"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -24,6 +25,16 @@ const (
 	MAX_SIZE  = 64
 	TAIL_SIZE = 7
 )
+
+// ToFloat64 converts to float64
+func ToFloat64(num interface{}) float64 {
+	f := fmt.Sprintf("%v", num)
+	x, err := strconv.ParseFloat(f, 64)
+	if err != nil {
+		return 0
+	}
+	return float64(x)
+}
 
 // ToInt converts to int
 func ToInt(num interface{}) int {
@@ -182,4 +193,86 @@ func GetBufioReader(data []byte) (*bufio.Reader, error) {
 	}
 
 	return bufio.NewReader(bytes.NewReader(data)), nil
+}
+
+func IsCreditCardNo(card string) bool {
+	cardNo := []byte{}
+	for i := range card {
+		if card[i] >= '0' && card[i] <= '9' {
+			cardNo = append(cardNo, card[i])
+		}
+	}
+	matched, _ := regexp.MatchString(`(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|6(?:011|5[0-9]{2})[0-9]{12}|3[47][0-9]{13}|3(?:0[0-5]|[68][0-9])[0-9]{11}|(?:2131|1800|35\\d{3})\\d{11})`, string(cardNo))
+	return matched && CheckLuhn(string(cardNo))
+}
+
+func IsEmail(email string) bool {
+	emailRegex := regexp.MustCompile(`[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}`)
+	return emailRegex.MatchString(email)
+}
+
+func IsIP(ip string) bool {
+	ipRegex := regexp.MustCompile(`\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}`)
+	octets := strings.Split(ip, ".")
+	return len(octets) == 4 && ipRegex.MatchString(ip)
+}
+
+func IsFQDN(fqdn string) bool {
+	fqdnRegex := regexp.MustCompile(`([a-zA-Z0-9]+(-[a-zA-Z0-9]+)*\.)+[a-zA-Z]{2,}`)
+	return fqdnRegex.MatchString(fqdn)
+}
+
+func IsSSN(s string) bool {
+	ssnRegex := regexp.MustCompile(`\d{3}-?\d{2}-?\d{4}`)
+	digits := strings.ReplaceAll(s, "-", "")
+	return len(digits) == 9 && ssnRegex.MatchString(s)
+}
+
+func IsPhoneNo(phoneNo string) bool {
+	re := regexp.MustCompile("[^0-9]+")
+	digits := re.ReplaceAllString(phoneNo, "")
+	if len(digits) > 16 {
+		return false
+	}
+	phoneRegex := regexp.MustCompile(`(?:\+?\d{1,3}[- ]?)?\d{10,14}|(\+\d{1,3}\s?)?\(\d{3}\)\s?\d{3}[- ]?\d{4}|\d{3}[- ]?\d{3}[- ]?\d{4}`)
+	return phoneRegex.MatchString(phoneNo)
+}
+
+func CheckLuhn(card string) bool {
+	var sum int
+	var digit int
+	var even bool
+	for i := len(card) - 1; i >= 0; i-- {
+		digit, _ = strconv.Atoi(string(card[i]))
+		if even {
+			digit *= 2
+			if digit > 9 {
+				digit -= 9
+			}
+		}
+		sum += digit
+		even = !even
+	}
+	return sum%10 == 0
+}
+
+func ObfuscateWord(word string) string {
+	length := len(word)
+	lowers := []rune("abcdefghijklmnopqrstuvwxyz")
+	uppers := []rune("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	digits := []rune("0123456789")
+	rand.Seed(time.Now().UnixNano())
+	b := make([]rune, length)
+	for i := range word {
+		if unicode.IsLower(rune(word[i])) {
+			b[i] = lowers[rand.Intn(len(lowers))]
+		} else if unicode.IsUpper(rune(word[i])) {
+			b[i] = uppers[rand.Intn(len(uppers))]
+		} else if unicode.IsDigit(rune(word[i])) {
+			b[i] = digits[rand.Intn(len(digits))]
+		} else {
+			b[i] = rune(word[i])
+		}
+	}
+	return string(b)
 }

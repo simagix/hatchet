@@ -195,7 +195,7 @@ func GetBufioReader(data []byte) (*bufio.Reader, error) {
 	return bufio.NewReader(bytes.NewReader(data)), nil
 }
 
-func IsCreditCardNo(card string) bool {
+func ContainsCreditCardNo(card string) bool {
 	cardNo := []byte{}
 	for i := range card {
 		if card[i] >= '0' && card[i] <= '9' {
@@ -206,32 +206,58 @@ func IsCreditCardNo(card string) bool {
 	return matched && CheckLuhn(string(cardNo))
 }
 
-func IsEmail(email string) bool {
+func ContainsEmailAddress(email string) bool {
 	emailRegex := regexp.MustCompile(`[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}`)
 	return emailRegex.MatchString(email)
 }
 
-func IsIP(ip string) bool {
+func ContainsIP(ip string) bool {
 	ipRegex := regexp.MustCompile(`\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}`)
 	octets := strings.Split(ip, ".")
 	return len(octets) == 4 && ipRegex.MatchString(ip)
 }
 
-func IsFQDN(fqdn string) bool {
-	fqdnRegex := regexp.MustCompile(`([a-zA-Z0-9]+(-[a-zA-Z0-9]+)*\.)+[a-zA-Z]{2,}`)
+func ContainsFQDN(fqdn string) bool {
+	if i := strings.Index(fqdn, " "); i >= 0 {
+		return false
+	}
+	parts := strings.Split(fqdn, ".")
+	if len(parts) < 2 {
+		return false
+	}
+	fqdnRegex := regexp.MustCompile(`([a-zA-Z][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]\.)+[a-zA-Z]{2,63}`)
 	return fqdnRegex.MatchString(fqdn)
 }
 
+func IsNamespace(ns string) bool {
+	parts := strings.Split(ns, ".")
+	if len(parts) < 2 || len(parts) > 3 {
+		return false
+	}
+	for _, part := range parts {
+		re := regexp.MustCompile("[^0-9]")
+		if !re.MatchString(part) {
+			return false
+		}
+	}
+	nsRegex := regexp.MustCompile(`^[^\d][^$.\n\s@]*\.[^.\n\s@]*([.][^.\n\s@]*)?$`)
+	return nsRegex.MatchString(ns)
+}
+
 func IsSSN(s string) bool {
-	ssnRegex := regexp.MustCompile(`\d{3}-?\d{2}-?\d{4}`)
+	ssnRegex := regexp.MustCompile(`\d{3}-\d{2}-\d{4}`)
 	digits := strings.ReplaceAll(s, "-", "")
 	return len(digits) == 9 && ssnRegex.MatchString(s)
 }
 
-func IsPhoneNo(phoneNo string) bool {
-	re := regexp.MustCompile("[^0-9]+")
+func ContainsPhoneNo(phoneNo string) bool {
+	re := regexp.MustCompile("[a-zA-Z]")
+	if re.MatchString(phoneNo) {
+		return false
+	}
+	re = regexp.MustCompile("[^0-9+]+")
 	digits := re.ReplaceAllString(phoneNo, "")
-	if len(digits) > 16 {
+	if (strings.HasPrefix(digits, "+") && len(digits) > 14) || (!strings.HasPrefix(digits, "+") && len(digits) > 11) {
 		return false
 	}
 	phoneRegex := regexp.MustCompile(`(?:\+?\d{1,3}[- ]?)?\d{10,14}|(\+\d{1,3}\s?)?\(\d{3}\)\s?\d{3}[- ]?\d{4}|\d{3}[- ]?\d{3}[- ]?\d{4}`)

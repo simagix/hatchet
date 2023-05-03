@@ -108,7 +108,7 @@ func TestObfuscateCreditCardNo(t *testing.T) {
 func TestObfuscateEmail(t *testing.T) {
 	// Initialize the Obfuscation struct
 	o := &Obfuscation{
-		EmailMap: make(map[string]string),
+		NameMap: make(map[string]string),
 	}
 
 	// Test case 1: Obfuscating a valid email address
@@ -161,7 +161,7 @@ func TestObfuscateIP(t *testing.T) {
 func TestObfuscateFQDN(t *testing.T) {
 	// Initialize the Obfuscation struct
 	o := &Obfuscation{
-		HostMap: make(map[string]string),
+		NameMap: make(map[string]string),
 	}
 
 	// Test case 1: Obfuscating a valid FQDN with 2 parts
@@ -185,6 +185,28 @@ func TestObfuscateFQDN(t *testing.T) {
 	actualOutput3 := o.ObfuscateFQDN(input3)
 	if actualOutput3 != expectedOutput3 {
 		t.Errorf("Expected output to be %s but got %s for input %s", expectedOutput3, actualOutput3, input3)
+	}
+}
+
+func TestObfuscateNS(t *testing.T) {
+	ptr := &Obfuscation{
+		NameMap: make(map[string]string),
+	}
+
+	// Test case 1: Obfuscate a valid FQDN with two labels
+	for _, ns := range []string{"example.com", "mail.example.com"} {
+		obfuscated := ptr.ObfuscateNS(ns)
+		if obfuscated == ns || !IsNamespace(obfuscated) {
+			t.Errorf("ObfuscateNS(%q) returned %q, expected %q", ns, obfuscated, ns)
+		}
+	}
+
+	// Test case 1: Obfuscate a valid FQDN with two labels
+	for _, ns := range []string{"user@example.com", "user@mail.example.com"} {
+		obfuscated := ptr.ObfuscateNS(ns)
+		if obfuscated != ns {
+			t.Errorf("ObfuscateNS(%q) returned %q, expected %q", ns, obfuscated, ns)
+		}
 	}
 }
 

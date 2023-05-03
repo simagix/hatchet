@@ -127,8 +127,6 @@ func AddLegacyString(doc *Logv2Info) error {
 								remote.IP = toks[0]
 							}
 						}
-					} else {
-						log.Println("key 'mongos' under 'attr.command.$client' not found, report an issue at https://github.com/simagix/hatchet/issues")
 					}
 				}
 				if remote.IP != "" {

@@ -56,7 +56,11 @@ func Run(fullVersion string) {
 			if err != nil {
 				log.Fatal(err)
 			}
-			if err = os.WriteFile(*infile+".json", data, 0644); err != nil {
+			jfile := *infile+".json"
+			if *infile == "-" {
+				jfile = "stdin.json"
+			}
+			if err = os.WriteFile(jfile, data, 0644); err != nil {
 				log.Fatal(err)
 			}
 		}

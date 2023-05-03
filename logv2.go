@@ -228,9 +228,8 @@ func (ptr *Logv2) Analyze(logname string) error {
 
 		doc := Logv2Info{}
 		if err = bson.UnmarshalExtJSON([]byte(str), false, &doc); err != nil {
-			log.Println("clean up database due to error:", err)
-			dbase.Drop()
-			return fmt.Errorf("line %d: %v", index, err)
+			log.Println("line", index, err)
+			continue
 		}
 
 		if err = AddLegacyString(&doc); err != nil {

@@ -115,7 +115,7 @@ func TestGetOffsetLimit(t *testing.T) {
 	}
 }
 
-func TestIsCreditCardNo(t *testing.T) {
+func TestContainsCreditCardNo(t *testing.T) {
 	validCases := []struct {
 		input    string
 		expected bool
@@ -154,24 +154,24 @@ func TestIsCreditCardNo(t *testing.T) {
 
 	// Iterate over the valid test cases
 	for _, tc := range validCases {
-		result := IsCreditCardNo(tc.input)
+		result := ContainsCreditCardNo(tc.input)
 
 		if result != tc.expected {
-			t.Errorf("IsCreditCardNo(%v) = %v; want %v", tc.input, result, tc.expected)
+			t.Errorf("ContainsCreditCardNo(%v) = %v; want %v", tc.input, result, tc.expected)
 		}
 	}
 
 	// Iterate over the invalid test cases
 	for _, tc := range invalidCases {
-		result := IsCreditCardNo(tc.input)
+		result := ContainsCreditCardNo(tc.input)
 
 		if result != tc.expected {
-			t.Errorf("IsCreditCardNo(%v) = %v; want %v", tc.input, result, tc.expected)
+			t.Errorf("ContainsCreditCardNo(%v) = %v; want %v", tc.input, result, tc.expected)
 		}
 	}
 }
 
-func TestIsEmail(t *testing.T) {
+func TestContainsEmailAddress(t *testing.T) {
 	validCases := []struct {
 		input    string
 		expected bool
@@ -194,24 +194,24 @@ func TestIsEmail(t *testing.T) {
 
 	// Iterate over the valid test cases
 	for _, tc := range validCases {
-		result := IsEmail(tc.input)
+		result := ContainsEmailAddress(tc.input)
 
 		if result != tc.expected {
-			t.Errorf("IsEmail(%v) = %v; want %v", tc.input, result, tc.expected)
+			t.Errorf("ContainsEmailAddress(%v) = %v; want %v", tc.input, result, tc.expected)
 		}
 	}
 
 	// Iterate over the invalid test cases
 	for _, tc := range invalidCases {
-		result := IsEmail(tc.input)
+		result := ContainsEmailAddress(tc.input)
 
 		if result != tc.expected {
-			t.Errorf("IsEmail(%v) = %v; want %v", tc.input, result, tc.expected)
+			t.Errorf("ContainsEmailAddress(%v) = %v; want %v", tc.input, result, tc.expected)
 		}
 	}
 }
 
-func TestIsIP(t *testing.T) {
+func TestContainsIP(t *testing.T) {
 	validCases := []struct {
 		input    string
 		expected bool
@@ -235,24 +235,24 @@ func TestIsIP(t *testing.T) {
 
 	// Iterate over the valid test cases
 	for _, tc := range validCases {
-		result := IsIP(tc.input)
+		result := ContainsIP(tc.input)
 
 		if result != tc.expected {
-			t.Errorf("IsIP(%v) = %v; want %v", tc.input, result, tc.expected)
+			t.Errorf("ContainsIP(%v) = %v; want %v", tc.input, result, tc.expected)
 		}
 	}
 
 	// Iterate over the invalid test cases
 	for _, tc := range invalidCases {
-		result := IsIP(tc.input)
+		result := ContainsIP(tc.input)
 
 		if result != tc.expected {
-			t.Errorf("IsIP(%v) = %v; want %v", tc.input, result, tc.expected)
+			t.Errorf("ContainsIP(%v) = %v; want %v", tc.input, result, tc.expected)
 		}
 	}
 }
 
-func TestIsFQDN(t *testing.T) {
+func TestContainsFQDN(t *testing.T) {
 	validCases := []struct {
 		input    string
 		expected bool
@@ -278,20 +278,53 @@ func TestIsFQDN(t *testing.T) {
 
 	// Iterate over the valid test cases
 	for _, tc := range validCases {
-		result := IsFQDN(tc.input)
+		result := ContainsFQDN(tc.input)
 
 		if result != tc.expected {
-			t.Errorf("IsFQDN(%v) = %v; want %v", tc.input, result, tc.expected)
+			t.Errorf("ContainsFQDN(%v) = %v; want %v", tc.input, result, tc.expected)
 		}
 	}
 
 	// Iterate over the invalid test cases
 	for _, tc := range invalidCases {
-		result := IsFQDN(tc.input)
+		result := ContainsFQDN(tc.input)
 
 		if result != tc.expected {
-			t.Errorf("IsFQDN(%v) = %v; want %v", tc.input, result, tc.expected)
+			t.Errorf("ContainsFQDN(%v) = %v; want %v", tc.input, result, tc.expected)
 		}
+	}
+}
+
+func TestIsNamespace(t *testing.T) {
+	testCases := []struct {
+		name     string
+		ns       string
+		expected bool
+	}{
+		{
+			name:     "valid namespace with two parts",
+			ns:       "mycompany.myservice",
+			expected: true,
+		},
+		{
+			name:     "valid namespace with three parts",
+			ns:       "mycompany.myservice.myenv",
+			expected: true,
+		},
+		{
+			name:     "invalid namespace with numeric characters",
+			ns:       "mycompany.1234",
+			expected: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := IsNamespace(tc.ns)
+			if result != tc.expected {
+				t.Errorf("Expected IsNamespace(%q) to be %v, but got %v", tc.ns, tc.expected, result)
+			}
+		})
 	}
 }
 
@@ -302,9 +335,6 @@ func TestIsSSN(t *testing.T) {
 	}{
 		{"123-45-6789", true},
 		{"111-22-3333", true},
-		{"999999999", true},
-		{"111223333", true},
-		{"123456789", true},
 	}
 
 	invalidCases := []struct {
@@ -339,7 +369,7 @@ func TestIsSSN(t *testing.T) {
 	}
 }
 
-func TestIsPhoneNo(t *testing.T) {
+func TestContainsPhoneNo(t *testing.T) {
 	validCases := []struct {
 		input    string
 		expected bool
@@ -349,8 +379,6 @@ func TestIsPhoneNo(t *testing.T) {
 		{"(123) 456-7890", true},
 		{"+1 123-456-7890", true},
 		{"+91 1234567890", true},
-		{"011-12345678", true},
-		{"011-1234567890", true},
 		{"+1 (123) 456-7890", true},
 		{"+1 1234567890", true},
 		{"+86 13912345678", true},
@@ -370,19 +398,19 @@ func TestIsPhoneNo(t *testing.T) {
 
 	// Iterate over the valid test cases
 	for _, tc := range validCases {
-		result := IsPhoneNo(tc.input)
+		result := ContainsPhoneNo(tc.input)
 
 		if result != tc.expected {
-			t.Errorf("IsPhoneNo(%v) = %v; want %v", tc.input, result, tc.expected)
+			t.Errorf("ContainsPhoneNo(%v) = %v; want %v", tc.input, result, tc.expected)
 		}
 	}
 
 	// Iterate over the invalid test cases
 	for _, tc := range invalidCases {
-		result := IsPhoneNo(tc.input)
+		result := ContainsPhoneNo(tc.input)
 
 		if result != tc.expected {
-			t.Errorf("IsPhoneNo(%v) = %v; want %v", tc.input, result, tc.expected)
+			t.Errorf("ContainsPhoneNo(%v) = %v; want %v", tc.input, result, tc.expected)
 		}
 	}
 }

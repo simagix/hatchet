@@ -15,6 +15,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -25,6 +26,7 @@ import (
 const SQLITE3_FILE = "./data/hatchet.db"
 
 func Run(fullVersion string) {
+	bios := flag.Bool("bios", false, "populate bios documents")
 	dbfile := flag.String("dbfile", SQLITE3_FILE, "deprecated, use -url")
 	digest := flag.Bool("digest", false, "HTTP digest")
 	endpoint := flag.String("endpoint-url", "", "AWS endpoint")
@@ -33,6 +35,7 @@ func Run(fullVersion string) {
 	port := flag.Int("port", 3721, "web server port number")
 	profile := flag.String("aws-profile", "default", "AWS profile name")
 	s3 := flag.Bool("s3", false, "files from AWS S3")
+	sim := flag.String("sim", "", "simulate read/write load tests")
 	connstr := flag.String("url", SQLITE3_FILE, "database file name or connection string")
 	user := flag.String("user", "", "HTTP Auth (username:password)")
 	ver := flag.Bool("version", false, "print version number")
@@ -46,24 +49,28 @@ func Run(fullVersion string) {
 		fmt.Println(fullVersion)
 		return
 	} else if *infile != "" {
+		var data []byte
 		obs := NewObfuscation()
-		if err := obs.ObfuscateFile(*infile); err != nil {
+		err := obs.ObfuscateFile(*infile)
+		if err != nil {
 			log.Fatal(err)
 		}
-
-		if *verbose { // write obfuscation info out
-			data, err := json.Marshal(*obs)
-			if err != nil {
-				log.Fatal(err)
-			}
-			jfile := *infile+".json"
-			if *infile == "-" {
-				jfile = "stdin.json"
-			}
-			if err = os.WriteFile(jfile, data, 0644); err != nil {
-				log.Fatal(err)
-			}
+		if data, err = json.Marshal(*obs); err != nil {
+			log.Fatal(err)
 		}
+		jfile := filepath.Base(*infile) + "_obfuscated.json"
+		if jfile == "-_obfuscated.json" {
+			jfile = "stdin_obfuscated.json"
+		}
+		if err = os.WriteFile(jfile, data, 0644); err != nil {
+			log.Fatal(err)
+		}
+		return
+	} else if *bios && len(flag.Args()) > 1 {
+		InsertBiosIntoMongoDB(flag.Args()[0], ToInt(flag.Args()[1]))
+		return
+	} else if *sim != "" && len(flag.Args()) > 0 {
+		SimulateTests(*sim, flag.Args()[0])
 		return
 	}
 	if !*legacy {

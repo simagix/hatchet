@@ -56,6 +56,11 @@ func GetDriverVersions(mongo string, driver string) ([]interface{}, error) {
 	} else if driver == "" {
 		return versions, fmt.Errorf("missing driver info")
 	}
+	parts := strings.Split(driver, "|")
+	if len(parts) == 0 {
+		return versions, fmt.Errorf("missing driver info")
+	}
+	version := parts[0]
 	mongo = strings.TrimPrefix(mongo, "v")
 	toks := strings.Split(mongo, ".")
 	mongo = strings.Join(toks[:2], ".")
@@ -68,9 +73,9 @@ func GetDriverVersions(mongo string, driver string) ([]interface{}, error) {
 	if !ok {
 		return versions, fmt.Errorf("missing MongoDB v%v driver data", mongo)
 	}
-	versions, ok = driverData[driver].([]interface{})
+	versions, ok = driverData[version].([]interface{})
 	if !ok || len(versions) < 1 {
-		return versions, fmt.Errorf(`missing MongoDB v%v driver "%v" data`, mongo, driver)
+		return versions, fmt.Errorf(`missing MongoDB v%v driver "%v" data`, mongo, version)
 	}
 	return versions, nil
 }

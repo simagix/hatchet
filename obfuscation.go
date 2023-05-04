@@ -169,7 +169,9 @@ func (ptr *Obfuscation) ObfuscateBsonA(a bson.A) bson.A {
 // ObfuscateInt uses the original value times the coefficient
 func (ptr *Obfuscation) ObfuscateInt(data interface{}) int {
 	value := ToInt(data)
-	if ptr.intMap[value] > 0 {
+	if value <= 1 { // this can be true/false
+		return value
+	} else if ptr.intMap[value] > 0 {
 		return ptr.intMap[value]
 	}
 	newValue := int(float64(value) * ptr.Coefficient)

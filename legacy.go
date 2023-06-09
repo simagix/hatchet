@@ -111,6 +111,9 @@ func AddLegacyString(doc *Logv2Info) error {
 			// extra effort of retrieving driver info from COMMAND
 			if attr.Key == "command" {
 				remote := RemoteClient{}
+				if _, ok := attr.Value.(bson.D); !ok {
+					continue
+				}
 				_client, ok := attr.Value.(bson.D).Map()["$client"].(bson.D)
 				if ok {
 					driver, ok := _client.Map()["driver"].(bson.D)

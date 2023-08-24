@@ -61,7 +61,7 @@ func GetDatabase(hatchetName string) (Database, error) {
 			return nil, err
 		}
 	} else { // default is SQLite3
-		if dbase, err = NewSQLite3DB(logv2.url, hatchetName); err != nil {
+		if dbase, err = NewSQLite3DB(logv2.url, hatchetName, logv2.cacheSize); err != nil {
 			return nil, err
 		}
 	}

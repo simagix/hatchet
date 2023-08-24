@@ -38,6 +38,7 @@ func GetLogv2() *Logv2 {
 // Logv2 keeps Logv2 object
 type Logv2 struct {
 	buildInfo   map[string]interface{}
+	cacheSize   int
 	logname     string
 	legacy      bool
 	hatchetName string

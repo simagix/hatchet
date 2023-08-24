@@ -142,7 +142,7 @@ func (ptr *SQLite3DB) SearchLogs(opts ...string) ([]LegacyLog, error) {
 			}
 			wheres = append(wheres, " severity IN ("+strings.Join(sevs, ",")+")")
 		} else if toks[0] == "context" {
-			wheres = append(wheres, fmt.Sprintf(` LOWER(message) LIKE "%%%v%%"`, EscapeString(toks[1])))
+			wheres = append(wheres, fmt.Sprintf(` message LIKE "%%%v%%"`, EscapeString(toks[1])))
 		} else {
 			wheres = append(wheres, fmt.Sprintf(` %v = "%v"`, toks[0], EscapeString(toks[1])))
 		}
@@ -211,8 +211,8 @@ func (ptr *SQLite3DB) GetAverageOpTime(op string, duration string) ([]OpCount, e
 		info := ptr.GetHatchetInfo()
 		substr = GetSQLDateSubString(info.Start, info.End)
 	}
-	query := fmt.Sprintf(`SELECT %v, AVG(milli), COUNT(*), op, ns, filter FROM %v 
-		WHERE %v %v GROUP by %v, op, ns, filter;`, substr, ptr.hatchetName, opcond, durcond, substr)
+	query := fmt.Sprintf(`SELECT %v dt, AVG(milli), COUNT(*), op, ns, filter FROM %v 
+		WHERE %v %v GROUP by dt, op, ns, filter;`, substr, ptr.hatchetName, opcond, durcond)
 	if ptr.verbose {
 		log.Println(query)
 	}

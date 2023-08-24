@@ -43,6 +43,7 @@ type Database interface {
 	GetVerbose() bool
 	InsertClientConn(index int, doc *Logv2Info) error
 	InsertDriver(index int, doc *Logv2Info) error
+	InsertFailedMessages(m *FailedMessages) error
 	InsertLog(index int, end string, doc *Logv2Info, stat *OpStat) error
 	SearchLogs(opts ...string) ([]LegacyLog, error)
 	SetVerbose(v bool)

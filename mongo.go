@@ -425,3 +425,7 @@ func (ptr *MongoDB) CreateMetaData() error {
 	}
 	return nil
 }
+
+func (ptr *MongoDB) InsertFailedMessages(m *FailedMessages) error {
+	return nil
+}

@@ -53,8 +53,7 @@ func (ptr *SQLite3DB) SetVerbose(b bool) {
 func (ptr *SQLite3DB) Begin() error {
 	var err error
 	log.Println("creating hatchet", ptr.hatchetName)
-	stmts := GetHatchetCreateTables(ptr.hatchetName)
-	if _, err = ptr.db.Exec(stmts); err != nil {
+	if err = CreateTables(ptr.db, ptr.hatchetName); err != nil {
 		return err
 	}
 	if ptr.tx, err = ptr.db.Begin(); err != nil {
@@ -88,6 +87,11 @@ func (ptr *SQLite3DB) Close() error {
 			return err
 		}
 	}
+	if ptr.driverStmt != nil {
+		if err = ptr.driverStmt.Close(); err != nil {
+			return err
+		}
+	}
 	defer ptr.db.Close()
 	return err
 }
@@ -98,16 +102,28 @@ func (ptr *SQLite3DB) Drop() error {
 	hatchetName := ptr.hatchetName
 	stmts := fmt.Sprintf(`
 			DROP TABLE IF EXISTS %v;
-			DROP TABLE IF EXISTS %v_ops;
 			DROP TABLE IF EXISTS %v_audit;
-			DROP INDEX IF EXISTS %v_idx_component;
-			DROP INDEX IF EXISTS %v_idx_context;
-			DROP INDEX IF EXISTS %v_idx_severity;
-			DROP INDEX IF EXISTS %v_idx_op;
-			DROP TABLE IF EXISTS %v_drivers;
 			DROP TABLE IF EXISTS %v_clients;
-			DROP INDEX IF EXISTS %v_clients_idx_context`,
-		hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName)
+			DROP TABLE IF EXISTS %v_drivers;
+			DROP TABLE IF EXISTS %v_ops;
+
+			DROP INDEX IF EXISTS %v_idx_component_severity;
+			DROP INDEX IF EXISTS %v_idx_context_date;
+			DROP INDEX IF EXISTS %v_idx_context_op_reslen;
+			DROP INDEX IF EXISTS %v_idx_ns_reslen;
+			DROP INDEX IF EXISTS %v_idx_ns_op_filter;
+			DROP INDEX IF EXISTS %v_idx_milli;
+			DROP INDEX IF EXISTS %v_idx_severity;
+
+			DROP INDEX IF EXISTS %v_audit_idx_type_value;
+			DROP INDEX IF EXISTS %v_clients_idx_ip_accepted;
+			DROP INDEX IF EXISTS %v_clients_idx_ip_context;
+			DROP INDEX IF EXISTS %v_drivers_idx_driver_version;
+			DROP INDEX IF EXISTS %v_ops_idx_avgms;
+			DROP INDEX IF EXISTS %v_ops_idx_index;`,
+		hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName,
+		hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName,
+	)
 	if _, err = ptr.db.Exec(stmts); err != nil {
 		return err
 	}
@@ -141,6 +157,17 @@ func (ptr *SQLite3DB) InsertDriver(index int, doc *Logv2Info) error {
 	return err
 }
 
+func (ptr *SQLite3DB) InsertFailedMessages(m *FailedMessages) error {
+	var err error
+	for k, v := range m.counters {
+		stmt := fmt.Sprintf("INSERT INTO %v_audit (type, name, value) VALUES ('failed','%s', %d)", ptr.hatchetName, k, v)
+		if _, err = ptr.db.Exec(stmt); err != nil {
+			return err
+		}
+	}
+	return err
+}
+
 func (ptr *SQLite3DB) UpdateHatchetInfo(info HatchetInfo) error {
 	istmt := fmt.Sprintf(`INSERT OR REPLACE INTO hatchet (name, version, module, arch, os, start, end)
 		VALUES ('%v', '%v', '%v', '%v', '%v', '%v', '%v');`, ptr.hatchetName, info.Version, info.Module, info.Arch, info.OS, info.Start, info.End)
@@ -151,8 +178,7 @@ func (ptr *SQLite3DB) UpdateHatchetInfo(info HatchetInfo) error {
 func (ptr *SQLite3DB) CreateMetaData() error {
 	var err error
 	log.Println("creating indexes and this may take minutes")
-	stmts := GetHatchetCreateIndexes(ptr.hatchetName)
-	if _, err = ptr.db.Exec(stmts); err != nil {
+	if err = CreateIndexes(ptr.db, ptr.hatchetName); err != nil {
 		return err
 	}
 	log.Printf("insert ops into %v_ops\n", ptr.hatchetName)
@@ -161,6 +187,7 @@ func (ptr *SQLite3DB) CreateMetaData() error {
 				FROM %v WHERE op != "" GROUP BY op, ns, filter, _index`, ptr.hatchetName, ptr.hatchetName)
 	if ptr.verbose {
 		log.Println(istmt)
+		explain(ptr.db, istmt)
 	}
 	if _, err = ptr.db.Exec(istmt); err != nil {
 		return err
@@ -172,17 +199,7 @@ func (ptr *SQLite3DB) CreateMetaData() error {
 		GROUP by severity`, ptr.hatchetName, ptr.hatchetName)
 	if ptr.verbose {
 		log.Println(istmt)
-	}
-	if _, err = ptr.db.Exec(istmt); err != nil {
-		return err
-	}
-
-	log.Printf("insert [failed] into %v_audit\n", ptr.hatchetName)
-	istmt = fmt.Sprintf(`INSERT INTO %v_audit
-		SELECT 'failed', SUBSTR(message, 1, INSTR(message, 'failed')+6) matched, COUNT(*) count FROM %v 
-		WHERE message REGEXP "(\w\sfailed\s)" GROUP by matched`, ptr.hatchetName, ptr.hatchetName)
-	if ptr.verbose {
-		log.Println(istmt)
+		explain(ptr.db, istmt)
 	}
 	if _, err = ptr.db.Exec(istmt); err != nil {
 		return err
@@ -193,6 +210,7 @@ func (ptr *SQLite3DB) CreateMetaData() error {
 		SELECT 'op', op, COUNT(*) count FROM %v WHERE op != '' GROUP by op`, ptr.hatchetName, ptr.hatchetName)
 	if ptr.verbose {
 		log.Println(istmt)
+		explain(ptr.db, istmt)
 	}
 	if _, err = ptr.db.Exec(istmt); err != nil {
 		return err
@@ -203,6 +221,7 @@ func (ptr *SQLite3DB) CreateMetaData() error {
 		SELECT 'ip', ip, SUM(accepted) open FROM %v_clients GROUP by ip`, ptr.hatchetName, ptr.hatchetName)
 	if ptr.verbose {
 		log.Println(istmt)
+		explain(ptr.db, istmt)
 	}
 	if _, err = ptr.db.Exec(istmt); err != nil {
 		return err
@@ -213,6 +232,7 @@ func (ptr *SQLite3DB) CreateMetaData() error {
 		SELECT 'ns', ns, COUNT(*) count FROM %v WHERE op != "" GROUP by ns`, ptr.hatchetName, ptr.hatchetName)
 	if ptr.verbose {
 		log.Println(istmt)
+		explain(ptr.db, istmt)
 	}
 	if _, err = ptr.db.Exec(istmt); err != nil {
 		return err
@@ -220,9 +240,10 @@ func (ptr *SQLite3DB) CreateMetaData() error {
 
 	log.Printf("insert [reslen-ns] into %v_audit\n", ptr.hatchetName)
 	istmt = fmt.Sprintf(`INSERT INTO %v_audit
-		SELECT 'reslen-ns', ns, SUM(reslen) reslen FROM %v WHERE ns != "" AND reslen > 0 GROUP by ns`, ptr.hatchetName, ptr.hatchetName)
+		SELECT 'reslen-ns', ns, SUM(reslen) FROM %v WHERE ns != "" AND reslen > 0 GROUP by ns`, ptr.hatchetName, ptr.hatchetName)
 	if ptr.verbose {
 		log.Println(istmt)
+		explain(ptr.db, istmt)
 	}
 	if _, err = ptr.db.Exec(istmt); err != nil {
 		return err
@@ -230,85 +251,128 @@ func (ptr *SQLite3DB) CreateMetaData() error {
 
 	log.Printf("insert [reslen-ip] into %v_audit\n", ptr.hatchetName)
 	istmt = fmt.Sprintf(`INSERT INTO %v_audit
-		SELECT 'reslen-ip', b.ip, SUM(a.reslen) reslen FROM %v a, %v_clients b WHERE a.op != "" AND reslen > 0 AND a.context = b.context GROUP by b.ip`,
+		SELECT 'reslen-ip', ip, SUM(reslen) FROM (
+			SELECT a.context, sum(reslen) reslen, b.ip ip FROM %v a, %v_clients b
+				WHERE op != "" and reslen > 0 and a.context = b.context GROUP by a.context
+		) GROUP BY ip`,
 		ptr.hatchetName, ptr.hatchetName, ptr.hatchetName)
 	if ptr.verbose {
 		log.Println(istmt)
+		explain(ptr.db, istmt)
 	}
 	if _, err = ptr.db.Exec(istmt); err != nil {
 		return err
 	}
-
-	/* logs don't present trusted data from context, ignored
-	log.Printf("insert [duration] into %v_audit\n", ptr.hatchetName)
-	istmt = fmt.Sprintf(`INSERT INTO %v_audit
-		SELECT 'duration', context || ' (' || ip || ')', STRFTIME('%%s', SUBSTR(etm,1,19))-STRFTIME('%%s', SUBSTR(btm,1,19)) duration
-			FROM ( SELECT MAX(a.date) etm, MIN(a.date) btm, a.context, b.ip FROM %v a, %v_clients b WHERE a.id = b.id GROUP BY a.context)
-		WHERE duration > 0`, ptr.hatchetName, ptr.hatchetName, ptr.hatchetName)
-	if _, err = ptr.db.Exec(istmt); err != nil {
-		return err
-	}
-	*/
 	return err
 }
 
-// GetHatchetCreateTables returns init statement
-func GetHatchetCreateTables(hatchetName string) string {
-	return fmt.Sprintf(`
-			CREATE TABLE IF NOT EXISTS hatchet ( name text not null primary key,
-				version text, module text, arch text, os text, start text, end text);
+// CreateTables returns init statement
+func CreateTables(db *sql.DB, hatchetName string) error {
+	var err error
+	tables := []string{
+		`CREATE TABLE IF NOT EXISTS hatchet (
+			name text not null primary key,
+			version text,
+			module text,
+			arch text,
+			os text,
+			start text,
+			end text );`,
 
-			DROP TABLE IF EXISTS %v;
-			CREATE TABLE %v (
-				id integer not null primary key, date text, severity text, component text, context text,
-				msg text, plan text, type text, ns text, message text collate nocase,
-				op text, filter text, _index text, milli integer, reslen integer);
+		`DROP TABLE IF EXISTS %v;
+		 CREATE TABLE %v (
+			id integer not null primary key,
+			date text, severity text,
+			component text,
+			context text,
+			msg text,
+			plan text,
+			type text,
+			ns text,
+			message text collate nocase,
+			op text,
+			filter text,
+			_index text,
+			milli integer,
+			reslen integer );`,
 
-			DROP TABLE IF EXISTS %v_ops;
-			CREATE TABLE %v_ops (op text, count integer, avg_ms numeric, max_ms integer, total_ms integer,
-				ns text, _index text, reslen integer, filter text);
+		`DROP TABLE IF EXISTS %v_audit;
+		 CREATE TABLE %v_audit (
+			type text,
+			name text,
+			value integer );`,
 
-			DROP TABLE IF EXISTS %v_audit;
-			CREATE TABLE %v_audit (type text, name text, value integer);
+		`DROP TABLE IF EXISTS %v_clients;
+		 CREATE TABLE %v_clients (
+			id integer not null primary key,
+			ip text,
+			port text,
+			conns integer,
+			accepted integer,
+			ended integer,
+			context text );`,
 
-			DROP TABLE IF EXISTS %v_drivers;
-			CREATE TABLE %v_drivers (
-				id integer not null primary key, ip text, driver text, version text);
+		`DROP TABLE IF EXISTS %v_drivers;
+		 CREATE TABLE %v_drivers (
+			id integer not null primary key, 
+			ip text, 
+			driver text, 
+			version text );`,
 
-			DROP TABLE IF EXISTS %v_clients;
-			CREATE TABLE %v_clients(
-				id integer not null primary key, ip text, port text, conns integer, accepted integer, ended integer, context text);`,
-		hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName,
-	)
+		`DROP TABLE IF EXISTS %v_ops;
+		 CREATE TABLE %v_ops (
+			op text,
+			count integer,
+			avg_ms numeric,
+			max_ms integer,
+			total_ms integer,
+			ns text,
+			_index text,
+			reslen integer,
+			filter text );`,
+	}
+	for i, table := range tables {
+		stmt := table
+		if i > 0 {
+			stmt = fmt.Sprintf(table, hatchetName, hatchetName)
+		}
+		log.Println(stmt)
+		if _, err = db.Exec(stmt); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-// GetHatchetCreateIndexes returns init statement
-func GetHatchetCreateIndexes(hatchetName string) string {
-	return fmt.Sprintf(`
-			CREATE INDEX IF NOT EXISTS %v_idx_component_severity ON %v (component,severity);
-			CREATE INDEX IF NOT EXISTS %v_idx_context_date ON %v (context,date);
-			CREATE INDEX IF NOT EXISTS %v_idx_context_op_reslen ON %v (context,op,reslen);
-			CREATE INDEX IF NOT EXISTS %v_idx_date ON %v (date);
-			CREATE INDEX IF NOT EXISTS %v_idx_milli ON %v (milli);
+// CreateIndexes returns init statement
+func CreateIndexes(db *sql.DB, hatchetName string) error {
+	var err error
+	indexes := []string{
+		"CREATE INDEX IF NOT EXISTS %v_idx_component_severity ON %v (component,severity);",
+		"CREATE INDEX IF NOT EXISTS %v_idx_context_date ON %v (context,date);",
+		"CREATE INDEX IF NOT EXISTS %v_idx_context_op_reslen ON %v (context,op,reslen);",
+		"CREATE INDEX IF NOT EXISTS %v_idx_milli ON %v (milli);",
+		"CREATE INDEX IF NOT EXISTS %v_idx_ns_reslen ON %v (ns,reslen);",
 
-			CREATE INDEX IF NOT EXISTS %v_idx_ns ON %v (ns);
-			CREATE INDEX IF NOT EXISTS %v_idx_op_milli ON %v (op,milli);
-			CREATE INDEX IF NOT EXISTS %v_idx_op_ns_filter_index ON %v (op,ns,filter,_index);
-			CREATE INDEX IF NOT EXISTS %v_idx_op_reslen ON %v (op,reslen);
-			CREATE INDEX IF NOT EXISTS %v_idx_severity ON %v (severity);
+		"CREATE INDEX IF NOT EXISTS %v_idx_ns_op_filter ON %v (ns,op,filter);",
+		"CREATE INDEX IF NOT EXISTS %v_idx_severity ON %v (severity);",
 
-			CREATE INDEX IF NOT EXISTS %v_audit_idx_type_value ON %v_audit (type,value DESC);
-			CREATE INDEX IF NOT EXISTS %v_clients_idx_conns ON %v_clients (conns);
-			CREATE INDEX IF NOT EXISTS %v_clients_idx_ip_context ON %v_clients (ip,context);
-			CREATE INDEX IF NOT EXISTS %v_drivers_idx_driver_version ON %v_drivers (driver,version DESC);
-			CREATE INDEX IF NOT EXISTS %v_ops_idx_avgms ON %v_ops (avg_ms);
+		"CREATE INDEX IF NOT EXISTS %v_audit_idx_type_value ON %v_audit (type,value DESC);",
+		"CREATE INDEX IF NOT EXISTS %v_clients_idx_ip_accepted ON %v_clients (ip,accepted);",
+		"CREATE INDEX IF NOT EXISTS %v_clients_idx_ip_context ON %v_clients (ip,context);",
+		"CREATE INDEX IF NOT EXISTS %v_drivers_idx_driver_version_ip ON %v_drivers (driver,version DESC,ip);",
+		"CREATE INDEX IF NOT EXISTS %v_ops_idx_avgms ON %v_ops (avg_ms);",
 
-			CREATE INDEX IF NOT EXISTS %v_ops_idx_index ON %v_ops (_index);`,
-		hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName,
-		hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName,
-		hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName,
-		hatchetName, hatchetName,
-	)
+		"CREATE INDEX IF NOT EXISTS %v_ops_idx_index ON %v_ops (_index);",
+	}
+	for i, index := range indexes {
+		stmts := fmt.Sprintf(index, hatchetName, hatchetName)
+		log.Printf("%d/%d: %s\n", i+1, len(indexes), stmts)
+		if _, err = db.Exec(stmts); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // GetHatchetPreparedStmt returns prepared statement of the hatchet table
@@ -328,4 +392,17 @@ func GetClientPreparedStmt(hatchetName string) string {
 func GetDriverPreparedStmt(hatchetName string) string {
 	return fmt.Sprintf(`INSERT INTO %v_drivers (id, ip, driver, version)
 		VALUES(?,?,?,?)`, hatchetName)
+}
+
+func explain(db *sql.DB, stmt string) error {
+	result, err := db.Query("EXPLAIN QUERY PLAN " + stmt)
+	if err != nil {
+		return err
+	}
+	var line, a, b, c string
+	for result.Next() {
+		result.Scan(&a, &b, &c, &line)
+		log.Println("->", line)
+	}
+	return nil
 }

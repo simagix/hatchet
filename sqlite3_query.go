@@ -430,11 +430,12 @@ func (ptr *SQLite3DB) GetReslenByIP(ip string, duration string) ([]NameValue, er
 	if ip != "" {
 		ipcond = fmt.Sprintf("AND b.ip = '%v'", ip)
 		query = fmt.Sprintf(`SELECT a.context, SUM(a.reslen) reslen FROM %v a, %v_clients b
-				WHERE reslen > 0 AND a.context = b.context %v %v GROUP by a.context ORDER BY reslen DESC;`,
+				WHERE a.context = b.context %v %v GROUP by a.context ORDER BY reslen DESC;`,
 			hatchetName, hatchetName, ipcond, durcond)
 	} else {
-		query = fmt.Sprintf(`SELECT b.ip, SUM(a.reslen) reslen FROM %v a, %v_clients b
-				WHERE reslen > 0 AND a.context = b.context %v GROUP by b.ip ORDER BY reslen DESC;`,
+		query = fmt.Sprintf(`SELECT ip, SUM(reslen) FROM (
+				SELECT a.context, SUM(reslen) reslen, b.ip ip FROM %v a, %v_clients b
+					WHERE reslen > 0 AND a.context = b.context %v GROUP BY a.context) GROUP BY ip ORDER BY reslen DESC;`,
 			hatchetName, hatchetName, durcond)
 	}
 	db := ptr.db
@@ -469,10 +470,10 @@ func (ptr *SQLite3DB) GetReslenByNamespace(ns string, duration string) ([]NameVa
 	}
 	if ns != "" {
 		nscond = fmt.Sprintf("AND ns = '%v'", ns)
-		query = fmt.Sprintf(`SELECT ns, SUM(reslen) reslen FROM %v WHERE op != "" AND reslen > 0 %v %v GROUP by ns ORDER BY reslen DESC;`,
+		query = fmt.Sprintf(`SELECT ns, SUM(reslen) reslen FROM %v WHERE reslen > 0 %v %v GROUP by ns ORDER BY reslen DESC;`,
 			hatchetName, nscond, durcond)
 	} else {
-		query = fmt.Sprintf(`SELECT ns, SUM(reslen) reslen FROM %v WHERE op != "" AND reslen > 0 %v GROUP by ns ORDER BY reslen DESC;`,
+		query = fmt.Sprintf(`SELECT ns, SUM(reslen) reslen FROM %v WHERE reslen > 0 %v GROUP by ns ORDER BY reslen DESC;`,
 			hatchetName, durcond)
 	}
 	db := ptr.db

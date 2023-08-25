@@ -1,0 +1,14 @@
+# Change logs
+# v0.5.0
+- Use multiple threads to parse logs
+- Add `-cache_size` flag to change SQLite3 database memory
+- Add additional indexes to support queries
+- Optimize metadata creations
+
+For example:
+```bash
+hatchet -web -cache_size 100000 mongod.log.gz
+```
+
+# v0.4.5
+Update `drivers.json` to support MongoDB 7.0 driver changes.

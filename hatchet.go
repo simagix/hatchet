@@ -27,6 +27,7 @@ const SQLITE3_FILE = "./data/hatchet.db"
 
 func Run(fullVersion string) {
 	bios := flag.Bool("bios", false, "populate bios documents")
+	cache := flag.Int("cache_size", 2000, "number of cache pages")
 	dbfile := flag.String("dbfile", SQLITE3_FILE, "deprecated, use -url")
 	digest := flag.Bool("digest", false, "HTTP digest")
 	endpoint := flag.String("endpoint-url", "", "AWS endpoint")
@@ -38,8 +39,8 @@ func Run(fullVersion string) {
 	sim := flag.String("sim", "", "simulate read/write load tests")
 	connstr := flag.String("url", SQLITE3_FILE, "database file name or connection string")
 	user := flag.String("user", "", "HTTP Auth (username:password)")
+	verbose := flag.Bool("v", false, "turn on verbose")
 	ver := flag.Bool("version", false, "print version number")
-	verbose := flag.Bool("verbose", false, "turn on verbose")
 	web := flag.Bool("web", false, "starts a web server")
 	flag.Parse()
 	flagset := make(map[string]bool)
@@ -90,7 +91,7 @@ func Run(fullVersion string) {
 	}
 
 	logv2 := Logv2{version: fullVersion, url: *connstr, verbose: *verbose,
-		legacy: *legacy, user: *user, isDigest: *digest}
+		legacy: *legacy, user: *user, isDigest: *digest, cacheSize: *cache}
 	instance = &logv2
 	str := *connstr
 	if strings.HasPrefix(*connstr, "mongodb") {

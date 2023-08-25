@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 
@@ -38,6 +39,7 @@ func GetLogv2() *Logv2 {
 // Logv2 keeps Logv2 object
 type Logv2 struct {
 	buildInfo   map[string]interface{}
+	cacheSize   int
 	logname     string
 	legacy      bool
 	hatchetName string
@@ -191,7 +193,6 @@ func (ptr *Logv2) Analyze(logname string) error {
 	}
 
 	var isPrefix bool
-	var stat *OpStat
 	index := 0
 	var start, end string
 	var dbase Database
@@ -206,6 +207,13 @@ func (ptr *Logv2) Analyze(logname string) error {
 		}
 	}
 
+	threads := runtime.NumCPU() - 1
+	if threads == 0 {
+		threads = 1
+	}
+	log.Printf("using %v threads\n", threads)
+	failedMap := FailedMessages{counters: map[string]int{}}
+	var wg = gox.NewWaitGroup(threads)
 	for {
 		if !ptr.testing && !ptr.legacy && index%50 == 0 && ptr.totalLines > 0 {
 			fmt.Fprintf(os.Stderr, "\r%3d%% \r", (100*index)/ptr.totalLines)
@@ -215,6 +223,7 @@ func (ptr *Logv2) Analyze(logname string) error {
 		}
 		index++
 		if len(buf) == 0 {
+			log.Println("line", index, "is blank.")
 			continue
 		}
 		str := string(buf)
@@ -226,47 +235,73 @@ func (ptr *Logv2) Analyze(logname string) error {
 			str += string(bbuf)
 		}
 
-		doc := Logv2Info{}
-		if err = bson.UnmarshalExtJSON([]byte(str), false, &doc); err != nil {
-			log.Println("line", index, err)
-			continue
-		}
-
-		if err = AddLegacyString(&doc); err != nil {
-			continue
-		}
-		if ptr.buildInfo == nil && doc.Msg == "Build Info" {
-			ptr.buildInfo = doc.Attr.Map()["buildInfo"].(bson.D).Map()
-		}
-		if ptr.legacy {
-			dt := getDateTimeStr(doc.Timestamp)
-			logstr := fmt.Sprintf("%v %-2s %-8s [%v] %v", dt,
-				doc.Severity, doc.Component, doc.Context, doc.Message)
-			if !ptr.testing {
-				fmt.Println(logstr)
+		wg.Add(1)
+		go func(index int, instr string) {
+			defer wg.Done()
+			doc := Logv2Info{}
+			if err = bson.UnmarshalExtJSON([]byte(instr), false, &doc); err != nil {
+				log.Println("error UnmarshalExtJSON line", index, err)
+				return
 			}
-			continue
-		}
-		stat, _ = AnalyzeSlowOp(&doc)
-		end = getDateTimeStr(doc.Timestamp)
-		if start == "" {
-			start = end
-		}
-		dbase.InsertLog(index, end, &doc, stat)
-		if doc.Client != nil {
-			if (doc.Client.Accepted + doc.Client.Ended) > 0 { // record connections
-				dbase.InsertClientConn(index, &doc)
-			} else if doc.Client.Driver != "" {
-				if isAppDriver(doc.Client) {
-					dbase.InsertDriver(index, &doc)
+
+			if err = AddLegacyString(&doc); err != nil {
+				log.Println("error AddLegacyString line", index, err)
+				return
+			}
+			if ptr.buildInfo == nil && doc.Msg == "Build Info" {
+				ptr.buildInfo = doc.Attr.Map()["buildInfo"].(bson.D).Map()
+			}
+			if ptr.legacy {
+				dt := getDateTimeStr(doc.Timestamp)
+				logstr := fmt.Sprintf("%v %-2s %-8s [%v] %v", dt,
+					doc.Severity, doc.Component, doc.Context, doc.Message)
+				if !ptr.testing {
+					fmt.Println(logstr)
+				}
+				return
+			}
+			stat, _ := AnalyzeSlowOp(&doc)
+			end = getDateTimeStr(doc.Timestamp)
+			if start == "" {
+				start = end
+			}
+			if err = dbase.InsertLog(index, end, &doc, stat); err != nil {
+				log.Println("error InsertLog line", index, err)
+				return
+			}
+			failed := " failed"
+			if strings.Contains(doc.Message, failed) {
+				n := strings.Index(doc.Message, failed) + len(failed)
+				failedMap.inc(doc.Message[:n])
+			}
+			if doc.Client != nil {
+				if (doc.Client.Accepted + doc.Client.Ended) > 0 { // record connections
+					if err = dbase.InsertClientConn(index, &doc); err != nil {
+						log.Println("error InsertClientConn line", index, err)
+						return
+					}
+				} else if doc.Client.Driver != "" {
+					if isAppDriver(doc.Client) {
+						if err = dbase.InsertDriver(index, &doc); err != nil {
+							log.Println("error InsertDriver line", index, err)
+							return
+						}
+					}
 				}
 			}
-		}
+		}(index, str)
+	}
+	wg.Wait()
+	if !ptr.testing && !ptr.legacy {
+		fmt.Fprintf(os.Stderr, "\r                         \r")
 	}
 	if ptr.legacy {
 		return nil
 	}
 	if err = dbase.Commit(); err != nil {
+		return err
+	}
+	if err = dbase.InsertFailedMessages(&failedMap); err != nil {
 		return err
 	}
 	info := HatchetInfo{Start: start, End: end}
@@ -288,9 +323,6 @@ func (ptr *Logv2) Analyze(logname string) error {
 	}
 	if err = dbase.CreateMetaData(); err != nil {
 		return err
-	}
-	if !ptr.testing && !ptr.legacy {
-		fmt.Fprintf(os.Stderr, "\r                         \r")
 	}
 	return ptr.PrintSummary()
 }

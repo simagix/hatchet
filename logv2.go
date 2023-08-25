@@ -223,7 +223,7 @@ func (ptr *Logv2) Analyze(logname string) error {
 		}
 		index++
 		if len(buf) == 0 {
-			log.Println("blank line", index)
+			log.Println("line", index, "is blank.")
 			continue
 		}
 		str := string(buf)

@@ -11,6 +11,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 type SQLite3DB struct {
@@ -110,7 +111,9 @@ func (ptr *SQLite3DB) Drop() error {
 			DROP INDEX IF EXISTS %v_idx_component_severity;
 			DROP INDEX IF EXISTS %v_idx_context_date;
 			DROP INDEX IF EXISTS %v_idx_context_op_reslen;
+			DROP INDEX IF EXISTS %v_idx_date_op_ns;
 			DROP INDEX IF EXISTS %v_idx_ns_reslen;
+
 			DROP INDEX IF EXISTS %v_idx_ns_op_filter;
 			DROP INDEX IF EXISTS %v_idx_milli;
 			DROP INDEX IF EXISTS %v_idx_severity;
@@ -122,7 +125,7 @@ func (ptr *SQLite3DB) Drop() error {
 			DROP INDEX IF EXISTS %v_ops_idx_avgms;
 			DROP INDEX IF EXISTS %v_ops_idx_index;`,
 		hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName,
-		hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName,
+		hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName, hatchetName,
 	)
 	if _, err = ptr.db.Exec(stmts); err != nil {
 		return err
@@ -181,86 +184,94 @@ func (ptr *SQLite3DB) CreateMetaData() error {
 	if err = CreateIndexes(ptr.db, ptr.hatchetName); err != nil {
 		return err
 	}
+
+	// create an index to speed up the Average Operation Time chart
+	info := ptr.GetHatchetInfo()
+	substr := GetSQLDateSubString(info.Start, info.End)
+	toks := strings.Split(substr, "||")
+	groupby := substr
+	if len(toks) > 1 {
+		groupby = toks[0]
+	}
+	stmt := fmt.Sprintf("CREATE INDEX IF NOT EXISTS %v_idx_date_op_ns ON %v (%v,op,ns,filter,milli);", ptr.hatchetName, ptr.hatchetName, groupby)
+	log.Printf("%s\n", stmt)
+	if _, err = ptr.db.Exec(stmt); err != nil {
+		return err
+	}
+
 	log.Printf("insert ops into %v_ops\n", ptr.hatchetName)
-	istmt := fmt.Sprintf(`INSERT INTO %v_ops
+	query := fmt.Sprintf(`INSERT INTO %v_ops
 			SELECT op, COUNT(*), ROUND(AVG(milli),1), MAX(milli), SUM(milli), ns, _index, SUM(reslen), filter
 				FROM %v WHERE op != "" GROUP BY op, ns, filter, _index`, ptr.hatchetName, ptr.hatchetName)
 	if ptr.verbose {
-		log.Println(istmt)
-		explain(ptr.db, istmt)
+		explain(ptr.db, query)
 	}
-	if _, err = ptr.db.Exec(istmt); err != nil {
+	if _, err = ptr.db.Exec(query); err != nil {
 		return err
 	}
 
 	log.Printf("insert [exception] into %v_audit\n", ptr.hatchetName)
-	istmt = fmt.Sprintf(`INSERT INTO %v_audit
+	query = fmt.Sprintf(`INSERT INTO %v_audit
 		SELECT 'exception', severity, COUNT(*) count FROM %v WHERE severity IN ('W', 'E', 'F') 
 		GROUP by severity`, ptr.hatchetName, ptr.hatchetName)
 	if ptr.verbose {
-		log.Println(istmt)
-		explain(ptr.db, istmt)
+		explain(ptr.db, query)
 	}
-	if _, err = ptr.db.Exec(istmt); err != nil {
+	if _, err = ptr.db.Exec(query); err != nil {
 		return err
 	}
 
 	log.Printf("insert [op] into %v_audit\n", ptr.hatchetName)
-	istmt = fmt.Sprintf(`INSERT INTO %v_audit
+	query = fmt.Sprintf(`INSERT INTO %v_audit
 		SELECT 'op', op, COUNT(*) count FROM %v WHERE op != '' GROUP by op`, ptr.hatchetName, ptr.hatchetName)
 	if ptr.verbose {
-		log.Println(istmt)
-		explain(ptr.db, istmt)
+		explain(ptr.db, query)
 	}
-	if _, err = ptr.db.Exec(istmt); err != nil {
+	if _, err = ptr.db.Exec(query); err != nil {
 		return err
 	}
 
 	log.Printf("insert [ip] into %v_audit\n", ptr.hatchetName)
-	istmt = fmt.Sprintf(`INSERT INTO %v_audit
+	query = fmt.Sprintf(`INSERT INTO %v_audit
 		SELECT 'ip', ip, SUM(accepted) open FROM %v_clients GROUP by ip`, ptr.hatchetName, ptr.hatchetName)
 	if ptr.verbose {
-		log.Println(istmt)
-		explain(ptr.db, istmt)
+		explain(ptr.db, query)
 	}
-	if _, err = ptr.db.Exec(istmt); err != nil {
+	if _, err = ptr.db.Exec(query); err != nil {
 		return err
 	}
 
 	log.Printf("insert [ns] into %v_audit\n", ptr.hatchetName)
-	istmt = fmt.Sprintf(`INSERT INTO %v_audit
+	query = fmt.Sprintf(`INSERT INTO %v_audit
 		SELECT 'ns', ns, COUNT(*) count FROM %v WHERE op != "" GROUP by ns`, ptr.hatchetName, ptr.hatchetName)
 	if ptr.verbose {
-		log.Println(istmt)
-		explain(ptr.db, istmt)
+		explain(ptr.db, query)
 	}
-	if _, err = ptr.db.Exec(istmt); err != nil {
+	if _, err = ptr.db.Exec(query); err != nil {
 		return err
 	}
 
 	log.Printf("insert [reslen-ns] into %v_audit\n", ptr.hatchetName)
-	istmt = fmt.Sprintf(`INSERT INTO %v_audit
+	query = fmt.Sprintf(`INSERT INTO %v_audit
 		SELECT 'reslen-ns', ns, SUM(reslen) FROM %v WHERE ns != "" AND reslen > 0 GROUP by ns`, ptr.hatchetName, ptr.hatchetName)
 	if ptr.verbose {
-		log.Println(istmt)
-		explain(ptr.db, istmt)
+		explain(ptr.db, query)
 	}
-	if _, err = ptr.db.Exec(istmt); err != nil {
+	if _, err = ptr.db.Exec(query); err != nil {
 		return err
 	}
 
 	log.Printf("insert [reslen-ip] into %v_audit\n", ptr.hatchetName)
-	istmt = fmt.Sprintf(`INSERT INTO %v_audit
+	query = fmt.Sprintf(`INSERT INTO %v_audit
 		SELECT 'reslen-ip', ip, SUM(reslen) FROM (
 			SELECT a.context, sum(reslen) reslen, b.ip ip FROM %v a, %v_clients b
 				WHERE op != "" and reslen > 0 and a.context = b.context GROUP by a.context
 		) GROUP BY ip`,
 		ptr.hatchetName, ptr.hatchetName, ptr.hatchetName)
 	if ptr.verbose {
-		log.Println(istmt)
-		explain(ptr.db, istmt)
+		explain(ptr.db, query)
 	}
-	if _, err = ptr.db.Exec(istmt); err != nil {
+	if _, err = ptr.db.Exec(query); err != nil {
 		return err
 	}
 	return err
@@ -366,9 +377,9 @@ func CreateIndexes(db *sql.DB, hatchetName string) error {
 		"CREATE INDEX IF NOT EXISTS %v_ops_idx_index ON %v_ops (_index);",
 	}
 	for i, index := range indexes {
-		stmts := fmt.Sprintf(index, hatchetName, hatchetName)
-		log.Printf("%d/%d: %s\n", i+1, len(indexes), stmts)
-		if _, err = db.Exec(stmts); err != nil {
+		stmt := fmt.Sprintf(index, hatchetName, hatchetName)
+		log.Printf("%d/%d: %s\n", i+1, len(indexes), stmt)
+		if _, err = db.Exec(stmt); err != nil {
 			return err
 		}
 	}
@@ -394,11 +405,14 @@ func GetDriverPreparedStmt(hatchetName string) string {
 		VALUES(?,?,?,?)`, hatchetName)
 }
 
-func explain(db *sql.DB, stmt string) error {
-	result, err := db.Query("EXPLAIN QUERY PLAN " + stmt)
+func explain(db *sql.DB, query string) error {
+	explainIt := "EXPLAIN QUERY PLAN " + query
+	log.Println(explainIt)
+	result, err := db.Query(explainIt)
 	if err != nil {
 		return err
 	}
+	defer result.Close()
 	var line, a, b, c string
 	for result.Next() {
 		result.Scan(&a, &b, &c, &line)

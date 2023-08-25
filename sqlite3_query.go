@@ -7,7 +7,6 @@ package hatchet
 
 import (
 	"fmt"
-	"log"
 	"regexp"
 	"strings"
 )
@@ -33,7 +32,7 @@ func (ptr *SQLite3DB) GetSlowOps(orderBy string, order string, collscan bool) ([
 				FROM %v_ops WHERE _index = "COLLSCAN" ORDER BY %v %v`, ptr.hatchetName, orderBy, order)
 	}
 	if ptr.verbose {
-		log.Println(query)
+		explain(ptr.db, query)
 	}
 	rows, err := db.Query(query)
 	if err != nil {
@@ -95,7 +94,7 @@ func (ptr *SQLite3DB) GetLogs(opts ...string) ([]LegacyLog, error) {
 	query := qheader + wclause + fmt.Sprintf(" LIMIT %v,%v", offset, qlimit)
 	db := ptr.db
 	if ptr.verbose {
-		log.Println(query)
+		explain(ptr.db, query)
 	}
 	rows, err := db.Query(query)
 	if err != nil {
@@ -153,7 +152,7 @@ func (ptr *SQLite3DB) SearchLogs(opts ...string) ([]LegacyLog, error) {
 	}
 	query := qheader + wclause + fmt.Sprintf(" LIMIT %v,%v", offset, qlimit)
 	if ptr.verbose {
-		log.Println(query)
+		explain(ptr.db, query)
 	}
 	db := ptr.db
 	rows, err := db.Query(query)
@@ -177,7 +176,7 @@ func (ptr *SQLite3DB) GetSlowestLogs(topN int) ([]LegacyLog, error) {
 			FROM %v WHERE op != "" ORDER BY milli DESC LIMIT %v`, ptr.hatchetName, topN)
 	db := ptr.db
 	if ptr.verbose {
-		log.Println(query)
+		explain(ptr.db, query)
 	}
 	rows, err := db.Query(query)
 	if err != nil {
@@ -211,10 +210,15 @@ func (ptr *SQLite3DB) GetAverageOpTime(op string, duration string) ([]OpCount, e
 		info := ptr.GetHatchetInfo()
 		substr = GetSQLDateSubString(info.Start, info.End)
 	}
+	toks := strings.Split(substr, "||")
+	groupby := substr
+	if len(toks) > 1 {
+		groupby = toks[0]
+	}
 	query := fmt.Sprintf(`SELECT %v dt, AVG(milli), COUNT(*), op, ns, filter FROM %v 
-		WHERE %v %v GROUP by dt, op, ns, filter;`, substr, ptr.hatchetName, opcond, durcond)
+		WHERE %v %v GROUP by %v, op, ns, filter;`, substr, ptr.hatchetName, opcond, durcond, groupby)
 	if ptr.verbose {
-		log.Println(query)
+		explain(ptr.db, query)
 	}
 	rows, err := db.Query(query)
 	if err != nil {
@@ -253,7 +257,7 @@ func (ptr *SQLite3DB) GetHatchetInfo() HatchetInfo {
 	query = fmt.Sprintf(`SELECT message FROM %v WHERE component = 'CONTROL' AND message LIKE '%%provider:%%region:%%';`,
 		ptr.hatchetName)
 	if ptr.verbose {
-		log.Println(query)
+		explain(ptr.db, query)
 	}
 	rows, err = db.Query(query)
 	if err == nil && rows.Next() {
@@ -271,7 +275,7 @@ func (ptr *SQLite3DB) GetHatchetInfo() HatchetInfo {
 
 	query = fmt.Sprintf(`SELECT DISTINCT driver, version FROM %v_drivers;`, ptr.hatchetName)
 	if ptr.verbose {
-		log.Println(query)
+		explain(ptr.db, query)
 	}
 	rows, err = db.Query(query)
 	for err == nil && rows.Next() {
@@ -291,7 +295,7 @@ func (ptr *SQLite3DB) GetHatchetNames() ([]string, error) {
 	query := "SELECT name FROM hatchet ORDER BY name"
 	db := ptr.db
 	if ptr.verbose {
-		log.Println(query)
+		explain(ptr.db, query)
 	}
 	rows, err := db.Query(query)
 	if err != nil {
@@ -322,7 +326,7 @@ func (ptr *SQLite3DB) GetAcceptedConnsCounts(duration string) ([]NameValue, erro
 		hatchetName, hatchetName, durcond)
 	db := ptr.db
 	if ptr.verbose {
-		log.Println(query)
+		explain(ptr.db, query)
 	}
 	rows, err := db.Query(query)
 	if err != nil {
@@ -366,7 +370,7 @@ func (ptr *SQLite3DB) GetConnectionStats(chartType string, duration string) ([]R
 	}
 	db := ptr.db
 	if ptr.verbose {
-		log.Println(query)
+		explain(ptr.db, query)
 	}
 	rows, err := db.Query(query)
 	if err != nil {
@@ -399,7 +403,7 @@ func (ptr *SQLite3DB) GetOpsCounts(duration string) ([]NameValue, error) {
 		FROM %v WHERE op != '' %v GROUP by op ORDER BY counts DESC;`, ptr.hatchetName, durcond)
 	db := ptr.db
 	if ptr.verbose {
-		log.Println(query)
+		explain(ptr.db, query)
 	}
 	rows, err := db.Query(query)
 	if err != nil {
@@ -440,7 +444,7 @@ func (ptr *SQLite3DB) GetReslenByIP(ip string, duration string) ([]NameValue, er
 	}
 	db := ptr.db
 	if ptr.verbose {
-		log.Println(query)
+		explain(ptr.db, query)
 	}
 	rows, err := db.Query(query)
 	if err != nil {
@@ -478,7 +482,7 @@ func (ptr *SQLite3DB) GetReslenByNamespace(ns string, duration string) ([]NameVa
 	}
 	db := ptr.db
 	if ptr.verbose {
-		log.Println(query)
+		explain(ptr.db, query)
 	}
 	rows, err := db.Query(query)
 	if err != nil {

@@ -265,8 +265,10 @@ func (ptr *SQLite3DB) GetHatchetInfo() HatchetInfo {
 		if err = rows.Scan(&message); err == nil {
 			re := regexp.MustCompile(`.*(provider: "(\w+)", region: "(\w+)",).*`)
 			matches := re.FindStringSubmatch(message)
-			info.Provider = matches[2]
-			info.Region = matches[3]
+			if len(matches) > 3 {
+				info.Provider = matches[2]
+				info.Region = matches[3]
+			}
 		}
 	}
 	if rows != nil {

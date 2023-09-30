@@ -260,6 +260,13 @@ const headers = `<!DOCTYPE html>
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
+    .chart {
+      background-color: var(--row-color);;
+      border: solid;
+      padding: 10px 10px;
+      margin: 10px 10px;
+      border-radius: .5em;
+    }
   </style>
   <script>
     function loadData(url) {

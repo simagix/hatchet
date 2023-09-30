@@ -412,7 +412,7 @@ func isAppDriver(client *RemoteClient) bool {
 	driver := client.Driver
 	version := client.Version
 
-	if driver == "NetworkInterfaceTL" || driver == "MongoDB Internal Client" {
+	if strings.HasPrefix(driver, "NetworkInterfaceTL") || driver == "MongoDB Internal Client" {
 		return false
 	} else if driver == "mongo-go-driver" && strings.HasSuffix(version, "-cloud") {
 		return false

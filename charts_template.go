@@ -29,7 +29,7 @@ func GetChartTemplate(chartType string) (*template.Template, error) {
 		<input type='datetime-local' id='end' value='{{.End}}'></input>
 		<button onClick="refreshChart(); return false;" class="button">Refresh</button>
   	</div>
-  	<div id='hatchetChart' style="width: 100%; clear: left;"></div>
+  	<div id='hatchetChart' class='chart' style="clear: left;"></div>
   
 		</body></html>`
 

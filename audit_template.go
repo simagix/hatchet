@@ -359,8 +359,10 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 				html += "OMG, the total impact from slowest operations was "
 				html += printer.Sprintf("<span style='color: orange;'>%s</span>, this may be a problem of lacking resources.  Please review the sizing training videos below. ", gox.GetDurationFromSeconds(totalImpact))
 				html += "<div style='padding: 10px'>"
-				html += `<iframe width="336" height="189" src="https://www.youtube.com/embed/kObLsYJAruI" title="YouTube video player" style="margin-right: 5px;” frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`
-				html += `<iframe width="336" height="189" src="https://www.youtube.com/embed/n1wORkr_1xI" title="YouTube video player" style="margin-right: 5px;” frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`
+				html += `<iframe width="400" height="225" src="https://www.youtube.com/embed/kObLsYJAruI" title="Survery Your MongoDB Land" style="margin-right: 5px;” frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`
+				html += `<iframe width="400" height="225" src="https://www.youtube.com/embed/equz1z0igv0" title="Bond - MongoDB Sharded Cluster Analysis" style="margin-right: 5px;” frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`
+				html += `<iframe width="400" height="225" src="https://www.youtube.com/embed/0AAMw_q1E4o" title="Sizing a MongoDB Cluster 1" style="margin-right: 5px;” frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`
+				html += `<iframe width="400" height="225" src="https://www.youtube.com/embed/n1wORkr_1xI" title="Sizing a MongoDB Cluster 2" style="margin-right: 5px;” frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`
 				html += "</div>"
 			}
 			if len(data) > 0 {

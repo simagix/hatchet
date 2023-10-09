@@ -292,6 +292,7 @@ func (ptr *Logv2) Analyze(logname string) error {
 		}(index, str)
 	}
 	wg.Wait()
+	log.Println("completed parsing logs")
 	if !ptr.testing && !ptr.legacy {
 		fmt.Fprintf(os.Stderr, "\r                         \r")
 	}
@@ -299,9 +300,11 @@ func (ptr *Logv2) Analyze(logname string) error {
 		return nil
 	}
 	if err = dbase.Commit(); err != nil {
+		log.Println("error commit", err)
 		return err
 	}
 	if err = dbase.InsertFailedMessages(&failedMap); err != nil {
+		log.Println("error insert failed messages", err)
 		return err
 	}
 	info := HatchetInfo{Start: start, End: end}
@@ -319,9 +322,11 @@ func (ptr *Logv2) Analyze(logname string) error {
 		info.Version, _ = ptr.buildInfo["version"].(string)
 	}
 	if err = dbase.UpdateHatchetInfo(info); err != nil {
+		log.Println("error update Hatchet info", err)
 		return err
 	}
 	if err = dbase.CreateMetaData(); err != nil {
+		log.Println("error create metadata", err)
 		return err
 	}
 	return ptr.PrintSummary()

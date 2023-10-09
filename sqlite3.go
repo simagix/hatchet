@@ -52,10 +52,15 @@ func (ptr *SQLite3DB) SetVerbose(b bool) {
 }
 
 func (ptr *SQLite3DB) Begin() error {
-	var err error
 	log.Println("creating hatchet", ptr.hatchetName)
-	if err = CreateTables(ptr.db, ptr.hatchetName); err != nil {
+	stmts, err := CreateTables(ptr.db, ptr.hatchetName)
+	if err != nil {
 		return err
+	}
+	if ptr.verbose {
+		for _, stmt := range stmts {
+			log.Println(stmt)
+		}
 	}
 	if ptr.tx, err = ptr.db.Begin(); err != nil {
 		return err
@@ -163,12 +168,14 @@ func (ptr *SQLite3DB) InsertDriver(index int, doc *Logv2Info) error {
 func (ptr *SQLite3DB) InsertFailedMessages(m *FailedMessages) error {
 	var err error
 	for k, v := range m.counters {
-		stmt := fmt.Sprintf("INSERT INTO %v_audit (type, name, value) VALUES ('failed','%s', %d)", ptr.hatchetName, k, v)
+		str := strings.ReplaceAll(k, "'", "''")
+		stmt := fmt.Sprintf("INSERT INTO %v_audit (type, name, value) VALUES ('failed','%s', %d)", ptr.hatchetName, str, v)
 		if _, err = ptr.db.Exec(stmt); err != nil {
+			log.Println("error", err, "stmt", stmt, "(k,v)", k, v)
 			return err
 		}
 	}
-	return err
+	return nil
 }
 
 func (ptr *SQLite3DB) UpdateHatchetInfo(info HatchetInfo) error {
@@ -179,12 +186,16 @@ func (ptr *SQLite3DB) UpdateHatchetInfo(info HatchetInfo) error {
 }
 
 func (ptr *SQLite3DB) CreateMetaData() error {
-	var err error
 	log.Println("creating indexes and this may take minutes")
-	if err = CreateIndexes(ptr.db, ptr.hatchetName); err != nil {
+	stmts, err := CreateIndexes(ptr.db, ptr.hatchetName)
+	if err != nil {
 		return err
 	}
-
+	if ptr.verbose {
+		for i, stmt := range stmts {
+			log.Printf("%d/%d: %s\n", i+1, len(stmts), stmt)
+		}
+	}
 	// create an index to speed up the Average Operation Time chart
 	info := ptr.GetHatchetInfo()
 	substr := GetSQLDateSubString(info.Start, info.End)
@@ -194,7 +205,9 @@ func (ptr *SQLite3DB) CreateMetaData() error {
 		groupby = toks[0]
 	}
 	stmt := fmt.Sprintf("CREATE INDEX IF NOT EXISTS %v_idx_date_op_ns ON %v (%v,op,ns,filter,milli);", ptr.hatchetName, ptr.hatchetName, groupby)
-	log.Printf("%s\n", stmt)
+	if ptr.verbose {
+		log.Printf("%s\n", stmt)
+	}
 	if _, err = ptr.db.Exec(stmt); err != nil {
 		return err
 	}
@@ -278,7 +291,7 @@ func (ptr *SQLite3DB) CreateMetaData() error {
 }
 
 // CreateTables returns init statement
-func CreateTables(db *sql.DB, hatchetName string) error {
+func CreateTables(db *sql.DB, hatchetName string) ([]string, error) {
 	var err error
 	tables := []string{
 		`CREATE TABLE IF NOT EXISTS hatchet (
@@ -342,21 +355,22 @@ func CreateTables(db *sql.DB, hatchetName string) error {
 			reslen integer,
 			filter text );`,
 	}
+	stmts := []string{}
 	for i, table := range tables {
 		stmt := table
 		if i > 0 {
 			stmt = fmt.Sprintf(table, hatchetName, hatchetName)
 		}
-		log.Println(stmt)
+		stmts = append(stmts, stmt)
 		if _, err = db.Exec(stmt); err != nil {
-			return err
+			return nil, err
 		}
 	}
-	return nil
+	return stmts, nil
 }
 
 // CreateIndexes returns init statement
-func CreateIndexes(db *sql.DB, hatchetName string) error {
+func CreateIndexes(db *sql.DB, hatchetName string) ([]string, error) {
 	var err error
 	indexes := []string{
 		"CREATE INDEX IF NOT EXISTS %v_idx_component_severity ON %v (component,severity);",
@@ -376,14 +390,15 @@ func CreateIndexes(db *sql.DB, hatchetName string) error {
 
 		"CREATE INDEX IF NOT EXISTS %v_ops_idx_index ON %v_ops (_index);",
 	}
-	for i, index := range indexes {
+	stmts := []string{}
+	for _, index := range indexes {
 		stmt := fmt.Sprintf(index, hatchetName, hatchetName)
-		log.Printf("%d/%d: %s\n", i+1, len(indexes), stmt)
+		stmts = append(stmts, stmt)
 		if _, err = db.Exec(stmt); err != nil {
-			return err
+			return nil, err
 		}
 	}
-	return nil
+	return stmts, nil
 }
 
 // GetHatchetPreparedStmt returns prepared statement of the hatchet table

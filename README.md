@@ -9,7 +9,7 @@ The web interface of Hatchet is highly interactive and user-friendly, providing 
 ## Build
 Clone and run the *build.sh* script; *gcc* is required to support CGO.
 ```bash
-git clone --depth 1 git@github.com:simagix/hatchet.git
+git clone --depth 1 https://github.com/simagix/hatchet.git
 cd hatchet ; ./build.sh
 ```
 

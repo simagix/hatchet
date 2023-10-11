@@ -4,7 +4,7 @@ Hatchet is a powerful and sophisticated logs analyzer and viewer specifically de
 The web interface of Hatchet is highly interactive and user-friendly, providing a seamless experience for searching logs and navigating through reports and charts. The intuitive design and easy-to-use interface makes it simple for users to find what they need, when they need it. Additionally, with the embedded database, Hatchet provides fast access to data and a high level of performance, making it the ideal solution for logs analysis and management. Further design details can be found at [![Hatchet: Empowering Smart MongoDB Log Analysis](http://img.youtube.com/vi/WavOyaFTDE8/0.jpg)](https://www.youtube.com/watch?v=WavOyaFTDE8).
 
 ## Change Log
-- [v0.5.0](https://youtu.be/4RkeMOOAtv8), August, 2003
+- [v0.5.0](https://youtu.be/4RkeMOOAtv8), August, 2023
 
 ## Build
 Clone and run the *build.sh* script; *gcc* is required to support CGO.

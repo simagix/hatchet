@@ -68,8 +68,8 @@ func AnalyzeSlowOp(doc *Logv2Info) (*OpStat, error) {
 		}
 		if doc.Attributes.ErrMsg != "" {
 			stat.Index = "ErrMsg: " + doc.Attributes.ErrMsg
+			return stat, errors.New("unrecognized collection, ignored")
 		}
-		return stat, errors.New("system command")
 	}
 	if doc.Attributes.PlanSummary != "" { // not insert
 		plan := doc.Attributes.PlanSummary

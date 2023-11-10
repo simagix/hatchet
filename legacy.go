@@ -99,7 +99,7 @@ func AddLegacyString(doc *Logv2Info) error {
 		}
 	} else {
 		for _, attr := range doc.Attr {
-			if attr.Key == "type" || attr.Key == "ns" {
+			if (attr.Key == "type" || attr.Key == "ns") && attr.Value != nil {
 				str := attr.Value.(string)
 				arr = append(arr, str)
 			} else if attr.Key == "durationMillis" {

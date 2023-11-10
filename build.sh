@@ -26,6 +26,9 @@ if [ "$1" == "docker" ]; then
     BR="latest"
   fi
   docker build --no-cache -f Dockerfile -t ${TAG}:${BR} .
+  if [[ "${BR}" != "main" ]]; then
+    docker tag ${TAG}:${BR} ${TAG}
+  fi
   docker run ${TAG}:${BR} /hatchet -version
   # docker rmi -f $(docker images -f "dangling=true" -q) > /dev/null 2>&1
 elif [ "$1" == "dist" ]; then

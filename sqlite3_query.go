@@ -24,11 +24,11 @@ func (ptr *SQLite3DB) GetSlowOps(orderBy string, order string, collscan bool) ([
 	ops := []OpStat{}
 	db := ptr.db
 	query := fmt.Sprintf(`SELECT op, count, avg_ms, max_ms,
-			total_ms, ns, _index "index", reslen, filter "query_pattern"
+			total_ms, ns, _index "index", reslen, filter "query_pattern", marker
 			FROM %v_ops ORDER BY %v %v`, ptr.hatchetName, orderBy, order)
 	if collscan {
 		query = fmt.Sprintf(`SELECT op, count, avg_ms, max_ms,
-				total_ms, ns, _index "index", reslen, filter "query_pattern"
+				total_ms, ns, _index "index", reslen, filter "query_pattern", marker
 				FROM %v_ops WHERE _index = "COLLSCAN" ORDER BY %v %v`, ptr.hatchetName, orderBy, order)
 	}
 	if ptr.verbose {
@@ -42,7 +42,7 @@ func (ptr *SQLite3DB) GetSlowOps(orderBy string, order string, collscan bool) ([
 	for rows.Next() {
 		var op OpStat
 		if err = rows.Scan(&op.Op, &op.Count, &op.AvgMilli, &op.MaxMilli, &op.TotalMilli,
-			&op.Namespace, &op.Index, &op.Reslen, &op.QueryPattern); err != nil {
+			&op.Namespace, &op.Index, &op.Reslen, &op.QueryPattern, &op.Marker); err != nil {
 			return ops, err
 		}
 		ops = append(ops, op)
@@ -52,7 +52,7 @@ func (ptr *SQLite3DB) GetSlowOps(orderBy string, order string, collscan bool) ([
 
 func (ptr *SQLite3DB) GetLogs(opts ...string) ([]LegacyLog, error) {
 	docs := []LegacyLog{}
-	qheader := fmt.Sprintf(`SELECT date, severity, component, context, message FROM %v`, ptr.hatchetName)
+	qheader := fmt.Sprintf(`SELECT date, severity, component, context, message, marker FROM %v`, ptr.hatchetName)
 	wheres := []string{}
 	search := ""
 	qlimit := LIMIT + 1
@@ -91,7 +91,7 @@ func (ptr *SQLite3DB) GetLogs(opts ...string) ([]LegacyLog, error) {
 	if len(wheres) > 0 {
 		wclause = " WHERE " + strings.Join(wheres, " AND")
 	}
-	query := qheader + wclause + fmt.Sprintf(" LIMIT %v,%v", offset, qlimit)
+	query := qheader + wclause + fmt.Sprintf(" ORDER BY date, marker LIMIT %v,%v", offset, qlimit)
 	db := ptr.db
 	if ptr.verbose {
 		explain(ptr.db, query)
@@ -103,7 +103,8 @@ func (ptr *SQLite3DB) GetLogs(opts ...string) ([]LegacyLog, error) {
 	defer rows.Close()
 	for rows.Next() {
 		var doc LegacyLog
-		if err = rows.Scan(&doc.Timestamp, &doc.Severity, &doc.Component, &doc.Context, &doc.Message); err != nil {
+		if err = rows.Scan(&doc.Timestamp, &doc.Severity, &doc.Component, &doc.Context, &doc.Message,
+			&doc.Marker); err != nil {
 			return docs, err
 		}
 		docs = append(docs, doc)
@@ -115,7 +116,7 @@ func (ptr *SQLite3DB) GetLogs(opts ...string) ([]LegacyLog, error) {
 }
 
 func (ptr *SQLite3DB) SearchLogs(opts ...string) ([]LegacyLog, error) {
-	qheader := fmt.Sprintf(`SELECT date, severity, component, context, message FROM %v`, ptr.hatchetName)
+	qheader := fmt.Sprintf(`SELECT date, severity, component, context, message, marker FROM %v`, ptr.hatchetName)
 	docs := []LegacyLog{}
 	wheres := []string{}
 	qlimit := LIMIT + 1
@@ -162,7 +163,8 @@ func (ptr *SQLite3DB) SearchLogs(opts ...string) ([]LegacyLog, error) {
 	defer rows.Close()
 	for rows.Next() {
 		var doc LegacyLog
-		if err = rows.Scan(&doc.Timestamp, &doc.Severity, &doc.Component, &doc.Context, &doc.Message); err != nil {
+		if err = rows.Scan(&doc.Timestamp, &doc.Severity, &doc.Component, &doc.Context, &doc.Message,
+			&doc.Marker); err != nil {
 			return docs, err
 		}
 		docs = append(docs, doc)
@@ -172,7 +174,7 @@ func (ptr *SQLite3DB) SearchLogs(opts ...string) ([]LegacyLog, error) {
 
 func (ptr *SQLite3DB) GetSlowestLogs(topN int) ([]LegacyLog, error) {
 	docs := []LegacyLog{}
-	query := fmt.Sprintf(`SELECT date, severity, component, context, message
+	query := fmt.Sprintf(`SELECT date, severity, component, context, message, marker
 			FROM %v WHERE op != "" ORDER BY milli DESC LIMIT %v`, ptr.hatchetName, topN)
 	db := ptr.db
 	if ptr.verbose {
@@ -185,7 +187,8 @@ func (ptr *SQLite3DB) GetSlowestLogs(topN int) ([]LegacyLog, error) {
 	defer rows.Close()
 	for rows.Next() {
 		var doc LegacyLog
-		if err = rows.Scan(&doc.Timestamp, &doc.Severity, &doc.Component, &doc.Context, &doc.Message); err != nil {
+		if err = rows.Scan(&doc.Timestamp, &doc.Severity, &doc.Component, &doc.Context, &doc.Message,
+			&doc.Marker); err != nil {
 			return docs, err
 		}
 		docs = append(docs, doc)
@@ -237,7 +240,7 @@ func (ptr *SQLite3DB) GetAverageOpTime(op string, duration string) ([]OpCount, e
 
 func (ptr *SQLite3DB) GetHatchetInfo() HatchetInfo {
 	var info HatchetInfo
-	query := fmt.Sprintf("SELECT name, version, module, os, arch, start, end FROM hatchet WHERE name = '%v'",
+	query := fmt.Sprintf("SELECT name, version, module, os, arch, start, end, merge FROM hatchet WHERE name = '%v'",
 		ptr.hatchetName)
 	db := ptr.db
 	rows, err := db.Query(query)
@@ -246,7 +249,7 @@ func (ptr *SQLite3DB) GetHatchetInfo() HatchetInfo {
 	}
 	if rows.Next() {
 		if err = rows.Scan(&info.Name, &info.Version, &info.Module, &info.OS, &info.Arch,
-			&info.Start, &info.End); err != nil {
+			&info.Start, &info.End, &info.Merge); err != nil {
 			return info
 		}
 	}

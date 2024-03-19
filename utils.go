@@ -302,3 +302,24 @@ func ObfuscateWord(word string) string {
 	}
 	return string(b)
 }
+
+func GetMarkerHTML(marker int) string {
+	if marker < 1 {
+		return ""
+	}
+	colors := []string{"red", "green", "blue", "brown"}
+	l := len(colors)
+	str := fmt.Sprintf("<span style='padding: 1px 1px; background-color: %s; color: white; font-weight: bold;'>%d</span>",
+		colors[(marker-1)%l], marker)
+	return str
+}
+
+func BsonD2M(d bson.D) bson.M {
+	var m bson.M
+	b, err := bson.Marshal(d)
+	if err != nil {
+		return m
+	}
+	bson.Unmarshal(b, &m)
+	return m
+}

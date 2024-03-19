@@ -18,22 +18,32 @@ An executable *hatchet* is output to the directory *dist/*.  Note that the scrip
 ## Quick Start
 Use the command below to process a log file, mongod.log.gz and start a web server listening to port 3721.  The default database is SQLite3.
 ```bash
-./dist/hatchet -web mongod.log.gz
+./dist/hatchet -web logs/sample-mongod.log.gz
+```
+
+Load a file within a defined time range:
+```bash
+./dist/hatchet -web -from "2023-09-23T20:25:00" -to "2023-09-23T20:26:00" logs/sample-mongod.log.gz
+```
+
+Load multiple files and process them individually:
+```bash
+./dist/hatchet -web rs1/mongod.log rs2/mongod.log rs3/mongod.log
+```
+
+Load multiple files and process them collectively:
+```bash
+./dist/hatchet -web -merge rs1/mongod.log rs2/mongod.log rs3/mongod.log
 ```
 
 Use the URL `http://localhost:3721/` in a browser to view reports and charts.  Alternatively, you can use the *in-memory* mode without persisting data, for example:
 ```bash
-./dist/hatchet -url in-memory mongod.log.gz
-```
-
-Using MongoDB as the database is also supported.  The example below stores data in collections under *logdb* database.
-```bash
-./dist/hatchet -url mongodb+srv://{user}:{password}@demo.host.mongodb.net/logdb mongod.log.gz
+./dist/hatchet -url in-memory logs/sample-mongod.log.gz
 ```
 
 if you choose to view in the legacy format without a browser, use the command below:
 ```bash
-./dist/hatchet -legacy mongod.log.gz
+./dist/hatchet -legacy logs/sample-mongod.log.gz
 ```
 
 For additional usages and integration details, see [developer's guide](README_DEV.md).

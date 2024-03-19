@@ -1,4 +1,5 @@
 // Copyright 2022-present Kuei-chun Chen. All rights reserved.
+// logs_template.go
 package hatchet
 
 import (
@@ -51,6 +52,9 @@ func GetLogTableTemplate(attr string) (*template.Template, error) {
 			}
 			return template.HTML(strings.Join(arr, "\n"))
 		},
+		"getMarkerHTML": func(marker int) template.HTML {
+			return template.HTML(GetMarkerHTML(marker))
+		},
 		"highlightLog": func(log string, params ...string) template.HTML {
 			return template.HTML(highlightLog(log, params...))
 		},
@@ -84,6 +88,9 @@ func getSlowOpsLogsTable() string {
 	<table width='100%'>
 		<tr>
 			<th>#</th>
+		{{ if .Merge }}
+			<th>M</th>
+		{{ end }}
 			<th>date</th>
 			<th>S</th>
 			<th>component</th>
@@ -91,9 +98,13 @@ func getSlowOpsLogsTable() string {
 			<th>message</th>
 		</tr>
 {{$hatchet := .Hatchet}}
+{{$merge := .Merge}}
 {{range $n, $value := .Logs}}
 		<tr>
 			<td align='right'>{{ add $n 1 }}</td>
+		{{ if $merge }}
+			<td>{{ getMarkerHTML $value.Marker }}</td>
+		{{ end }}
 			<td>{{ formatDateTime $value.Timestamp }}</td>
 			<td>{{ $value.Severity }}</td>
 			<td>{{ $value.Component }}</td>
@@ -142,6 +153,9 @@ func getLegacyLogsTable() string {
 	<table width='100%'>
 		<tr>
 			<th>#</th>
+	{{ if .Merge }}
+			<th>M</th>
+	{{end}}
 			<th>date</th>
 			<th>S</th>
 			<th>component</th>
@@ -151,9 +165,13 @@ func getLegacyLogsTable() string {
 	{{$search := .Context}}
 	{{$seq := .Seq}}
 	{{$hatchet := .Hatchet}}
+	{{$merge := .Merge}}
 	{{range $n, $value := .Logs}}
 		<tr>
 			<td align='right'>{{ add $n $seq }}</td>
+		{{ if $merge }}
+			<td>{{ getMarkerHTML $value.Marker }}</td>
+		{{ end }}
 			<td>{{ formatDateTime $value.Timestamp }}</td>
 			<td>{{ $value.Severity }}</td>
 			<td>{{ $value.Component }}</td>

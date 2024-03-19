@@ -127,7 +127,7 @@ func (ptr *MongoDB) InsertLog(index int, end string, doc *Logv2Info, stat *OpSta
 	var err error
 	data := bson.M{
 		"_id": index, "date": end, "severity": doc.Severity, "component": doc.Component, "context": doc.Context,
-		"msg": doc.Msg, "plan": doc.Attributes.PlanSummary, "type": doc.Attr.Map()["type"], "ns": doc.Attributes.NS, "message": doc.Message,
+		"msg": doc.Msg, "plan": doc.Attributes.PlanSummary, "type": BsonD2M(doc.Attr)["type"], "ns": doc.Attributes.NS, "message": doc.Message,
 		"op": stat.Op, "filter": stat.QueryPattern, "_index": stat.Index, "milli": doc.Attributes.Milli, "reslen": doc.Attributes.Reslen}
 	ptr.logs = append(ptr.logs, data)
 	if len(ptr.logs) > BATCH_SIZE {

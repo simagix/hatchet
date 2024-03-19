@@ -54,7 +54,7 @@ func AnalyzeSlowOp(doc *Logv2Info) (*OpStat, error) {
 	if stat.Namespace == "" {
 		return stat, errors.New("no namespace found")
 	} else if strings.HasSuffix(stat.Namespace, ".$cmd") {
-		if commands, ok := doc.Attr.Map()["command"].(bson.D); ok {
+		if commands, ok := BsonD2M(doc.Attr)["command"].(bson.D); ok {
 			if len(commands) > 0 {
 				elem := commands[0]
 				stat.Op = elem.Key

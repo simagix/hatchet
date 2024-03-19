@@ -99,7 +99,7 @@ func (ptr *Obfuscation) ObfuscateFile(filename string) error {
 		if err = bson.UnmarshalExtJSON([]byte(str), false, &doc); err != nil {
 			continue
 		}
-		attr, ok := doc.Map()["attr"].(bson.D)
+		attr, ok := BsonD2M(doc)["attr"].(bson.D)
 		if !ok {
 			continue
 		}

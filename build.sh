@@ -10,10 +10,7 @@ TAG="simagix/hatchet"
 [[ "$(which go)" = "" ]] && die "go command not found"
 
 gover=$(go version | cut -d' ' -f3)
-if [ "$gover" \< "go1.18" ]; then
-    [[ "$GOPATH" = "" ]] && die "GOPATH not set"
-    [[ "${GOPATH}/src/github.com/$REPO" != "$(pwd)" ]] && die "building hatchet should be under ${GOPATH}/src/github.com/$REPO"
-fi
+[[ "$gover" < "go1.21" ]] && die "go version 1.21 or above it recommended."
 
 if [ ! -f go.sum ]; then
     go mod tidy

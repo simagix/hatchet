@@ -81,7 +81,7 @@ func StatsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Para
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return
 		}
-		doc := map[string]interface{}{"Hatchet": hatchetName, "Ops": ops, "Summary": summary}
+		doc := map[string]interface{}{"Hatchet": hatchetName, "Merge": info.Merge, "Ops": ops, "Summary": summary}
 		if err = templ.Execute(w, doc); err != nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return

@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/julienschmidt/httprouter"
 	"github.com/mattn/go-sqlite3"
@@ -28,16 +29,18 @@ const SQLITE3_FILE = "./data/hatchet.db"
 func Run(fullVersion string) {
 	bios := flag.Bool("bios", false, "populate bios documents")
 	cache := flag.Int("cache_size", 2000, "number of cache pages")
-	dbfile := flag.String("dbfile", SQLITE3_FILE, "deprecated, use -url")
+	connstr := flag.String("url", SQLITE3_FILE, "database file name or connection string")
 	digest := flag.Bool("digest", false, "HTTP digest")
 	endpoint := flag.String("endpoint-url", "", "AWS endpoint")
+	from := flag.String("from", "1970-01-01T00:00:00Z", "from date/time")
+	merge := flag.Bool("merge", false, "merge files")
 	legacy := flag.Bool("legacy", false, "view logs in legacy format")
 	infile := flag.String("obfuscate", "", "obfuscate logs")
 	port := flag.Int("port", 3721, "web server port number")
 	profile := flag.String("aws-profile", "default", "AWS profile name")
 	s3 := flag.Bool("s3", false, "files from AWS S3")
 	sim := flag.String("sim", "", "simulate read/write load tests")
-	connstr := flag.String("url", SQLITE3_FILE, "database file name or connection string")
+	to := flag.String("to", "", "from date/time")
 	user := flag.String("user", "", "HTTP Auth (username:password)")
 	verbose := flag.Bool("v", false, "turn on verbose")
 	ver := flag.Bool("version", false, "print version number")
@@ -77,9 +80,6 @@ func Run(fullVersion string) {
 	if !*legacy {
 		log.Println(fullVersion)
 	}
-	if *connstr == "" {
-		connstr = dbfile
-	}
 
 	if *connstr == "in-memory" {
 		if len(flag.Args()) == 0 {
@@ -90,11 +90,25 @@ func Run(fullVersion string) {
 		*web = true
 	}
 
+	layout := "2006-01-02T15:04:05"
+	fromTime, err := time.Parse(layout, *from)
+	if err != nil {
+		fromTime, err = time.Parse(layout, "2000-01-01T00:00:00")
+	}
+	toTime, err := time.Parse(layout, *to)
+	if err != nil {
+		toTime = time.Now()
+	}
 	logv2 := Logv2{version: fullVersion, url: *connstr, verbose: *verbose,
-		legacy: *legacy, user: *user, isDigest: *digest, cacheSize: *cache}
+		legacy: *legacy, user: *user, isDigest: *digest, cacheSize: *cache,
+		from: fromTime, to: toTime, merge: *merge}
+	if *merge {
+		logv2.hatchetName = getHatchetName("merge")
+	}
 	instance = &logv2
 	str := *connstr
 	if strings.HasPrefix(*connstr, "mongodb") {
+		fmt.Println("MongoDB support is deprecated and will be removed in the futre release.")
 		pattern := regexp.MustCompile(`mongodb(\+srv)?:\/\/(.+):(.+)@(.+)`)
 		matches := pattern.FindStringSubmatch(str)
 		if matches != nil {
@@ -119,10 +133,16 @@ func Run(fullVersion string) {
 			log.Fatal(err)
 		}
 	}
-	for _, logname := range flag.Args() {
-		if err := logv2.Analyze(logname); err != nil {
+	for i, logname := range flag.Args() {
+		if err := logv2.Analyze(logname, i+1); err != nil {
 			log.Fatal(err)
 		}
+		if !*merge && !*legacy {
+			logv2.PrintSummary()
+		}
+	}
+	if *merge && !*legacy {
+		logv2.PrintSummary()
 	}
 	if *legacy || !*web {
 		if len(flag.Args()) == 0 {

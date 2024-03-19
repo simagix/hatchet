@@ -67,7 +67,7 @@ func LogsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Param
 		limit = fmt.Sprintf("%v,%v", offset+nlimit, nlimit)
 		url := fmt.Sprintf("%v?component=%v&context=%v&severity=%v&duration=%v&limit=%v", r.URL.Path,
 			component, context, severity, duration, limit)
-		doc := map[string]interface{}{"Hatchet": hatchetName, "Logs": logs, "Seq": seq,
+		doc := map[string]interface{}{"Hatchet": hatchetName, "Merge": info.Merge, "Logs": logs, "Seq": seq,
 			"Summary": summary, "Context": context, "Component": component, "Severity": severity,
 			"HasMore": hasMore, "URL": url}
 		if err = templ.Execute(w, doc); err != nil {
@@ -90,7 +90,7 @@ func LogsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Param
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return
 		}
-		doc := map[string]interface{}{"Hatchet": hatchetName, "Logs": logstrs, "Summary": summary}
+		doc := map[string]interface{}{"Hatchet": hatchetName, "Merge": info.Merge, "Logs": logstrs, "Summary": summary}
 		if err = templ.Execute(w, doc); err != nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return

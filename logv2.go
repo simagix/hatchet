@@ -40,12 +40,15 @@ func GetLogv2() *Logv2 {
 type Logv2 struct {
 	buildInfo   map[string]interface{}
 	cacheSize   int
+	from        time.Time
 	logname     string
 	legacy      bool
 	hatchetName string
 	isDigest    bool
+	merge       bool
 	s3client    *S3Client
 	testing     bool //test mode
+	to          time.Time
 	totalLines  int
 	url         string // connection string
 	user        string
@@ -66,6 +69,7 @@ type Logv2Info struct {
 	Attributes Attributes
 	Message    string // remaining legacy message
 	Client     *RemoteClient
+	Marker     int
 }
 
 type Attributes struct {
@@ -101,6 +105,8 @@ type OpStat struct {
 	QueryPattern string  `json:"query_pattern" bson:"query_pattern"` // query pattern
 	Reslen       int     `json:"total_reslen" bson:"total_reslen"`   // total reslen
 	TotalMilli   int     `json:"total_ms" bson:"total_ms"`           // total milliseconds
+
+	Marker int
 }
 
 type LegacyLog struct {
@@ -108,12 +114,14 @@ type LegacyLog struct {
 	Severity  string `json:"severity" bson:"severity"`
 	Component string `json:"component" bson:"component"`
 	Context   string `json:"context" bson:"context"`
+	Marker    int
 	Message   string `json:"message" bson:"message"` // remaining legacy message
 }
 
 type HatchetInfo struct {
 	Arch    string `bson:"arch"`
 	End     string `bson:"end"`
+	Merge   bool   `bson:"merge"`
 	Module  string `bson:"module"`
 	Name    string `bson:"name"`
 	OS      string `bson:"os"`
@@ -133,13 +141,15 @@ func (ptr *Logv2) GetDBType() int {
 }
 
 // Analyze analyzes logs from a file
-func (ptr *Logv2) Analyze(logname string) error {
+func (ptr *Logv2) Analyze(logname string, marker int) error {
 	var err error
 	var buf []byte
 	var file *os.File
 	var reader *bufio.Reader
 	ptr.logname = logname
-	ptr.hatchetName = getHatchetName(ptr.logname)
+	if !ptr.merge {
+		ptr.hatchetName = getHatchetName(ptr.logname)
+	}
 	if !ptr.legacy {
 		log.Println("processing", logname)
 		log.Println("hatchet name is", ptr.hatchetName)
@@ -236,20 +246,24 @@ func (ptr *Logv2) Analyze(logname string) error {
 		}
 
 		wg.Add(1)
-		go func(index int, instr string) {
+		go func(index int, instr string, marker int) {
 			defer wg.Done()
 			doc := Logv2Info{}
 			if err = bson.UnmarshalExtJSON([]byte(instr), false, &doc); err != nil {
 				log.Println("error UnmarshalExtJSON line", index, err)
 				return
 			}
-
+			doc.Marker = marker
 			if err = AddLegacyString(&doc); err != nil {
 				log.Println("error AddLegacyString line", index, err)
 				return
 			}
 			if ptr.buildInfo == nil && doc.Msg == "Build Info" {
-				ptr.buildInfo = doc.Attr.Map()["buildInfo"].(bson.D).Map()
+				attrMap := BsonD2M(doc.Attr)
+				ptr.buildInfo = attrMap["buildInfo"].(bson.M)
+			}
+			if ptr.buildInfo != nil && (doc.Timestamp.Before(ptr.from) || doc.Timestamp.After(ptr.to)) {
+				return
 			}
 			if ptr.legacy {
 				dt := getDateTimeStr(doc.Timestamp)
@@ -289,7 +303,7 @@ func (ptr *Logv2) Analyze(logname string) error {
 					}
 				}
 			}
-		}(index, str)
+		}(index, str, marker)
 	}
 	wg.Wait()
 	log.Println("completed parsing logs")
@@ -307,10 +321,10 @@ func (ptr *Logv2) Analyze(logname string) error {
 		log.Println("error insert failed messages", err)
 		return err
 	}
-	info := HatchetInfo{Start: start, End: end}
+	info := HatchetInfo{Start: start, End: end, Merge: ptr.merge}
 	if ptr.buildInfo != nil {
 		if ptr.buildInfo["environment"] != nil {
-			env := ptr.buildInfo["environment"].(bson.D).Map()
+			env := ptr.buildInfo["environment"].(bson.M)
 			info.Arch, _ = env["distarch"].(string)
 			info.OS, _ = env["distmod"].(string)
 		}
@@ -325,16 +339,16 @@ func (ptr *Logv2) Analyze(logname string) error {
 		log.Println("error update Hatchet info", err)
 		return err
 	}
-	if err = dbase.CreateMetaData(); err != nil {
-		log.Println("error create metadata", err)
-		return err
-	}
-	return ptr.PrintSummary()
+	return nil
 }
 
 func (ptr *Logv2) PrintSummary() error {
 	dbase, err := GetDatabase(ptr.hatchetName)
 	if err != nil {
+		return err
+	}
+	if err = dbase.CreateMetaData(); err != nil {
+		log.Println("error create metadata", err)
 		return err
 	}
 	log.Println(GetHatchetSummary(dbase.GetHatchetInfo()))

@@ -97,7 +97,7 @@ func TestToLegacyString(t *testing.T) {
 	if err != nil {
 		t.Fatalf("bson unmarshal error %v", err)
 	}
-	t.Log(toLegacyString(doc.Attr.Map()["command"]))
+	t.Log(toLegacyString(BsonD2M(doc.Attr)["command"]))
 }
 
 func TestAddLegacyStringPipeline(t *testing.T) {

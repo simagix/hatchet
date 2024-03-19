@@ -20,7 +20,7 @@ import (
 func AddLegacyString(doc *Logv2Info) error {
 	var err error
 	var arr []string
-	attrMap := doc.Attr.Map()
+	attrMap := BsonD2M(doc.Attr)
 
 	if doc.Msg != "Slow query" {
 		if doc.Msg == "Connection ended" {
@@ -78,10 +78,11 @@ func AddLegacyString(doc *Logv2Info) error {
 				if doc.Msg == "client metadata" {
 					data, ok := attr.Value.(bson.D)
 					if ok {
-						driver, ok := data.Map()["driver"].(bson.D)
+						dataMap := BsonD2M(data)
+						driver, ok := dataMap["driver"].(bson.M)
 						if ok {
-							remote.Driver, _ = driver.Map()["name"].(string)
-							remote.Version, _ = driver.Map()["version"].(string)
+							remote.Driver, _ = driver["name"].(string)
+							remote.Version, _ = driver["version"].(string)
 						}
 					}
 				}
@@ -114,16 +115,18 @@ func AddLegacyString(doc *Logv2Info) error {
 				if _, ok := attr.Value.(bson.D); !ok {
 					continue
 				}
-				_client, ok := attr.Value.(bson.D).Map()["$client"].(bson.D)
+				attrMap := BsonD2M(attr.Value.(bson.D))
+				_client, ok := attrMap["$client"].(bson.D)
 				if ok {
-					driver, ok := _client.Map()["driver"].(bson.D)
+					dataMap := BsonD2M(_client)
+					driver, ok := dataMap["driver"].(bson.M)
 					if ok {
-						remote.Driver, _ = driver.Map()["name"].(string)
-						remote.Version, _ = driver.Map()["version"].(string)
+						remote.Driver, _ = driver["name"].(string)
+						remote.Version, _ = driver["version"].(string)
 					}
-					mongos, ok := _client.Map()["mongos"].(bson.D)
+					mongos, ok := dataMap["mongos"].(bson.M)
 					if ok {
-						remote.IP, ok = mongos.Map()["client"].(string)
+						remote.IP, ok = mongos["client"].(string)
 						if ok {
 							if strings.Contains(remote.IP, ":") {
 								toks := strings.Split(remote.IP, ":")
@@ -196,6 +199,8 @@ func toLegacyString(o interface{}) interface{} {
 		} else if data.Subtype == 4 {
 			x := hex.EncodeToString(data.Data)
 			return fmt.Sprintf(`{ $uuid: "%s-%s-%s-%s-%s"}`, x[:8], x[8:12], x[12:16], x[16:20], x[20:])
+		} else if data.Subtype == 7 {
+			// compressed time series data
 		} else {
 			log.Println("unhandled subtype", data.Subtype)
 		}

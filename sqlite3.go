@@ -146,22 +146,24 @@ func (ptr *SQLite3DB) Drop() error {
 func (ptr *SQLite3DB) InsertLog(index int, end string, doc *Logv2Info, stat *OpStat) error {
 	var err error
 	_, err = ptr.pstmt.Exec(index, end, doc.Severity, doc.Component, doc.Context,
-		doc.Msg, doc.Attributes.PlanSummary, doc.Attr.Map()["type"], doc.Attributes.NS, doc.Message,
-		stat.Op, stat.QueryPattern, stat.Index, doc.Attributes.Milli, doc.Attributes.Reslen)
+		doc.Msg, doc.Attributes.PlanSummary, BsonD2M(doc.Attr)["type"], doc.Attributes.NS, doc.Message,
+		stat.Op, stat.QueryPattern, stat.Index, doc.Attributes.Milli, doc.Attributes.Reslen,
+		doc.Marker)
 	return err
 }
 
 func (ptr *SQLite3DB) InsertClientConn(index int, doc *Logv2Info) error {
 	var err error
 	client := doc.Client
-	_, err = ptr.clientStmt.Exec(index, client.IP, client.Port, client.Conns, client.Accepted, client.Ended, doc.Context)
+	_, err = ptr.clientStmt.Exec(index, client.IP, client.Port, client.Conns, client.Accepted,
+		client.Ended, doc.Context, doc.Marker)
 	return err
 }
 
 func (ptr *SQLite3DB) InsertDriver(index int, doc *Logv2Info) error {
 	var err error
 	client := doc.Client
-	_, err = ptr.driverStmt.Exec(index, client.IP, client.Driver, client.Version)
+	_, err = ptr.driverStmt.Exec(index, client.IP, client.Driver, client.Version, doc.Marker)
 	return err
 }
 
@@ -179,8 +181,9 @@ func (ptr *SQLite3DB) InsertFailedMessages(m *FailedMessages) error {
 }
 
 func (ptr *SQLite3DB) UpdateHatchetInfo(info HatchetInfo) error {
-	istmt := fmt.Sprintf(`INSERT OR REPLACE INTO hatchet (name, version, module, arch, os, start, end)
-		VALUES ('%v', '%v', '%v', '%v', '%v', '%v', '%v');`, ptr.hatchetName, info.Version, info.Module, info.Arch, info.OS, info.Start, info.End)
+	istmt := fmt.Sprintf(`INSERT OR REPLACE INTO hatchet (name, version, module, arch, os, start, end, merge)
+		VALUES ('%v', '%v', '%v', '%v', '%v', '%v', '%v', %v);`,
+		ptr.hatchetName, info.Version, info.Module, info.Arch, info.OS, info.Start, info.End, info.Merge)
 	_, err := ptr.db.Exec(istmt)
 	return err
 }
@@ -214,8 +217,8 @@ func (ptr *SQLite3DB) CreateMetaData() error {
 
 	log.Printf("insert ops into %v_ops\n", ptr.hatchetName)
 	query := fmt.Sprintf(`INSERT INTO %v_ops
-			SELECT op, COUNT(*), ROUND(AVG(milli),1), MAX(milli), SUM(milli), ns, _index, SUM(reslen), filter
-				FROM %v WHERE op != "" GROUP BY op, ns, filter, _index`, ptr.hatchetName, ptr.hatchetName)
+			SELECT op, COUNT(*), ROUND(AVG(milli),1), MAX(milli), SUM(milli), ns, _index, SUM(reslen), filter, marker
+				FROM %v WHERE op != "" GROUP BY op, ns, filter, _index, marker`, ptr.hatchetName, ptr.hatchetName)
 	if ptr.verbose {
 		explain(ptr.db, query)
 	}
@@ -301,12 +304,13 @@ func CreateTables(db *sql.DB, hatchetName string) ([]string, error) {
 			arch text,
 			os text,
 			start text,
-			end text );`,
+			end text,
+			merge integer);`,
 
-		`DROP TABLE IF EXISTS %v;
-		 CREATE TABLE %v (
-			id integer not null primary key,
-			date text, severity text,
+		`CREATE TABLE IF NOT EXISTS %v (
+			id integer not null,
+			date text,
+			severity text,
 			component text,
 			context text,
 			msg text,
@@ -318,33 +322,32 @@ func CreateTables(db *sql.DB, hatchetName string) ([]string, error) {
 			filter text,
 			_index text,
 			milli integer,
-			reslen integer );`,
+			reslen integer,
+			marker integer);`,
 
-		`DROP TABLE IF EXISTS %v_audit;
-		 CREATE TABLE %v_audit (
+		`CREATE TABLE IF NOT EXISTS %v_audit (
 			type text,
 			name text,
 			value integer );`,
 
-		`DROP TABLE IF EXISTS %v_clients;
-		 CREATE TABLE %v_clients (
-			id integer not null primary key,
+		`CREATE TABLE IF NOT EXISTS %v_clients (
+			id integer not null,
 			ip text,
 			port text,
 			conns integer,
 			accepted integer,
 			ended integer,
-			context text );`,
+			context text,
+			marker integer);`,
 
-		`DROP TABLE IF EXISTS %v_drivers;
-		 CREATE TABLE %v_drivers (
-			id integer not null primary key, 
+		`CREATE TABLE IF NOT EXISTS %v_drivers (
+			id integer not null,
 			ip text, 
 			driver text, 
-			version text );`,
+			version text,
+			marker integer);`,
 
-		`DROP TABLE IF EXISTS %v_ops;
-		 CREATE TABLE %v_ops (
+		`CREATE TABLE IF NOT EXISTS %v_ops (
 			op text,
 			count integer,
 			avg_ms numeric,
@@ -353,13 +356,14 @@ func CreateTables(db *sql.DB, hatchetName string) ([]string, error) {
 			ns text,
 			_index text,
 			reslen integer,
-			filter text );`,
+			filter text,
+			marker integer);`,
 	}
 	stmts := []string{}
 	for i, table := range tables {
 		stmt := table
 		if i > 0 {
-			stmt = fmt.Sprintf(table, hatchetName, hatchetName)
+			stmt = fmt.Sprintf(table, hatchetName)
 		}
 		stmts = append(stmts, stmt)
 		if _, err = db.Exec(stmt); err != nil {
@@ -404,20 +408,20 @@ func CreateIndexes(db *sql.DB, hatchetName string) ([]string, error) {
 // GetHatchetPreparedStmt returns prepared statement of the hatchet table
 func GetHatchetPreparedStmt(hatchetName string) string {
 	return fmt.Sprintf(`INSERT INTO %v (id, date, severity, component, context,
-		msg, plan, type, ns, message, op, filter, _index, milli, reslen)
-		VALUES(?,?,?,?,?, ?,?,?,?,?, ?,?,?,?,?)`, hatchetName)
+		msg, plan, type, ns, message, op, filter, _index, milli, reslen, marker)
+		VALUES(?,?,?,?,?, ?,?,?,?,?, ?,?,?,?,?, ?)`, hatchetName)
 }
 
 // GetClientPreparedStmt returns prepared statement of clients table
 func GetClientPreparedStmt(hatchetName string) string {
-	return fmt.Sprintf(`INSERT INTO %v_clients (id, ip, port, conns, accepted, ended, context)
-		VALUES(?,?,?,?,?, ?,?)`, hatchetName)
+	return fmt.Sprintf(`INSERT INTO %v_clients (id, ip, port, conns, accepted, ended, context, marker)
+		VALUES(?,?,?,?,?, ?,?,?)`, hatchetName)
 }
 
 // GetDriverPreparedStmt returns prepared statement of drivers table
 func GetDriverPreparedStmt(hatchetName string) string {
-	return fmt.Sprintf(`INSERT INTO %v_drivers (id, ip, driver, version)
-		VALUES(?,?,?,?)`, hatchetName)
+	return fmt.Sprintf(`INSERT INTO %v_drivers (id, ip, driver, version, marker)
+		VALUES(?,?,?,?,?)`, hatchetName)
 }
 
 func explain(db *sql.DB, query string) error {

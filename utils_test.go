@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 func TestToInt(t *testing.T) {
@@ -439,4 +441,10 @@ func TestCheckLuhn(t *testing.T) {
 			t.Errorf("CheckLuhn(%q) == %v, expected %v", c.card, got, c.expected)
 		}
 	}
+}
+
+func TestBsonD2M(t *testing.T) {
+	d := bson.D{{"first", "Ken"}, {"last", "Chen"}}
+	m := BsonD2M(d)
+	t.Log(m["first"], m["last"])
 }

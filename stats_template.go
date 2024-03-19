@@ -33,6 +33,9 @@ func GetStatsTableTemplate(collscan bool, orderBy string, download string) (*tem
 		"numPrinter": func(n interface{}) string {
 			printer := message.NewPrinter(language.English)
 			return printer.Sprintf("%v", ToInt(n))
+		},
+		"getMarkerHTML": func(marker int) template.HTML {
+			return template.HTML(GetMarkerHTML(marker))
 		}}).Parse(html)
 }
 
@@ -81,9 +84,14 @@ func getStatsTable(collscan bool, orderBy string, download string) string {
 	}
 	html += `<th>query pattern</th>
 		</tr>
+{{$merge := .Merge}}
 {{range $n, $value := .Ops}}
 		<tr>
+		{{if $merge}}
+			<td align='right'>{{ add $n 1 }} {{getMarkerHTML $value.Marker}}</td>
+		{{else}}
 			<td align='right'>{{ add $n 1 }}</td>
+		{{end}}
 			<td class='break'>{{ $value.Op }}</td>
 			<td class='break'>{{ $value.Namespace }}</td>
 			<td align='right'>{{ numPrinter $value.Count }}</td>

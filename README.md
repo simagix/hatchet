@@ -21,6 +21,26 @@ Use the command below to process a log file, mongod.log.gz and start a web serve
 ./dist/hatchet -web logs/sample-mongod.log.gz
 ```
 
+## Docker
+If you wish to use it via docker you can run:
+```
+# this will look after the build and start container for you
+docker compose up -d 
+
+# this will give you a bash shell on the container so that you can run commands
+docker exec -it hatchet_container /bin/sh 
+
+in all commands you can just use `hatchet` instead of `./dist/hatchet` for example
+
+`hatchet -web logs/replica.tar.gz`
+
+any files in the logs folder on your system will be available in the container
+
+you can access http://localhost:3721 to view the hatchet web UI.
+
+to clean up run `docker compose down` it will stop the hatchet container and delete it
+```
+
 Load a file within a defined time range:
 ```bash
 ./dist/hatchet -web -from "2023-09-23T20:25:00" -to "2023-09-23T20:26:00" logs/sample-mongod.log.gz

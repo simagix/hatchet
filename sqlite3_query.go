@@ -366,7 +366,7 @@ func (ptr *SQLite3DB) GetConnectionStats(chartType string, duration string) ([]R
 	}
 	if chartType == "time" {
 		query = fmt.Sprintf(`SELECT %v dt, AVG(conns), 0 FROM ( 
-			SELECT date, SUM(b.conns) conns, ip
+			SELECT date, b.conns conns, ip
 				FROM %v a, %v_clients b WHERE a.id = b.id %v GROUP by date ORDER BY date, ip
 			) GROUP BY dt`, substr, hatchetName, hatchetName, durcond)
 	} else if chartType == "total" {

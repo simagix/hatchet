@@ -1,0 +1,11 @@
+services:
+  hatchet:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: hatchet:latest
+    container_name: hatchet_container
+    volumes:
+      - ./logs:/home/simagix/logs
+    ports:
+      - "3721:3721" # so that http://localhost:3721/ will work

@@ -30,5 +30,13 @@
         "mongo-java-driver": [ "4.10" ],
         "nodejs": [ "5.7" ],
         "PyMongo": [ "4.4" ]
+    },
+    "8.0": {
+        "mongoc": [ "1.28" ],
+        "mongo-csharp-driver": [ "2.29" ],
+        "mongo-go-driver": [ "2.1" ],
+        "mongo-java-driver": [ "5.2", "5.5" ],
+        "nodejs": [ "6.9", "6.10", "6.17" ],
+        "PyMongo": [ "4.9" ]
     }
 }

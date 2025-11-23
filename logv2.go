@@ -8,7 +8,9 @@ package hatchet
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"runtime"
@@ -187,9 +189,18 @@ func (ptr *Logv2) Analyze(logname string, marker int) error {
 		}
 		defer file.Close()
 		if reader, err = gox.NewReader(file); err != nil {
-			return err
-		}
-		if !ptr.legacy {
+			// EOF from NewReader is expected for empty files, so don't treat it as an error
+			if errors.Is(err, io.EOF) {
+				// For empty files, create a simple reader and continue
+				if _, err = file.Seek(0, 0); err != nil {
+					return err
+				}
+				reader = bufio.NewReader(file)
+				ptr.totalLines = 0
+			} else {
+				return err
+			}
+		} else if !ptr.legacy {
 			log.Println("fast counting", logname, "...")
 			ptr.totalLines, _ = gox.CountLines(reader)
 			log.Println("counted", ptr.totalLines, "lines")
@@ -197,7 +208,15 @@ func (ptr *Logv2) Analyze(logname string, marker int) error {
 				return err
 			}
 			if reader, err = gox.NewReader(file); err != nil {
-				return err
+				// EOF from NewReader is expected for empty files
+				if errors.Is(err, io.EOF) {
+					if _, err = file.Seek(0, 0); err != nil {
+						return err
+					}
+					reader = bufio.NewReader(file)
+				} else {
+					return err
+				}
 			}
 		}
 	}
@@ -240,9 +259,17 @@ func (ptr *Logv2) Analyze(logname string, marker int) error {
 		for isPrefix {
 			var bbuf []byte
 			if bbuf, isPrefix, err = reader.ReadLine(); err != nil {
+				// EOF in the inner loop means incomplete line, which is an error
+				if errors.Is(err, io.EOF) {
+					err = fmt.Errorf("unexpected EOF while reading multi-line prefix")
+				}
 				break
 			}
 			str += string(bbuf)
+		}
+		// If we got an error in the inner loop, break from outer loop
+		if err != nil {
+			break
 		}
 
 		wg.Add(1)
@@ -304,6 +331,12 @@ func (ptr *Logv2) Analyze(logname string, marker int) error {
 				}
 			}
 		}(index, str, marker)
+	}
+	// EOF is expected when we've finished reading the file, so don't treat it as an error
+	if errors.Is(err, io.EOF) {
+		err = nil
+	} else if err != nil {
+		return err
 	}
 	wg.Wait()
 	log.Println("completed parsing logs")

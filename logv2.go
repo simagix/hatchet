@@ -15,6 +15,7 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/simagix/gox"
@@ -225,6 +226,7 @@ func (ptr *Logv2) Analyze(logname string, marker int) error {
 	index := 0
 	var start, end string
 	var dbase Database
+	var mu sync.Mutex // protects buildInfo, start, and end
 
 	if !ptr.legacy {
 		if dbase, err = GetDatabase(ptr.hatchetName); err != nil {
@@ -275,21 +277,26 @@ func (ptr *Logv2) Analyze(logname string, marker int) error {
 		wg.Add(1)
 		go func(index int, instr string, marker int) {
 			defer wg.Done()
+			var localErr error // Use local error variable to avoid race condition
 			doc := Logv2Info{}
-			if err = bson.UnmarshalExtJSON([]byte(instr), false, &doc); err != nil {
-				log.Println("error UnmarshalExtJSON line", index, err)
+			if localErr = bson.UnmarshalExtJSON([]byte(instr), false, &doc); localErr != nil {
+				log.Println("error UnmarshalExtJSON line", index, localErr)
 				return
 			}
 			doc.Marker = marker
-			if err = AddLegacyString(&doc); err != nil {
-				log.Println("error AddLegacyString line", index, err)
+			if localErr = AddLegacyString(&doc); localErr != nil {
+				log.Println("error AddLegacyString line", index, localErr)
 				return
 			}
+			// Protect buildInfo access with mutex
+			mu.Lock()
 			if ptr.buildInfo == nil && doc.Msg == "Build Info" {
 				attrMap := BsonD2M(doc.Attr)
 				ptr.buildInfo = attrMap["buildInfo"].(bson.M)
 			}
-			if ptr.buildInfo != nil && (doc.Timestamp.Before(ptr.from) || doc.Timestamp.After(ptr.to)) {
+			buildInfoCopy := ptr.buildInfo
+			mu.Unlock()
+			if buildInfoCopy != nil && (doc.Timestamp.Before(ptr.from) || doc.Timestamp.After(ptr.to)) {
 				return
 			}
 			if ptr.legacy {
@@ -302,12 +309,16 @@ func (ptr *Logv2) Analyze(logname string, marker int) error {
 				return
 			}
 			stat, _ := AnalyzeSlowOp(&doc)
-			end = getDateTimeStr(doc.Timestamp)
+			docEnd := getDateTimeStr(doc.Timestamp)
+			// Protect start and end access with mutex
+			mu.Lock()
 			if start == "" {
-				start = end
+				start = docEnd
 			}
-			if err = dbase.InsertLog(index, end, &doc, stat); err != nil {
-				log.Println("error InsertLog line", index, err)
+			end = docEnd
+			mu.Unlock()
+			if localErr = dbase.InsertLog(index, docEnd, &doc, stat); localErr != nil {
+				log.Println("error InsertLog line", index, localErr)
 				return
 			}
 			failed := " failed"
@@ -317,14 +328,14 @@ func (ptr *Logv2) Analyze(logname string, marker int) error {
 			}
 			if doc.Client != nil {
 				if (doc.Client.Accepted + doc.Client.Ended) > 0 { // record connections
-					if err = dbase.InsertClientConn(index, &doc); err != nil {
-						log.Println("error InsertClientConn line", index, err)
+					if localErr = dbase.InsertClientConn(index, &doc); localErr != nil {
+						log.Println("error InsertClientConn line", index, localErr)
 						return
 					}
 				} else if doc.Client.Driver != "" {
 					if isAppDriver(doc.Client) {
-						if err = dbase.InsertDriver(index, &doc); err != nil {
-							log.Println("error InsertDriver line", index, err)
+						if localErr = dbase.InsertDriver(index, &doc); localErr != nil {
+							log.Println("error InsertDriver line", index, localErr)
 							return
 						}
 					}

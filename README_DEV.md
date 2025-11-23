@@ -118,4 +118,4 @@ The in-memory mode is good for a quick view of the result and no data is persist
 ```
 
 ## Docker Build
-See https://hub.docker.com/r/simagix/hatchet for details.
+See Dockerfile for details.

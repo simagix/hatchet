@@ -89,13 +89,13 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 		<caption><button class='btn'
 			onClick="javascript:loadData('/hatchets/{{.Hatchet}}/charts/connections?type=accepted'); return false;">
 			<i class='fa fa-pie-chart'></i></button>Stats by IPs</caption>
-		<tr><th></th><th>IP</th><th>Accepted Connections</th><th>Response Length</th></tr>
+		<tr><th></th><th>IP</th><th>Accepted Connections</th>{{if ge (len (index (index .Data "ip") 0).Values) 3}}<th>Closed Connections</th>{{end}}<th>Response Length</th></tr>
 	{{range $n, $val := index .Data "ip"}}
 		<tr><td align=right>{{add $n 1}}</td>
 		<td>
 			<button class='btn' onClick="javascript:loadData('/hatchets/{{$name}}/charts/reslen-ip?ip={{$val.Name}}'); return false;"><i class='fa fa-pie-chart'></i></button>{{$val.Name}}
 		</td>
-		<td align=right>{{getFormattedNumber $val.Values 0}}</td><td align=right>{{getFormattedSize $val.Values 1}}</td></tr>
+		<td align=right>{{getFormattedNumber $val.Values 0}}</td>{{if ge (len $val.Values) 3}}<td align=right>{{getFormattedNumber $val.Values 2}}</td>{{end}}<td align=right>{{getFormattedSize $val.Values 1}}</td></tr>
 	{{end}}
 	</table>
 {{end}}

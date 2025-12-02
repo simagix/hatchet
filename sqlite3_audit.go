@@ -102,8 +102,13 @@ func (ptr *SQLite3DB) GetAuditData() (map[string][]NameValues, error) {
 	}
 
 	category = "ip"
-	query = fmt.Sprintf(`SELECT a.name ip, a.value count, b.value reslen FROM %v_audit a, %v_audit b WHERE a.type == '%v' AND b.type = 'reslen-ip' AND a.name = b.name ORDER BY reslen DESC;`,
-		ptr.hatchetName, ptr.hatchetName, category)
+	query = fmt.Sprintf(`SELECT a.name ip, a.value count, b.value reslen, COALESCE(c.value, 0) ended
+		FROM %v_audit a
+		JOIN %v_audit b ON a.name = b.name AND b.type = 'reslen-ip'
+		LEFT JOIN %v_audit c ON a.name = c.name AND c.type = 'ended-ip'
+		WHERE a.type == '%v'
+		ORDER BY reslen DESC;`,
+		ptr.hatchetName, ptr.hatchetName, ptr.hatchetName, category)
 	if ptr.verbose {
 		log.Println(query)
 	}
@@ -113,12 +118,13 @@ func (ptr *SQLite3DB) GetAuditData() (map[string][]NameValues, error) {
 	}
 	for rows.Next() {
 		var doc NameValues
-		var val1, val2 int
-		if err = rows.Scan(&doc.Name, &val1, &val2); err != nil {
+		var val1, val2, val3 int
+		if err = rows.Scan(&doc.Name, &val1, &val2, &val3); err != nil {
 			return data, err
 		}
 		doc.Values = append(doc.Values, val1)
 		doc.Values = append(doc.Values, val2)
+		doc.Values = append(doc.Values, val3)
 		data[category] = append(data[category], doc)
 	}
 	if rows != nil {

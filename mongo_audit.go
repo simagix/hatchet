@@ -138,6 +138,22 @@ func (ptr *MongoDB) GetAuditData() (map[string][]NameValues, error) {
 			{"$match": bson.M{
 				"reslen.type": "reslen-" + category,
 			}},
+			{"$lookup": bson.M{
+				"from":         ptr.hatchetName + "_audit",
+				"localField":   "name",
+				"foreignField": "name",
+				"as":           "ended",
+			}},
+			{"$unwind": bson.M{
+				"path":                       "$ended",
+				"preserveNullAndEmptyArrays": true,
+			}},
+			{"$match": bson.M{
+				"$or": []bson.M{
+					{"ended.type": "ended-" + category},
+					{"ended": bson.M{"$exists": false}},
+				},
+			}},
 			{"$sort": bson.M{
 				"reslen.value": -1,
 			}},
@@ -146,6 +162,7 @@ func (ptr *MongoDB) GetAuditData() (map[string][]NameValues, error) {
 				"name":   1,
 				"count":  "$value",
 				"reslen": "$reslen.value",
+				"ended":  bson.M{"$ifNull": []interface{}{"$ended.value", 0}},
 			}},
 		}
 		if cur, err = collection.Aggregate(ctx, pipeline); err != nil {
@@ -157,6 +174,7 @@ func (ptr *MongoDB) GetAuditData() (map[string][]NameValues, error) {
 				Name   string `bson:"name"`
 				Count  int    `bson:"count"`
 				Reslen int    `bson:"reslen"`
+				Ended  int    `bson:"ended"`
 			}
 			if err := cur.Decode(&reslenData); err != nil {
 				return data, err
@@ -165,6 +183,7 @@ func (ptr *MongoDB) GetAuditData() (map[string][]NameValues, error) {
 			doc.Name = reslenData.Name
 			doc.Values = append(doc.Values, reslenData.Count)
 			doc.Values = append(doc.Values, reslenData.Reslen)
+			doc.Values = append(doc.Values, reslenData.Ended)
 			data[category] = append(data[category], doc)
 		}
 	}

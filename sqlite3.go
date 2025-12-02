@@ -228,7 +228,7 @@ func (ptr *SQLite3DB) CreateMetaData() error {
 
 	log.Printf("insert [exception] into %v_audit\n", ptr.hatchetName)
 	query = fmt.Sprintf(`INSERT INTO %v_audit
-		SELECT 'exception', severity, COUNT(*) count FROM %v WHERE severity IN ('W', 'E', 'F') 
+		SELECT 'exception', severity, COUNT(*) count FROM %v WHERE severity IN ('W', 'E', 'F')
 		GROUP by severity`, ptr.hatchetName, ptr.hatchetName)
 	if ptr.verbose {
 		explain(ptr.db, query)
@@ -290,6 +290,18 @@ func (ptr *SQLite3DB) CreateMetaData() error {
 	if _, err = ptr.db.Exec(query); err != nil {
 		return err
 	}
+
+	log.Printf("insert [ended-ip] into %v_audit\n", ptr.hatchetName)
+	query = fmt.Sprintf(`INSERT INTO %v_audit
+		SELECT 'ended-ip', ip, SUM(ended) FROM %v_clients
+		GROUP BY ip`,
+		ptr.hatchetName, ptr.hatchetName)
+	if ptr.verbose {
+		explain(ptr.db, query)
+	}
+	if _, err = ptr.db.Exec(query); err != nil {
+		return err
+	}
 	return err
 }
 
@@ -342,8 +354,8 @@ func CreateTables(db *sql.DB, hatchetName string) ([]string, error) {
 
 		`CREATE TABLE IF NOT EXISTS %v_drivers (
 			id integer not null,
-			ip text, 
-			driver text, 
+			ip text,
+			driver text,
 			version text,
 			marker integer);`,
 

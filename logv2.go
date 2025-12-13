@@ -76,6 +76,7 @@ type Logv2Info struct {
 }
 
 type Attributes struct {
+	AppName            string                 `json:"appName" bson:"appName"`
 	Command            map[string]interface{} `json:"command" bson:"command"`
 	ErrMsg             string                 `json:"errMsg" bson:"errMsg"`
 	Milli              int                    `json:"durationMillis" bson:"durationMillis"`

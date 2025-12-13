@@ -220,5 +220,54 @@ func (ptr *MongoDB) GetAuditData() (map[string][]NameValues, error) {
 		doc.Values = append(doc.Values, clientData.Version)
 		data[category] = append(data[category], doc)
 	}
+
+	// get appname data
+	category = "appname"
+	collection = ptr.db.Collection(ptr.hatchetName + "_audit")
+	pipeline = []bson.M{
+		{"$match": bson.M{
+			"type": "appname",
+		}},
+		{"$lookup": bson.M{
+			"from":         ptr.hatchetName + "_audit",
+			"localField":   "name",
+			"foreignField": "name",
+			"as":           "reslen",
+		}},
+		{"$unwind": bson.M{
+			"path": "$reslen",
+		}},
+		{"$match": bson.M{
+			"reslen.type": "reslen-appname",
+		}},
+		{"$sort": bson.M{
+			"reslen.value": -1,
+		}},
+		{"$project": bson.M{
+			"_id":    0,
+			"name":   1,
+			"count":  "$value",
+			"reslen": "$reslen.value",
+		}},
+	}
+	if cur, err = collection.Aggregate(ctx, pipeline); err != nil {
+		return data, err
+	}
+	defer cur.Close(ctx)
+	for cur.Next(ctx) {
+		var appnameData struct {
+			Name   string `bson:"name"`
+			Count  int    `bson:"count"`
+			Reslen int    `bson:"reslen"`
+		}
+		if err := cur.Decode(&appnameData); err != nil {
+			return data, err
+		}
+		doc := NameValues{}
+		doc.Name = appnameData.Name
+		doc.Values = append(doc.Values, appnameData.Count)
+		doc.Values = append(doc.Values, appnameData.Reslen)
+		data[category] = append(data[category], doc)
+	}
 	return data, err
 }

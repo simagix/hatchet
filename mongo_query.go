@@ -573,3 +573,55 @@ func (ptr *MongoDB) GetReslenByNamespace(ns string, duration string) ([]NameValu
 	}
 	return docs, nil
 }
+
+// GetReslenByAppName returns total response length by appname
+func (ptr *MongoDB) GetReslenByAppName(appname string, duration string) ([]NameValue, error) {
+	var err error
+	ctx := context.Background()
+	docs := []NameValue{}
+	pipeline := []bson.M{
+		{"$match": bson.M{
+			"appname": bson.M{"$nin": []interface{}{nil, ""}},
+			"reslen":  bson.M{"$gt": 0},
+		}},
+		{"$group": bson.M{
+			"_id":   "$appname",
+			"total": bson.M{"$sum": "$reslen"},
+		}},
+		{"$project": bson.M{
+			"_id":   0,
+			"name":  "$_id",
+			"value": "$total",
+		}},
+		{"$sort": bson.M{"value": -1}},
+	}
+	if appname != "" {
+		match := pipeline[0]["$match"].(bson.M)
+		match["appname"] = appname
+		pipeline[0]["$match"] = match
+	}
+	if duration != "" {
+		match := pipeline[0]["$match"].(bson.M)
+		toks := strings.Split(duration, ",")
+		match["date"] = bson.M{"$gte": toks[0], "$lt": toks[1]}
+		pipeline[0]["$match"] = match
+	}
+	collection := ptr.db.Collection(ptr.hatchetName)
+	opts := options.Aggregate().SetAllowDiskUse(true)
+	if ptr.verbose {
+		fmt.Println(gox.Stringify(pipeline))
+	}
+	cursor, err := collection.Aggregate(ctx, pipeline, opts)
+	if err != nil {
+		return docs, err
+	}
+	defer cursor.Close(ctx)
+	for cursor.Next(ctx) {
+		var doc NameValue
+		if err = cursor.Decode(&doc); err != nil {
+			return docs, err
+		}
+		docs = append(docs, doc)
+	}
+	return docs, nil
+}

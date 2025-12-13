@@ -537,3 +537,41 @@ func (ptr *SQLite3DB) GetReslenByNamespace(ns string, duration string) ([]NameVa
 	}
 	return docs, err
 }
+
+// GetReslenByAppName returns total response length by appname
+func (ptr *SQLite3DB) GetReslenByAppName(appname string, duration string) ([]NameValue, error) {
+	hatchetName := ptr.hatchetName
+	docs := []NameValue{}
+	var query, durcond, appcond string
+	if duration != "" {
+		toks := strings.Split(duration, ",")
+		durcond = fmt.Sprintf("AND date BETWEEN '%v' AND '%v'", toks[0], toks[1])
+	}
+	if appname != "" {
+		appcond = fmt.Sprintf("AND appname = '%v'", appname)
+		query = fmt.Sprintf(`SELECT appname, SUM(reslen) reslen FROM %v WHERE appname != "" AND reslen > 0 %v %v GROUP by appname ORDER BY reslen DESC;`,
+			hatchetName, appcond, durcond)
+	} else {
+		query = fmt.Sprintf(`SELECT appname, SUM(reslen) reslen FROM %v WHERE appname != "" AND reslen > 0 %v GROUP by appname ORDER BY reslen DESC;`,
+			hatchetName, durcond)
+	}
+	db := ptr.db
+	if ptr.verbose {
+		explain(ptr.db, query)
+	}
+	rows, err := db.Query(query)
+	if err != nil {
+		return docs, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var doc NameValue
+		var reslen float64
+		if err = rows.Scan(&doc.Name, &reslen); err != nil {
+			return docs, err
+		}
+		doc.Value = int(reslen)
+		docs = append(docs, doc)
+	}
+	return docs, err
+}

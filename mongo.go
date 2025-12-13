@@ -128,7 +128,8 @@ func (ptr *MongoDB) InsertLog(index int, end string, doc *Logv2Info, stat *OpSta
 	data := bson.M{
 		"_id": index, "date": end, "severity": doc.Severity, "component": doc.Component, "context": doc.Context,
 		"msg": doc.Msg, "plan": doc.Attributes.PlanSummary, "type": BsonD2M(doc.Attr)["type"], "ns": doc.Attributes.NS, "message": doc.Message,
-		"op": stat.Op, "filter": stat.QueryPattern, "_index": stat.Index, "milli": doc.Attributes.Milli, "reslen": doc.Attributes.Reslen}
+		"op": stat.Op, "filter": stat.QueryPattern, "_index": stat.Index, "milli": doc.Attributes.Milli, "reslen": doc.Attributes.Reslen,
+		"appname": doc.Attributes.AppName}
 	ptr.logs = append(ptr.logs, data)
 	if len(ptr.logs) > BATCH_SIZE {
 		collName := ptr.hatchetName
@@ -414,6 +415,61 @@ func (ptr *MongoDB) CreateMetaData() error {
 			"_id":   0,
 			"type":  "reslen-ns",
 			"name":  "$_id.ns",
+			"value": "$reslen",
+		}},
+		{"$merge": bson.M{
+			"into": ptr.hatchetName + "_audit",
+		}},
+	}
+	if _, err = ptr.db.Collection(ptr.hatchetName).Aggregate(context.Background(), pipeline); err != nil {
+		return err
+	}
+
+	log.Printf("insert [appname] into %v_audit\n", ptr.hatchetName)
+	pipeline = []bson.M{
+		{"$match": bson.M{
+			"appname": bson.M{
+				"$nin": []interface{}{nil, ""},
+			},
+		}},
+		{"$group": bson.M{
+			"_id": bson.M{
+				"appname": "$appname",
+			},
+			"count": bson.M{"$sum": 1},
+		}},
+		{"$project": bson.M{
+			"_id":   0,
+			"type":  "appname",
+			"name":  "$_id.appname",
+			"value": "$count",
+		}},
+		{"$merge": bson.M{
+			"into": ptr.hatchetName + "_audit",
+		}},
+	}
+	if _, err = ptr.db.Collection(ptr.hatchetName).Aggregate(context.Background(), pipeline); err != nil {
+		return err
+	}
+
+	log.Printf("insert [reslen-appname] into %v_audit\n", ptr.hatchetName)
+	pipeline = []bson.M{
+		{"$match": bson.M{
+			"appname": bson.M{
+				"$nin": []interface{}{nil, ""},
+			},
+			"reslen": bson.M{"$gt": 0},
+		}},
+		{"$group": bson.M{
+			"_id": bson.M{
+				"appname": "$appname",
+			},
+			"reslen": bson.M{"$sum": "$reslen"},
+		}},
+		{"$project": bson.M{
+			"_id":   0,
+			"type":  "reslen-appname",
+			"name":  "$_id.appname",
 			"value": "$reslen",
 		}},
 		{"$merge": bson.M{

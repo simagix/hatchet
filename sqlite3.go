@@ -148,7 +148,7 @@ func (ptr *SQLite3DB) InsertLog(index int, end string, doc *Logv2Info, stat *OpS
 	_, err = ptr.pstmt.Exec(index, end, doc.Severity, doc.Component, doc.Context,
 		doc.Msg, doc.Attributes.PlanSummary, BsonD2M(doc.Attr)["type"], doc.Attributes.NS, doc.Message,
 		stat.Op, stat.QueryPattern, stat.Index, doc.Attributes.Milli, doc.Attributes.Reslen,
-		doc.Marker)
+		doc.Attributes.AppName, doc.Marker)
 	return err
 }
 
@@ -302,6 +302,26 @@ func (ptr *SQLite3DB) CreateMetaData() error {
 	if _, err = ptr.db.Exec(query); err != nil {
 		return err
 	}
+
+	log.Printf("insert [appname] into %v_audit\n", ptr.hatchetName)
+	query = fmt.Sprintf(`INSERT INTO %v_audit
+		SELECT 'appname', appname, COUNT(*) count FROM %v WHERE appname != "" GROUP by appname`, ptr.hatchetName, ptr.hatchetName)
+	if ptr.verbose {
+		explain(ptr.db, query)
+	}
+	if _, err = ptr.db.Exec(query); err != nil {
+		return err
+	}
+
+	log.Printf("insert [reslen-appname] into %v_audit\n", ptr.hatchetName)
+	query = fmt.Sprintf(`INSERT INTO %v_audit
+		SELECT 'reslen-appname', appname, SUM(reslen) FROM %v WHERE appname != "" AND reslen > 0 GROUP by appname`, ptr.hatchetName, ptr.hatchetName)
+	if ptr.verbose {
+		explain(ptr.db, query)
+	}
+	if _, err = ptr.db.Exec(query); err != nil {
+		return err
+	}
 	return err
 }
 
@@ -335,6 +355,7 @@ func CreateTables(db *sql.DB, hatchetName string) ([]string, error) {
 			_index text,
 			milli integer,
 			reslen integer,
+			appname text,
 			marker integer);`,
 
 		`CREATE TABLE IF NOT EXISTS %v_audit (
@@ -397,6 +418,7 @@ func CreateIndexes(db *sql.DB, hatchetName string) ([]string, error) {
 
 		"CREATE INDEX IF NOT EXISTS %v_idx_ns_op_filter ON %v (ns,op,filter);",
 		"CREATE INDEX IF NOT EXISTS %v_idx_severity ON %v (severity);",
+		"CREATE INDEX IF NOT EXISTS %v_idx_appname_reslen ON %v (appname,reslen);",
 
 		"CREATE INDEX IF NOT EXISTS %v_audit_idx_type_value ON %v_audit (type,value DESC);",
 		"CREATE INDEX IF NOT EXISTS %v_clients_idx_ip_accepted ON %v_clients (ip,accepted);",
@@ -420,8 +442,8 @@ func CreateIndexes(db *sql.DB, hatchetName string) ([]string, error) {
 // GetHatchetPreparedStmt returns prepared statement of the hatchet table
 func GetHatchetPreparedStmt(hatchetName string) string {
 	return fmt.Sprintf(`INSERT INTO %v (id, date, severity, component, context,
-		msg, plan, type, ns, message, op, filter, _index, milli, reslen, marker)
-		VALUES(?,?,?,?,?, ?,?,?,?,?, ?,?,?,?,?, ?)`, hatchetName)
+		msg, plan, type, ns, message, op, filter, _index, milli, reslen, appname, marker)
+		VALUES(?,?,?,?,?, ?,?,?,?,?, ?,?,?,?,?, ?,?)`, hatchetName)
 }
 
 // GetClientPreparedStmt returns prepared statement of clients table

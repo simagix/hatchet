@@ -27,6 +27,7 @@ const (
 	T_CONNS_TIME     = "connections-time"
 	T_CONNS_TOTAL    = "connections-total"
 	T_RESLEN_NS      = "reslen-ns"
+	T_RESLEN_APPNAME = "reslen-appname"
 )
 
 type Chart struct {
@@ -52,6 +53,8 @@ var charts = map[string]Chart{
 		"Display total response length by client IPs", "/reslen-ip?ip="},
 	T_RESLEN_NS: {7, "Response Length by Namespaces ",
 		"Display total response length by namespaces", "/reslen-ns?ns="},
+	T_RESLEN_APPNAME: {8, "Response Length by AppName ",
+		"Display total response length by application names", "/reslen-appname?appname="},
 }
 
 // ChartsHandler responds to charts API calls
@@ -214,6 +217,33 @@ func ChartsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Par
 		chart := charts[chartType]
 		if ns != "" {
 			chart.Title += fmt.Sprintf(" (%v)", ns)
+		}
+		doc := map[string]interface{}{"Hatchet": hatchetName, "NameValues": docs, "Chart": chart,
+			"Type": chartType, "Summary": summary, "Start": start, "End": end}
+		if err = templ.Execute(w, doc); err != nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+			return
+		}
+		return
+	} else if attr == T_RESLEN_APPNAME {
+		appname := r.URL.Query().Get("appname")
+		chartType := attr
+		if dbase.GetVerbose() {
+			log.Println("type", chartType, "duration", duration)
+		}
+		docs, err := dbase.GetReslenByAppName(appname, duration)
+		if err != nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+			return
+		}
+		templ, err := GetChartTemplate(PIE_CHART)
+		if err != nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+			return
+		}
+		chart := charts[chartType]
+		if appname != "" {
+			chart.Title += fmt.Sprintf(" (%v)", appname)
 		}
 		doc := map[string]interface{}{"Hatchet": hatchetName, "NameValues": docs, "Chart": chart,
 			"Type": chartType, "Summary": summary, "Start": start, "End": end}

@@ -37,6 +37,7 @@ type Database interface {
 	GetHatchetNames() ([]string, error)
 	GetLogs(opts ...string) ([]LegacyLog, error)
 	GetOpsCounts(duration string) ([]NameValue, error)
+	GetReslenByAppName(appname string, duration string) ([]NameValue, error)
 	GetReslenByNamespace(ip string, duration string) ([]NameValue, error)
 	GetReslenByIP(ip string, duration string) ([]NameValue, error)
 	GetSlowOps(orderBy string, order string, collscan bool) ([]OpStat, error)

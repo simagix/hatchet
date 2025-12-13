@@ -179,5 +179,29 @@ func (ptr *SQLite3DB) GetAuditData() (map[string][]NameValues, error) {
 		rows.Close()
 	}
 
+	category = "appname"
+	query = fmt.Sprintf(`SELECT a.name appname, a.value count, b.value reslen FROM %v_audit a, %v_audit b WHERE a.type == '%v' AND b.type = 'reslen-appname' AND a.name = b.name ORDER BY reslen DESC;`,
+		ptr.hatchetName, ptr.hatchetName, category)
+	if ptr.verbose {
+		log.Println(query)
+	}
+	rows, err = db.Query(query)
+	if err != nil {
+		return data, err
+	}
+	for rows.Next() {
+		var doc NameValues
+		var val1, val2 int
+		if err = rows.Scan(&doc.Name, &val1, &val2); err != nil {
+			return data, err
+		}
+		doc.Values = append(doc.Values, val1)
+		doc.Values = append(doc.Values, val2)
+		data[category] = append(data[category], doc)
+	}
+	if rows != nil {
+		rows.Close()
+	}
+
 	return data, err
 }

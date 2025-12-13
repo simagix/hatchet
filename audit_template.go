@@ -132,6 +132,22 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 	</table>
 {{end}}
 
+{{if hasData .Data "appname"}}
+	<table style='float: left; margin: 10px 10px;'>
+		<caption><button class='btn'
+			onClick="javascript:loadData('/hatchets/{{.Hatchet}}/charts/reslen-appname?appname='); return false;">
+			<i class='fa fa-pie-chart'></i></button>Stats by AppName</caption>
+		<tr><th></th><th>AppName</th><th>Accessed</th><th>Response Length</th></tr>
+	{{range $n, $val := index .Data "appname"}}
+		<tr><td align=right>{{add $n 1}}</td>
+		<td>
+			<button class='btn' onClick="javascript:loadData('/hatchets/{{$name}}/logs/all?context={{$val.Name}}'); return false;"><i class='fa fa-search'></i></button>{{$val.Name}}
+		</td>
+		<td align=right>{{getFormattedNumber $val.Values 0}}</td><td align=right>{{getFormattedSize $val.Values 1}}</td></tr>
+	{{end}}
+	</table>
+{{end}}
+
 {{if hasData .Data "duration"}}
 	<table style='float: left; margin: 10px 10px; clear: left;'>
 		<caption><span style="font-size: 16px; padding: 5px 5px;"><i class="fa fa-shield"></i></span>Top N Long Lasting Connections</caption>

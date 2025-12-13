@@ -21,6 +21,20 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
+// Pre-compiled regex patterns for validation functions
+var (
+	reCreditCard  = regexp.MustCompile(`(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|6(?:011|5[0-9]{2})[0-9]{12}|3[47][0-9]{13}|3(?:0[0-5]|[68][0-9])[0-9]{11}|(?:2131|1800|35\d{3})\d{11})`)
+	reEmailMatch  = regexp.MustCompile(`[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}`)
+	reIPMatch     = regexp.MustCompile(`\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}`)
+	reFQDNMatch   = regexp.MustCompile(`([a-zA-Z][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]\.)+[a-zA-Z]{2,63}`)
+	reNonDigit    = regexp.MustCompile("[^0-9]")
+	reNSMatch     = regexp.MustCompile(`^[^\d][^$.\n\s@]*\.[^.\n\s@]*([.][^.\n\s@]*)?$`)
+	reSSNMatch    = regexp.MustCompile(`\d{3}-\d{2}-\d{4}`)
+	reAlpha       = regexp.MustCompile("[a-zA-Z]")
+	reNonDigitPls = regexp.MustCompile("[^0-9+]+")
+	rePhoneMatch  = regexp.MustCompile(`(?:\+?\d{1,3}[- ]?)?\d{10,14}|(\+\d{1,3}\s?)?\(\d{3}\)\s?\d{3}[- ]?\d{4}|\d{3}[- ]?\d{3}[- ]?\d{4}`)
+)
+
 const (
 	MAX_SIZE  = 64
 	TAIL_SIZE = 7
@@ -202,19 +216,16 @@ func ContainsCreditCardNo(card string) bool {
 			cardNo = append(cardNo, card[i])
 		}
 	}
-	matched, _ := regexp.MatchString(`(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|6(?:011|5[0-9]{2})[0-9]{12}|3[47][0-9]{13}|3(?:0[0-5]|[68][0-9])[0-9]{11}|(?:2131|1800|35\\d{3})\\d{11})`, string(cardNo))
-	return matched && CheckLuhn(string(cardNo))
+	return reCreditCard.MatchString(string(cardNo)) && CheckLuhn(string(cardNo))
 }
 
 func ContainsEmailAddress(email string) bool {
-	emailRegex := regexp.MustCompile(`[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}`)
-	return emailRegex.MatchString(email)
+	return reEmailMatch.MatchString(email)
 }
 
 func ContainsIP(ip string) bool {
-	ipRegex := regexp.MustCompile(`\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}`)
 	octets := strings.Split(ip, ".")
-	return len(octets) == 4 && ipRegex.MatchString(ip)
+	return len(octets) == 4 && reIPMatch.MatchString(ip)
 }
 
 func ContainsFQDN(fqdn string) bool {
@@ -225,8 +236,7 @@ func ContainsFQDN(fqdn string) bool {
 	if len(parts) < 2 {
 		return false
 	}
-	fqdnRegex := regexp.MustCompile(`([a-zA-Z][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]\.)+[a-zA-Z]{2,63}`)
-	return fqdnRegex.MatchString(fqdn)
+	return reFQDNMatch.MatchString(fqdn)
 }
 
 func IsNamespace(ns string) bool {
@@ -235,33 +245,27 @@ func IsNamespace(ns string) bool {
 		return false
 	}
 	for _, part := range parts {
-		re := regexp.MustCompile("[^0-9]")
-		if !re.MatchString(part) {
+		if !reNonDigit.MatchString(part) {
 			return false
 		}
 	}
-	nsRegex := regexp.MustCompile(`^[^\d][^$.\n\s@]*\.[^.\n\s@]*([.][^.\n\s@]*)?$`)
-	return nsRegex.MatchString(ns)
+	return reNSMatch.MatchString(ns)
 }
 
 func IsSSN(s string) bool {
-	ssnRegex := regexp.MustCompile(`\d{3}-\d{2}-\d{4}`)
 	digits := strings.ReplaceAll(s, "-", "")
-	return len(digits) == 9 && ssnRegex.MatchString(s)
+	return len(digits) == 9 && reSSNMatch.MatchString(s)
 }
 
 func ContainsPhoneNo(phoneNo string) bool {
-	re := regexp.MustCompile("[a-zA-Z]")
-	if re.MatchString(phoneNo) {
+	if reAlpha.MatchString(phoneNo) {
 		return false
 	}
-	re = regexp.MustCompile("[^0-9+]+")
-	digits := re.ReplaceAllString(phoneNo, "")
+	digits := reNonDigitPls.ReplaceAllString(phoneNo, "")
 	if (strings.HasPrefix(digits, "+") && len(digits) > 14) || (!strings.HasPrefix(digits, "+") && len(digits) > 11) {
 		return false
 	}
-	phoneRegex := regexp.MustCompile(`(?:\+?\d{1,3}[- ]?)?\d{10,14}|(\+\d{1,3}\s?)?\(\d{3}\)\s?\d{3}[- ]?\d{4}|\d{3}[- ]?\d{3}[- ]?\d{4}`)
-	return phoneRegex.MatchString(phoneNo)
+	return rePhoneMatch.MatchString(phoneNo)
 }
 
 func CheckLuhn(card string) bool {

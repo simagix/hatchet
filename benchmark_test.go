@@ -105,3 +105,25 @@ func BenchmarkParseAttributes(b *testing.B) {
 	}
 }
 
+// BenchmarkObfuscateString benchmarks string obfuscation
+func BenchmarkObfuscateString(b *testing.B) {
+	obs := NewObfuscation()
+	testStrings := []string{
+		"user@example.com",
+		"192.168.1.100",
+		"server.mongodb.net",
+		"mydb.collection",
+		"123-45-6789",
+		"+1 (555) 123-4567",
+		"4532015112830366",
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for _, s := range testStrings {
+			obs.ObfuscateString(s)
+		}
+	}
+}
+

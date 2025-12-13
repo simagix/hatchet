@@ -14,10 +14,20 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/simagix/gox"
 	"go.mongodb.org/mongo-driver/bson"
+)
+
+// Pre-compiled regex patterns for obfuscation
+var (
+	rePort  = regexp.MustCompile(`:\d{2,}`)
+	reEmail = regexp.MustCompile(`[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}`)
+	reIP    = regexp.MustCompile(`\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}`)
+	reFQDN  = regexp.MustCompile(`([a-zA-Z0-9-]{1,63}\.)+[a-zA-Z]{2,63}`)
+	reNS    = regexp.MustCompile(`[^@$.\n]*\.[^^@.\n]*([.][^^@.\n]*)?`)
+	reDigit = regexp.MustCompile("[0-9.]")
+	reSSN   = regexp.MustCompile(`\d{3}-\d{2}-\d{4}`)
 )
 
 var (
@@ -50,7 +60,6 @@ type Obfuscation struct {
 
 func NewObfuscation() *Obfuscation {
 	obs := Obfuscation{}
-	rand.Seed(time.Now().UnixNano())
 	obs.Coefficient = 0.923 - rand.Float64()*0.05
 	obs.Coefficient = math.Round(obs.Coefficient*1000) / 1000
 	obs.CardMap = make(map[string]string)
@@ -99,8 +108,17 @@ func (ptr *Obfuscation) ObfuscateFile(filename string) error {
 		if err = bson.UnmarshalExtJSON([]byte(str), false, &doc); err != nil {
 			continue
 		}
-		attr, ok := BsonD2M(doc)["attr"].(bson.D)
-		if !ok {
+		// Find the attr element directly from bson.D to preserve type
+		var attr bson.D
+		for _, elem := range doc {
+			if elem.Key == "attr" {
+				if a, ok := elem.Value.(bson.D); ok {
+					attr = a
+				}
+				break
+			}
+		}
+		if attr == nil {
 			continue
 		}
 		obfuscated := ptr.ObfuscateBsonD(attr)
@@ -192,8 +210,7 @@ func (ptr *Obfuscation) ObfuscateNumber(data interface{}) float64 {
 }
 
 func (ptr *Obfuscation) ObfuscateString(value string) string {
-	portRegex := regexp.MustCompile(`:\d{2,}`)
-	matches := portRegex.FindStringSubmatch(value)
+	matches := rePort.FindStringSubmatch(value)
 	if len(matches) > 0 {
 		matched := matches[0]
 		newValue := fmt.Sprintf(":%v", int(float64(ToInt(matched[1:]))*ptr.Coefficient))
@@ -238,21 +255,17 @@ func (ptr *Obfuscation) ObfuscateEmail(email string) string {
 	if !ContainsEmailAddress(email) {
 		return email
 	}
-	city := cities[rand.Intn(len(cities))]
-	flower := flowers[rand.Intn(len(flowers))]
-	emailRegex := regexp.MustCompile(`[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}`)
-	matches := emailRegex.FindStringSubmatch(email)
+	matches := reEmail.FindStringSubmatch(email)
 	if len(matches) > 0 {
 		matched := matches[0]
-		newValue := ""
 		if ptr.NameMap[matched] != "" {
-			newValue = ptr.NameMap[matched]
-		} else {
-			rand.Seed(time.Now().UnixNano())
-			newValue = strings.ToLower(flower + "@" + city + ".com")
-			ptr.NameMap[matched] = newValue
-			ptr.NameMap[newValue] = newValue
+			return strings.Replace(email, matched, ptr.NameMap[matched], -1)
 		}
+		city := cities[rand.Intn(len(cities))]
+		flower := flowers[rand.Intn(len(flowers))]
+		newValue := strings.ToLower(flower + "@" + city + ".com")
+		ptr.NameMap[matched] = newValue
+		ptr.NameMap[newValue] = newValue
 		return strings.Replace(email, matched, newValue, -1)
 	}
 	return email
@@ -263,8 +276,7 @@ func (ptr *Obfuscation) ObfuscateIP(ip string) string {
 	if !ContainsIP(ip) {
 		return ip
 	}
-	ipRegex := regexp.MustCompile(`\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}`)
-	matches := ipRegex.FindStringSubmatch(ip)
+	matches := reIP.FindStringSubmatch(ip)
 	if len(matches) > 0 {
 		matched := matches[0]
 		if matched == "0.0.0.0" || matched == "127.0.0.1" {
@@ -291,27 +303,15 @@ func (ptr *Obfuscation) ObfuscateFQDN(fqdn string) string {
 	if !ContainsFQDN(fqdn) {
 		return fqdn
 	}
-	fqdnRegex := regexp.MustCompile(`([a-zA-Z0-9-]{1,63}\.)+[a-zA-Z]{2,63}`)
-	matches := fqdnRegex.FindStringSubmatch(fqdn)
+	matches := reFQDN.FindStringSubmatch(fqdn)
 	if len(matches) > 0 {
 		matched := matches[0]
-		newValue := ""
 		if ptr.NameMap[matched] != "" {
-			newValue = ptr.NameMap[matched]
-		} else {
-			rand.Seed(time.Now().UnixNano())
-			city := cities[rand.Intn(len(cities))]
-			flower := flowers[rand.Intn(len(flowers))]
-			parts := strings.Split(matched, ".")
-			if len(parts) > 2 {
-				tail := parts[len(parts)-1]
-				newValue = strings.ToLower(flower + "." + city + "." + tail)
-			} else {
-				newValue = strings.ToLower(city + "." + flower)
-			}
-			ptr.NameMap[matched] = newValue
-			ptr.NameMap[newValue] = newValue // so, it won't be replaced again
+			return strings.Replace(fqdn, matched, ptr.NameMap[matched], -1)
 		}
+		newValue := ptr.generateObfuscatedName(matched)
+		ptr.NameMap[matched] = newValue
+		ptr.NameMap[newValue] = newValue // so, it won't be replaced again
 		return strings.Replace(fqdn, matched, newValue, -1)
 	}
 	return fqdn
@@ -322,35 +322,34 @@ func (ptr *Obfuscation) ObfuscateNS(ns string) string {
 	if !IsNamespace(ns) {
 		return ns
 	}
-	re := regexp.MustCompile("[0-9.]")
-	charts := re.ReplaceAllString(ns, "")
+	charts := reDigit.ReplaceAllString(ns, "")
 	if len(charts) == 0 {
 		return ns
 	}
-	fqdnRegex := regexp.MustCompile(`[^@$.\n]*\.[^^@.\n]*([.][^^@.\n]*)?`)
-	matches := fqdnRegex.FindStringSubmatch(ns)
+	matches := reNS.FindStringSubmatch(ns)
 	if len(matches) > 0 {
 		matched := matches[0]
-		newValue := ""
 		if ptr.NameMap[matched] != "" {
-			newValue = ptr.NameMap[matched]
-		} else {
-			rand.Seed(time.Now().UnixNano())
-			city := cities[rand.Intn(len(cities))]
-			flower := flowers[rand.Intn(len(flowers))]
-			parts := strings.Split(matched, ".")
-			if len(parts) > 2 {
-				tail := parts[len(parts)-1]
-				newValue = strings.ToLower(flower + "." + city + "." + tail)
-			} else {
-				newValue = strings.ToLower(city + "." + flower)
-			}
-			ptr.NameMap[matched] = newValue
-			ptr.NameMap[newValue] = newValue
+			return strings.Replace(ns, matched, ptr.NameMap[matched], -1)
 		}
+		newValue := ptr.generateObfuscatedName(matched)
+		ptr.NameMap[matched] = newValue
+		ptr.NameMap[newValue] = newValue
 		return strings.Replace(ns, matched, newValue, -1)
 	}
 	return ns
+}
+
+// generateObfuscatedName generates an obfuscated name from city and flower names
+func (ptr *Obfuscation) generateObfuscatedName(matched string) string {
+	city := cities[rand.Intn(len(cities))]
+	flower := flowers[rand.Intn(len(flowers))]
+	parts := strings.Split(matched, ".")
+	if len(parts) > 2 {
+		tail := parts[len(parts)-1]
+		return strings.ToLower(flower + "." + city + "." + tail)
+	}
+	return strings.ToLower(city + "." + flower)
 }
 
 // ObfuscateSSN returns a obfuscated SSN
@@ -358,8 +357,7 @@ func (ptr *Obfuscation) ObfuscateSSN(ssn string) string {
 	if !IsSSN(ssn) {
 		return ssn
 	}
-	ssnRegex := regexp.MustCompile(`\d{3}-\d{2}-\d{4}`)
-	matches := ssnRegex.FindStringSubmatch(ssn)
+	matches := reSSN.FindStringSubmatch(ssn)
 	if len(matches) > 0 {
 		matched := matches[0]
 		newValue := ""
@@ -392,7 +390,6 @@ func (ptr *Obfuscation) ObfuscatePhoneNo(phoneNo string) string {
 	if ptr.PhoneMap[phoneNo] != "" {
 		return ptr.PhoneMap[phoneNo]
 	}
-	rand.Seed(time.Now().UnixNano())
 	obfuscated := make([]byte, len(phoneNo))
 	n := 0
 	for i := range obfuscated {

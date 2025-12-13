@@ -29,6 +29,17 @@ const (
 	cmdUpdate        = "update"
 )
 
+// Pre-compiled regex patterns for better performance
+var (
+	reMatchSort = regexp.MustCompile(`^{("\$match"|"\$sort"):(\S+)}$`)
+	reFacet     = regexp.MustCompile(`^{("(\$facet")):\S+}$`)
+	reOid       = regexp.MustCompile(`{"\$oid":1}`)
+	reIn        = regexp.MustCompile(`("\$n?in"):\[\S+(,\s?\S+)*\]`)
+	reKey       = regexp.MustCompile(`"(\$?\w+)":`)
+	reRegex     = regexp.MustCompile(`{(.*):{"\$regularExpression":{"options":"(\S+)?","pattern":"(\^)?(\S+)"}}}`)
+	mapWalker   = gox.NewMapWalker(cb) // Reusable walker instance
+)
+
 // AnalyzeLog analyzes slow op log
 func AnalyzeLog(str string) (*OpStat, error) {
 	doc := Logv2Info{}
@@ -47,8 +58,8 @@ func AnalyzeSlowOp(doc *Logv2Info) (*OpStat, error) {
 	if c != "COMMAND" && c != "QUERY" && c != "WRITE" {
 		return stat, errors.New("unsupported command")
 	}
-	b, _ := bson.Marshal(doc.Attr)
-	bson.Unmarshal(b, &doc.Attributes)
+	// Parse attributes directly from bson.D instead of Marshal/Unmarshal
+	parseAttributes(doc)
 	stat.TotalMilli = doc.Attributes.Milli
 	stat.Namespace = doc.Attributes.NS
 	if stat.Namespace == "" {
@@ -112,10 +123,14 @@ func AnalyzeSlowOp(doc *Logv2Info) (*OpStat, error) {
 		}
 
 		if query != nil {
-			walker := gox.NewMapWalker(cb)
-			doc := walker.Walk(query.(map[string]interface{}))
-			if buf, err := json.Marshal(doc); err == nil {
-				stat.QueryPattern = string(buf)
+			qmap := toMap(query)
+			if qmap != nil {
+				walked := mapWalker.Walk(qmap)
+				if buf, err := json.Marshal(walked); err == nil {
+					stat.QueryPattern = string(buf)
+				} else {
+					stat.QueryPattern = "{}"
+				}
 			} else {
 				stat.QueryPattern = "{}"
 			}
@@ -123,8 +138,16 @@ func AnalyzeSlowOp(doc *Logv2Info) (*OpStat, error) {
 			stat.QueryPattern = "{}"
 		}
 	} else if stat.Op == cmdAggregate {
-		pipeline, ok := command["pipeline"].(bson.A)
-		if !ok || len(pipeline) == 0 {
+		var pipeline []interface{}
+		switch p := command["pipeline"].(type) {
+		case bson.A:
+			pipeline = p
+		case []interface{}:
+			pipeline = p
+		default:
+			return stat, errors.New("pipeline not found")
+		}
+		if len(pipeline) == 0 {
 			return stat, errors.New("pipeline not found")
 		}
 		var stage interface{}
@@ -132,11 +155,10 @@ func AnalyzeSlowOp(doc *Logv2Info) (*OpStat, error) {
 			stage = v
 			break
 		}
-		fmap := stage.(map[string]interface{})
-		if !isRegex(fmap) {
-			walker := gox.NewMapWalker(cb)
-			doc := walker.Walk(fmap)
-			if buf, err := json.Marshal(doc); err == nil {
+		fmap := toMap(stage)
+		if fmap != nil && !isRegex(fmap) {
+			walked := mapWalker.Walk(fmap)
+			if buf, err := json.Marshal(walked); err == nil {
 				stat.QueryPattern = string(buf)
 			} else {
 				stat.QueryPattern = "{}"
@@ -152,59 +174,129 @@ func AnalyzeSlowOp(doc *Logv2Info) (*OpStat, error) {
 				!strings.Contains(stat.QueryPattern, "$facet") && !strings.Contains(stat.QueryPattern, "$indexStats") {
 				stat.QueryPattern = "{}"
 			}
-		} else {
+		} else if fmap != nil {
 			buf, _ := json.Marshal(fmap)
-			str := string(buf)
-			re := regexp.MustCompile(`{(.*):{"\$regularExpression":{"options":"(\S+)?","pattern":"(\^)?(\S+)"}}}`)
-			stat.QueryPattern = re.ReplaceAllString(str, "{$1:/$3.../$2}")
+			stat.QueryPattern = reRegex.ReplaceAllString(string(buf), "{$1:/$3.../$2}")
+		} else {
+			stat.QueryPattern = "{}"
 		}
 	} else {
 		var fmap map[string]interface{}
 		if command["filter"] != nil {
-			fmap = command["filter"].(map[string]interface{})
+			fmap = toMap(command["filter"])
 		} else if command["query"] != nil {
-			fmap = command["query"].(map[string]interface{})
+			fmap = toMap(command["query"])
 		} else if command["q"] != nil {
-			fmap = command["q"].(map[string]interface{})
+			fmap = toMap(command["q"])
 		} else {
 			stat.QueryPattern = "{}"
 		}
-		if !isRegex(fmap) {
-			walker := gox.NewMapWalker(cb)
-			doc := walker.Walk(fmap)
+		if fmap != nil && !isRegex(fmap) {
+			walked := mapWalker.Walk(fmap)
 			var data []byte
-			if data, err = json.Marshal(doc); err != nil {
+			if data, err = json.Marshal(walked); err != nil {
 				return stat, err
 			}
 			stat.QueryPattern = string(data)
 			if stat.QueryPattern == `{"":null}` {
 				stat.QueryPattern = "{}"
 			}
-		} else {
+		} else if fmap != nil {
 			buf, _ := json.Marshal(fmap)
-			str := string(buf)
-			re := regexp.MustCompile(`{(.*):{"\$regularExpression":{"options":"(\S+)?","pattern":"(\^)?(\S+)"}}}`)
-			stat.QueryPattern = re.ReplaceAllString(str, "{$1:/$3.../$2}")
+			stat.QueryPattern = reRegex.ReplaceAllString(string(buf), "{$1:/$3.../$2}")
 		}
 	}
 	if stat.Op == "" {
 		return stat, nil
 	}
-	re := regexp.MustCompile(`^{("\$match"|"\$sort"):(\S+)}$`)
-	stat.QueryPattern = re.ReplaceAllString(stat.QueryPattern, `$2`)
-	re = regexp.MustCompile(`^{("(\$facet")):\S+}$`)
-	stat.QueryPattern = re.ReplaceAllString(stat.QueryPattern, `{$1:...}`)
-	re = regexp.MustCompile(`{"\$oid":1}`)
-	stat.QueryPattern = re.ReplaceAllString(stat.QueryPattern, `1`)
-	re = regexp.MustCompile(`("\$n?in"):\[\S+(,\s?\S+)*\]`)
-	stat.QueryPattern = re.ReplaceAllString(stat.QueryPattern, `$1:[...]`)
-	re = regexp.MustCompile(`"(\$?\w+)":`)
-	stat.QueryPattern = re.ReplaceAllString(stat.QueryPattern, ` $1:`)
+	// Use pre-compiled regex patterns for better performance
+	stat.QueryPattern = reMatchSort.ReplaceAllString(stat.QueryPattern, `$2`)
+	stat.QueryPattern = reFacet.ReplaceAllString(stat.QueryPattern, `{$1:...}`)
+	stat.QueryPattern = reOid.ReplaceAllString(stat.QueryPattern, `1`)
+	stat.QueryPattern = reIn.ReplaceAllString(stat.QueryPattern, `$1:[...]`)
+	stat.QueryPattern = reKey.ReplaceAllString(stat.QueryPattern, ` $1:`)
 	stat.QueryPattern = strings.ReplaceAll(stat.QueryPattern, "}", " }")
 	if isGetMore {
 		stat.Op = cmdGetMore
 	}
 	return stat, nil
+}
+
+// parseAttributes extracts attributes directly from bson.D without Marshal/Unmarshal
+func parseAttributes(doc *Logv2Info) {
+	for _, elem := range doc.Attr {
+		switch elem.Key {
+		case "appName":
+			if v, ok := elem.Value.(string); ok {
+				doc.Attributes.AppName = v
+			}
+		case "command":
+			if v, ok := elem.Value.(bson.D); ok {
+				doc.Attributes.Command = BsonD2M(v)
+			} else if v, ok := elem.Value.(map[string]interface{}); ok {
+				doc.Attributes.Command = v
+			}
+		case "errMsg":
+			if v, ok := elem.Value.(string); ok {
+				doc.Attributes.ErrMsg = v
+			}
+		case "durationMillis":
+			doc.Attributes.Milli = toInt(elem.Value)
+		case "ns":
+			if v, ok := elem.Value.(string); ok {
+				doc.Attributes.NS = v
+			}
+		case "originatingCommand":
+			if v, ok := elem.Value.(bson.D); ok {
+				doc.Attributes.OriginatingCommand = BsonD2M(v)
+			} else if v, ok := elem.Value.(map[string]interface{}); ok {
+				doc.Attributes.OriginatingCommand = v
+			}
+		case "planSummary":
+			if v, ok := elem.Value.(string); ok {
+				doc.Attributes.PlanSummary = v
+			}
+		case "reslen":
+			doc.Attributes.Reslen = toInt(elem.Value)
+		case "type":
+			if v, ok := elem.Value.(string); ok {
+				doc.Attributes.Type = v
+			}
+		}
+	}
+}
+
+// toInt converts various numeric types to int efficiently
+func toInt(v interface{}) int {
+	switch n := v.(type) {
+	case int:
+		return n
+	case int32:
+		return int(n)
+	case int64:
+		return int(n)
+	case float64:
+		return int(n)
+	case float32:
+		return int(n)
+	}
+	return 0
+}
+
+// toMap converts bson.D or map[string]interface{} to map[string]interface{}
+func toMap(v interface{}) map[string]interface{} {
+	if v == nil {
+		return nil
+	}
+	switch m := v.(type) {
+	case map[string]interface{}:
+		return m
+	case bson.D:
+		return BsonD2M(m)
+	case bson.M:
+		return m
+	}
+	return nil
 }
 
 func isRegex(doc map[string]interface{}) bool {

@@ -246,6 +246,7 @@ func (ptr *Logv2) Analyze(logname string, marker int) error {
 	log.Printf("using %v threads\n", threads)
 	failedMap := FailedMessages{counters: map[string]int{}}
 	var wg = gox.NewWaitGroup(threads)
+	var lineBuf bytes.Buffer // Reusable buffer for multi-line entries
 	for {
 		if !ptr.testing && !ptr.legacy && index%50 == 0 && ptr.totalLines > 0 {
 			fmt.Fprintf(os.Stderr, "\r%3d%% \r", (100*index)/ptr.totalLines)
@@ -258,17 +259,26 @@ func (ptr *Logv2) Analyze(logname string, marker int) error {
 			log.Println("line", index, "is blank.")
 			continue
 		}
-		str := string(buf)
-		for isPrefix {
-			var bbuf []byte
-			if bbuf, isPrefix, err = reader.ReadLine(); err != nil {
-				// EOF in the inner loop means incomplete line, which is an error
-				if errors.Is(err, io.EOF) {
-					err = fmt.Errorf("unexpected EOF while reading multi-line prefix")
+		var str string
+		if !isPrefix {
+			// Fast path: single line, no allocation needed beyond the string conversion
+			str = string(buf)
+		} else {
+			// Multi-line entry: use buffer to avoid repeated string concatenation
+			lineBuf.Reset()
+			lineBuf.Write(buf)
+			for isPrefix {
+				var bbuf []byte
+				if bbuf, isPrefix, err = reader.ReadLine(); err != nil {
+					// EOF in the inner loop means incomplete line, which is an error
+					if errors.Is(err, io.EOF) {
+						err = fmt.Errorf("unexpected EOF while reading multi-line prefix")
+					}
+					break
 				}
-				break
+				lineBuf.Write(bbuf)
 			}
-			str += string(bbuf)
+			str = lineBuf.String()
 		}
 		// If we got an error in the inner loop, break from outer loop
 		if err != nil {

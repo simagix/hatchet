@@ -314,12 +314,28 @@ func GetMarkerHTML(marker int) string {
 	return str
 }
 
+// BsonD2M converts bson.D to bson.M efficiently without Marshal/Unmarshal
+// It recursively converts nested bson.D and bson.A values
 func BsonD2M(d bson.D) bson.M {
-	var m bson.M
-	b, err := bson.Marshal(d)
-	if err != nil {
-		return m
+	m := make(bson.M, len(d))
+	for _, elem := range d {
+		m[elem.Key] = convertBsonValue(elem.Value)
 	}
-	bson.Unmarshal(b, &m)
 	return m
+}
+
+// convertBsonValue recursively converts bson.D and bson.A to map and slice
+func convertBsonValue(v interface{}) interface{} {
+	switch val := v.(type) {
+	case bson.D:
+		return BsonD2M(val)
+	case bson.A:
+		result := make([]interface{}, len(val))
+		for i, item := range val {
+			result[i] = convertBsonValue(item)
+		}
+		return result
+	default:
+		return v
+	}
 }

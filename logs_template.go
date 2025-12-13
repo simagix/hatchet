@@ -146,6 +146,9 @@ func getLegacyLogsTable() string {
 <p/>
 <div>
 {{ if .Logs }}
+	<div style="clear: both; margin-bottom: 10px;">
+		<span style="font-weight: bold;">Total records: {{.TotalCount}}</span>
+	</div>
 	{{if .HasMore}}
 		<button onClick="javascript:loadData('{{.URL}}'); return false;"
 			class="btn" style="float: right; clear: right"><i class="fa fa-arrow-right"></i></button>

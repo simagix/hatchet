@@ -26,6 +26,7 @@ type Database interface {
 	Begin() error
 	Close() error
 	Commit() error
+	CountLogs(opts ...string) (int, error)
 	CreateMetaData() error
 	Drop() error
 	GetAcceptedConnsCounts(duration string) ([]NameValue, error)

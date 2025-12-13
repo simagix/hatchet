@@ -118,7 +118,7 @@ func (ptr *SQLite3DB) GetLogs(opts ...string) ([]LegacyLog, error) {
 func (ptr *SQLite3DB) SearchLogs(opts ...string) ([]LegacyLog, error) {
 	qheader := fmt.Sprintf(`SELECT date, severity, component, context, message, marker FROM %v`, ptr.hatchetName)
 	docs := []LegacyLog{}
-	wheres := []string{}
+	wheres := buildSearchWheres(opts)
 	qlimit := LIMIT + 1
 	var offset, nlimit int
 	for _, opt := range opts {
@@ -126,25 +126,9 @@ func (ptr *SQLite3DB) SearchLogs(opts ...string) ([]LegacyLog, error) {
 		if len(toks) < 2 || toks[1] == "" {
 			continue
 		}
-		if toks[0] == "duration" {
-			dates := strings.Split(toks[1], ",")
-			wheres = append(wheres, fmt.Sprintf(" date BETWEEN '%v' and '%v'", dates[0], dates[1]))
-		} else if toks[0] == "limit" {
+		if toks[0] == "limit" {
 			offset, nlimit = GetOffsetLimit(toks[1])
 			qlimit = ToInt(nlimit) + 1
-		} else if toks[0] == "severity" {
-			sevs := []string{}
-			for _, v := range SEVERITIES {
-				sevs = append(sevs, fmt.Sprintf("'%v'", v))
-				if v == toks[1] {
-					break
-				}
-			}
-			wheres = append(wheres, " severity IN ("+strings.Join(sevs, ",")+")")
-		} else if toks[0] == "context" {
-			wheres = append(wheres, fmt.Sprintf(` message LIKE "%%%v%%"`, EscapeString(toks[1])))
-		} else {
-			wheres = append(wheres, fmt.Sprintf(` %v = "%v"`, toks[0], EscapeString(toks[1])))
 		}
 	}
 	wclause := ""
@@ -170,6 +154,54 @@ func (ptr *SQLite3DB) SearchLogs(opts ...string) ([]LegacyLog, error) {
 		docs = append(docs, doc)
 	}
 	return docs, err
+}
+
+// CountLogs returns the total count of logs matching the search criteria
+func (ptr *SQLite3DB) CountLogs(opts ...string) (int, error) {
+	wheres := buildSearchWheres(opts)
+	wclause := ""
+	if len(wheres) > 0 {
+		wclause = " WHERE " + strings.Join(wheres, " AND")
+	}
+	query := fmt.Sprintf(`SELECT COUNT(*) FROM %v%v`, ptr.hatchetName, wclause)
+	if ptr.verbose {
+		explain(ptr.db, query)
+	}
+	var count int
+	err := ptr.db.QueryRow(query).Scan(&count)
+	return count, err
+}
+
+// buildSearchWheres builds WHERE clauses for search queries
+func buildSearchWheres(opts []string) []string {
+	wheres := []string{}
+	for _, opt := range opts {
+		toks := strings.Split(opt, "=")
+		if len(toks) < 2 || toks[1] == "" {
+			continue
+		}
+		if toks[0] == "duration" {
+			dates := strings.Split(toks[1], ",")
+			wheres = append(wheres, fmt.Sprintf(" date BETWEEN '%v' and '%v'", dates[0], dates[1]))
+		} else if toks[0] == "limit" {
+			// skip limit for WHERE clause
+			continue
+		} else if toks[0] == "severity" {
+			sevs := []string{}
+			for _, v := range SEVERITIES {
+				sevs = append(sevs, fmt.Sprintf("'%v'", v))
+				if v == toks[1] {
+					break
+				}
+			}
+			wheres = append(wheres, " severity IN ("+strings.Join(sevs, ",")+")")
+		} else if toks[0] == "context" {
+			wheres = append(wheres, fmt.Sprintf(` message LIKE "%%%v%%"`, EscapeString(toks[1])))
+		} else {
+			wheres = append(wheres, fmt.Sprintf(` %v = "%v"`, toks[0], EscapeString(toks[1])))
+		}
+	}
+	return wheres
 }
 
 func (ptr *SQLite3DB) GetSlowestLogs(topN int) ([]LegacyLog, error) {

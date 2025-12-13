@@ -150,31 +150,15 @@ func (ptr *MongoDB) SearchLogs(opts ...string) ([]LegacyLog, error) {
 	var offset, nlimit int
 	ctx := context.Background()
 
-	filter := bson.M{}
+	filter := buildMongoSearchFilter(opts)
 	for _, opt := range opts {
 		toks := strings.Split(opt, "=")
 		if len(toks) < 2 || toks[1] == "" {
 			continue
 		}
-		if toks[0] == "duration" {
-			dates := strings.Split(toks[1], ",")
-			filter["date"] = bson.M{"$gte": dates[0], "$lt": dates[1]}
-		} else if toks[0] == "limit" {
+		if toks[0] == "limit" {
 			offset, nlimit = GetOffsetLimit(toks[1])
 			qlimit = ToInt(nlimit) + 1
-		} else if toks[0] == "severity" {
-			severities := []string{}
-			for _, v := range SEVERITIES {
-				severities = append(severities, v)
-				if v == toks[1] {
-					break
-				}
-			}
-			filter["severity"] = bson.M{"$in": severities}
-		} else if toks[0] == "context" {
-			filter["message"] = bson.M{"$regex": primitive.Regex{Pattern: toks[1], Options: "i"}}
-		} else {
-			filter[toks[0]] = EscapeString(toks[1])
 		}
 	}
 
@@ -192,6 +176,47 @@ func (ptr *MongoDB) SearchLogs(opts ...string) ([]LegacyLog, error) {
 		docs = append(docs, doc)
 	}
 	return docs, nil
+}
+
+// CountLogs returns the total count of logs matching the search criteria
+func (ptr *MongoDB) CountLogs(opts ...string) (int, error) {
+	collection := ptr.db.Collection(ptr.hatchetName)
+	ctx := context.Background()
+	filter := buildMongoSearchFilter(opts)
+	count, err := collection.CountDocuments(ctx, filter)
+	return int(count), err
+}
+
+// buildMongoSearchFilter builds a MongoDB filter from search options
+func buildMongoSearchFilter(opts []string) bson.M {
+	filter := bson.M{}
+	for _, opt := range opts {
+		toks := strings.Split(opt, "=")
+		if len(toks) < 2 || toks[1] == "" {
+			continue
+		}
+		if toks[0] == "duration" {
+			dates := strings.Split(toks[1], ",")
+			filter["date"] = bson.M{"$gte": dates[0], "$lt": dates[1]}
+		} else if toks[0] == "limit" {
+			// skip limit for filter
+			continue
+		} else if toks[0] == "severity" {
+			severities := []string{}
+			for _, v := range SEVERITIES {
+				severities = append(severities, v)
+				if v == toks[1] {
+					break
+				}
+			}
+			filter["severity"] = bson.M{"$in": severities}
+		} else if toks[0] == "context" {
+			filter["message"] = bson.M{"$regex": primitive.Regex{Pattern: toks[1], Options: "i"}}
+		} else {
+			filter[toks[0]] = EscapeString(toks[1])
+		}
+	}
+	return filter
 }
 
 func (ptr *MongoDB) GetSlowestLogs(topN int) ([]LegacyLog, error) {

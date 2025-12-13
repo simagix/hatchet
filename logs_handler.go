@@ -43,13 +43,20 @@ func LogsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Param
 			limit = fmt.Sprintf("%v", LIMIT)
 		}
 		offset, nlimit := GetOffsetLimit(limit)
-		logs, err := dbase.GetLogs(fmt.Sprintf("component=%v", component), fmt.Sprintf("limit=%v", limit),
-			fmt.Sprintf("context=%v", context), fmt.Sprintf("severity=%v", severity),
-			fmt.Sprintf("duration=%v", duration))
+		searchOpts := []string{
+			fmt.Sprintf("component=%v", component),
+			fmt.Sprintf("limit=%v", limit),
+			fmt.Sprintf("context=%v", context),
+			fmt.Sprintf("severity=%v", severity),
+			fmt.Sprintf("duration=%v", duration),
+		}
+		logs, err := dbase.GetLogs(searchOpts...)
 		if err != nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return
 		}
+		// Get total count for search results
+		totalCount, _ := dbase.CountLogs(searchOpts...)
 		templ, err := GetLogTableTemplate(attr)
 		if err != nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
@@ -69,7 +76,7 @@ func LogsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Param
 			component, context, severity, duration, limit)
 		doc := map[string]interface{}{"Hatchet": hatchetName, "Merge": info.Merge, "Logs": logs, "Seq": seq,
 			"Summary": summary, "Context": context, "Component": component, "Severity": severity,
-			"HasMore": hasMore, "URL": url}
+			"HasMore": hasMore, "URL": url, "TotalCount": totalCount}
 		if err = templ.Execute(w, doc); err != nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 			return

@@ -3,7 +3,7 @@
 # build.sh
 
 die() { echo "$*" 1>&2 ; exit 1; }
-VERSION="v$(cat version)-$(git log -1 --date=format:"%Y%m%d" --format="%ad")"
+VERSION="$(cat version)-$(git log -1 --date=format:"%Y%m%d" --format="%ad")"
 REPO=$(basename "$(dirname "$(pwd)")")/$(basename "$(pwd)")
 LDFLAGS="-X main.version=$VERSION -X main.repo=$REPO"
 TAG="simagix/hatchet"
@@ -18,15 +18,13 @@ fi
 
 mkdir -p dist
 if [ "$1" == "docker" ]; then
+  VER="$(cat version)"
   BR=$(git branch --show-current)
+  docker build --no-cache -f Dockerfile -t ${TAG}:${VER} .
   if [[ "${BR}" == "main" ]]; then
-    BR="latest"
+    docker tag ${TAG}:${VER} ${TAG}:latest
   fi
-  docker build --no-cache -f Dockerfile -t ${TAG}:${BR} .
-  if [[ "${BR}" != "main" ]]; then
-    docker tag ${TAG}:${BR} ${TAG}
-  fi
-  docker run ${TAG}:${BR} /hatchet -version
+  docker run ${TAG}:${VER} /bin/hatchet -version
   # docker rmi -f $(docker images -f "dangling=true" -q) > /dev/null 2>&1
 elif [ "$1" == "dist" ]; then
   [[ "$(which uname)" = "" ]] && die "uname command not found"

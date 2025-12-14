@@ -1,6 +1,6 @@
 module github.com/simagix/hatchet
 
-go 1.25.0
+go 1.25
 
 require (
 	github.com/aws/aws-sdk-go v1.44.219

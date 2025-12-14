@@ -1,15 +1,14 @@
-FROM golang:1.25-alpine as builder
-RUN apk update && apk add git bash build-base && rm -rf /var/cache/apk/* \
-  && mkdir -p /github.com/simagix/hatchet && cd /github.com/simagix \
-  && git clone --depth 1 https://github.com/simagix/hatchet.git
-WORKDIR /github.com/simagix/hatchet
-RUN CGO_CFLAGS="-D_LARGEFILE64_SOURCE" go build -o ./dist/hatchet main/hatchet.go
+FROM golang:1.25-alpine AS builder
+RUN apk update && apk add git bash build-base && rm -rf /var/cache/apk/*
+WORKDIR /build
+COPY . .
+RUN CGO_ENABLED=0 go build -ldflags "-X main.version=v$(cat version)-$(date +%Y%m%d) -X main.repo=simagix/hatchet" -o ./dist/hatchet main/hatchet.go
 
 FROM alpine
-LABEL Ken Chen <ken.chen@simagix.com>
+LABEL maintainer="Ken Chen <ken.chen@simagix.com>"
 RUN addgroup -S simagix && adduser -S simagix -G simagix
 USER simagix
 WORKDIR /home/simagix
-COPY --from=builder /github.com/simagix/hatchet/dist/hatchet /bin/hatchet
+COPY --from=builder /build/dist/hatchet /bin/hatchet
 
-CMD ["/bin/sh","-c","sleep infinity"]
+CMD ["/bin/hatchet", "-version"]

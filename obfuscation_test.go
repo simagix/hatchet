@@ -7,6 +7,7 @@ package hatchet
 
 import (
 	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -289,5 +290,76 @@ func TestObfuscatePhoneNo(t *testing.T) {
 	actualOutput4 := o.ObfuscatePhoneNo(input4)
 	if !expectedOutputRegex.MatchString(actualOutput4) {
 		t.Errorf("Expected obfuscated phone number to match pattern %s, but got %s", expectedOutputRegex.String(), actualOutput4)
+	}
+}
+
+func TestObfuscateMAC(t *testing.T) {
+	obs := NewObfuscation()
+	
+	// Test MAC with colons
+	result := obs.ObfuscateMAC("AA:BB:CC:11:22:33")
+	if result == "AA:BB:CC:11:22:33" {
+		t.Error("MAC should be obfuscated")
+	}
+	// Vendor prefix should be preserved
+	if !strings.HasPrefix(result, "AA:BB:CC:") {
+		t.Errorf("Vendor prefix should be preserved, got %s", result)
+	}
+	
+	// Test determinism
+	result2 := obs.ObfuscateMAC("AA:BB:CC:11:22:33")
+	if result != result2 {
+		t.Error("Same MAC should produce same result")
+	}
+	
+	// Test MAC with dashes
+	result3 := obs.ObfuscateMAC("AA-BB-CC-11-22-33")
+	if !strings.HasPrefix(result3, "AA-BB-CC-") {
+		t.Errorf("Vendor prefix should be preserved with dashes, got %s", result3)
+	}
+}
+
+func TestObfuscateDate(t *testing.T) {
+	obs := NewObfuscation()
+	
+	result := obs.ObfuscateDate("2024-06-15")
+	if result == "2024-06-15" {
+		t.Error("Date should be shifted")
+	}
+	// Should still be a valid date format
+	if len(result) != 10 || result[4] != '-' || result[7] != '-' {
+		t.Errorf("Date format should be preserved, got %s", result)
+	}
+	
+	// Test determinism
+	obs2 := NewObfuscation()
+	result2 := obs2.ObfuscateDate("2024-06-15")
+	if result != result2 {
+		t.Error("Same date should produce same result across instances")
+	}
+}
+
+func TestObfuscateID(t *testing.T) {
+	obs := NewObfuscation()
+	
+	// Test MRN
+	result := obs.ObfuscateID("MRN: 12345678")
+	if result == "MRN: 12345678" {
+		t.Error("MRN should be obfuscated")
+	}
+	if !strings.HasPrefix(result, "MRN: ") {
+		t.Errorf("MRN prefix should be preserved, got %s", result)
+	}
+	
+	// Test account number
+	result2 := obs.ObfuscateID("acct#987654321")
+	if result2 == "acct#987654321" {
+		t.Error("Account should be obfuscated")
+	}
+	
+	// Test determinism
+	result3 := obs.ObfuscateID("MRN: 12345678")
+	if result != result3 {
+		t.Error("Same ID should produce same result")
 	}
 }

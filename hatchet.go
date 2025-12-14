@@ -53,22 +53,46 @@ func Run(fullVersion string) {
 		fmt.Println(fullVersion)
 		return
 	} else if *infile != "" {
-		var data []byte
-		obs := NewObfuscation()
-		err := obs.ObfuscateFile(*infile)
+		// Create obfuscated directory
+		outDir := "obfuscated"
+		if err := os.MkdirAll(outDir, 0755); err != nil {
+			log.Fatal(err)
+		}
+
+		// Determine output filenames
+		baseName := filepath.Base(*infile)
+		if baseName == "-" {
+			baseName = "stdin"
+		}
+		// Remove compression extensions for cleaner output names
+		baseName = strings.TrimSuffix(baseName, ".gz")
+		baseName = strings.TrimSuffix(baseName, ".zst")
+		logFile := filepath.Join(outDir, baseName)
+		mapFile := filepath.Join(outDir, baseName+".mappings.json")
+
+		// Create output log file
+		outFile, err := os.Create(logFile)
 		if err != nil {
 			log.Fatal(err)
 		}
-		if data, err = json.Marshal(*obs); err != nil {
+
+		obs := NewObfuscation()
+		err = obs.ObfuscateFileToWriter(*infile, outFile)
+		outFile.Close()
+		if err != nil {
 			log.Fatal(err)
 		}
-		jfile := filepath.Base(*infile) + "_obfuscated.json"
-		if jfile == "-_obfuscated.json" {
-			jfile = "stdin_obfuscated.json"
-		}
-		if err = os.WriteFile(jfile, data, 0644); err != nil {
+
+		// Save mappings to JSON file
+		var data []byte
+		if data, err = json.MarshalIndent(*obs, "", "  "); err != nil {
 			log.Fatal(err)
 		}
+		if err = os.WriteFile(mapFile, data, 0644); err != nil {
+			log.Fatal(err)
+		}
+		log.Printf("Obfuscated log saved to %s\n", logFile)
+		log.Printf("Mappings saved to %s\n", mapFile)
 		return
 	} else if *bios && len(flag.Args()) > 1 {
 		InsertBiosIntoMongoDB(flag.Args()[0], ToInt(flag.Args()[1]))
@@ -168,6 +192,7 @@ func Run(fullVersion string) {
 	} else {
 		listener.Close()
 		log.Println("starting web server at", addr)
+		log.Printf("http://localhost:%d\n", *port)
 		log.Fatal(http.ListenAndServe(addr, router))
 	}
 }

@@ -7,9 +7,10 @@ package hatchet
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
-	"math"
-	"math/rand"
+	"hash/fnv"
+	"io"
 	"os"
 	"regexp"
 	"strconv"
@@ -28,6 +29,9 @@ var (
 	reNS    = regexp.MustCompile(`[^@$.\n]*\.[^^@.\n]*([.][^^@.\n]*)?`)
 	reDigit = regexp.MustCompile("[0-9.]")
 	reSSN   = regexp.MustCompile(`\d{3}-\d{2}-\d{4}`)
+	reMAC   = regexp.MustCompile(`([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}`)
+	reDate  = regexp.MustCompile(`\d{4}-\d{2}-\d{2}`)              // ISO date YYYY-MM-DD
+	reMRN   = regexp.MustCompile(`(?i)(mrn|acct|id)[:\s#]*\d{6,}`) // Medical Record Number, Account, ID
 )
 
 var (
@@ -49,30 +53,78 @@ var (
 
 type Obfuscation struct {
 	Coefficient float64           `json:"coefficient"`
+	DateOffset  int               `json:"date_offset"` // Days to shift dates
 	CardMap     map[string]string `json:"card_map"`
 	intMap      map[int]int
 	IPMap       map[string]string `json:"ip_map"`
+	MACMap      map[string]string `json:"mac_map"`
 	NameMap     map[string]string `json:"name_map"`
 	numberMap   map[string]float64
 	PhoneMap    map[string]string `json:"phone_map"`
 	SSNMap      map[string]string `json:"ssn_map"`
+	IDMap       map[string]string `json:"id_map"` // MRN, Account numbers, etc.
 }
 
 func NewObfuscation() *Obfuscation {
 	obs := Obfuscation{}
-	obs.Coefficient = 0.923 - rand.Float64()*0.05
-	obs.Coefficient = math.Round(obs.Coefficient*1000) / 1000
+	obs.Coefficient = 0.917 // Fixed coefficient for deterministic results
+	obs.DateOffset = -42    // Shift dates back 42 days (deterministic)
 	obs.CardMap = make(map[string]string)
 	obs.intMap = make(map[int]int)
 	obs.IPMap = make(map[string]string)
+	obs.MACMap = make(map[string]string)
 	obs.NameMap = make(map[string]string)
 	obs.numberMap = make(map[string]float64)
 	obs.PhoneMap = make(map[string]string)
 	obs.SSNMap = make(map[string]string)
+	obs.IDMap = make(map[string]string)
 	return &obs
 }
 
+// hashIndex returns a deterministic index based on the input string
+func hashIndex(s string, max int) int {
+	h := fnv.New32a()
+	h.Write([]byte(s))
+	return int(h.Sum32()) % max
+}
+
+// hashOctet returns a deterministic octet (0-255) based on input and position
+func hashOctet(s string, pos int) int {
+	h := fnv.New32a()
+	h.Write([]byte(fmt.Sprintf("%s:%d", s, pos)))
+	return int(h.Sum32()) % 256
+}
+
+// PrintMappings outputs all obfuscation mappings to stderr in JSON format
+func (ptr *Obfuscation) PrintMappings() {
+	// Filter out self-mappings from NameMap
+	filteredNameMap := make(map[string]string)
+	for k, v := range ptr.NameMap {
+		if k != v {
+			filteredNameMap[k] = v
+		}
+	}
+
+	mappings := map[string]interface{}{
+		"coefficient": ptr.Coefficient,
+		"date_offset": ptr.DateOffset,
+		"ip_map":      ptr.IPMap,
+		"mac_map":     ptr.MACMap,
+		"name_map":    filteredNameMap,
+		"ssn_map":     ptr.SSNMap,
+		"phone_map":   ptr.PhoneMap,
+		"card_map":    ptr.CardMap,
+		"id_map":      ptr.IDMap,
+	}
+	data, _ := json.MarshalIndent(mappings, "", "  ")
+	fmt.Fprintln(os.Stderr, string(data))
+}
+
 func (ptr *Obfuscation) ObfuscateFile(filename string) error {
+	return ptr.ObfuscateFileToWriter(filename, os.Stdout)
+}
+
+func (ptr *Obfuscation) ObfuscateFileToWriter(filename string, w io.Writer) error {
 	var err error
 	var buf []byte
 	var isPrefix bool
@@ -132,7 +184,7 @@ func (ptr *Obfuscation) ObfuscateFile(filename string) error {
 		}
 		buf, err = bson.MarshalExtJSON(document, false, false)
 		if err == nil {
-			fmt.Println(string(buf))
+			fmt.Fprintln(w, string(buf))
 		}
 	}
 	return nil
@@ -224,8 +276,11 @@ func (ptr *Obfuscation) ObfuscateString(value string) string {
 	value = ptr.ObfuscateNS(value)
 	value = ptr.ObfuscateFQDN(value)
 	value = ptr.ObfuscateIP(value)
+	value = ptr.ObfuscateMAC(value)
 	value = ptr.ObfuscateSSN(value)
 	value = ptr.ObfuscatePhoneNo(value)
+	value = ptr.ObfuscateDate(value)
+	value = ptr.ObfuscateID(value)
 	return value
 }
 
@@ -261,8 +316,9 @@ func (ptr *Obfuscation) ObfuscateEmail(email string) string {
 		if ptr.NameMap[matched] != "" {
 			return strings.Replace(email, matched, ptr.NameMap[matched], -1)
 		}
-		city := cities[rand.Intn(len(cities))]
-		flower := flowers[rand.Intn(len(flowers))]
+		// Use deterministic selection based on the matched value
+		city := cities[hashIndex(matched, len(cities))]
+		flower := flowers[hashIndex(matched+"flower", len(flowers))]
 		newValue := strings.ToLower(flower + "@" + city + ".com")
 		ptr.NameMap[matched] = newValue
 		ptr.NameMap[newValue] = newValue
@@ -290,7 +346,8 @@ func (ptr *Obfuscation) ObfuscateIP(ip string) string {
 			if len(octets) != 4 {
 				return ip
 			}
-			newValue = octets[0] + "." + strconv.Itoa(rand.Intn(256)) + "." + strconv.Itoa(rand.Intn(256)) + "." + octets[3]
+			// Use deterministic octet generation based on the IP
+			newValue = octets[0] + "." + strconv.Itoa(hashOctet(matched, 1)) + "." + strconv.Itoa(hashOctet(matched, 2)) + "." + octets[3]
 			ptr.IPMap[matched] = newValue
 		}
 		return strings.Replace(ip, matched, newValue, -1)
@@ -300,6 +357,10 @@ func (ptr *Obfuscation) ObfuscateIP(ip string) string {
 
 // ObfuscateFQDN returns a obfuscated FQDN
 func (ptr *Obfuscation) ObfuscateFQDN(fqdn string) string {
+	// Skip file paths - they're not FQDNs
+	if strings.Contains(fqdn, "/") || strings.Contains(fqdn, "\\") {
+		return fqdn
+	}
 	if !ContainsFQDN(fqdn) {
 		return fqdn
 	}
@@ -319,6 +380,10 @@ func (ptr *Obfuscation) ObfuscateFQDN(fqdn string) string {
 
 // ObfuscateNS returns a obfuscated namespace
 func (ptr *Obfuscation) ObfuscateNS(ns string) string {
+	// Skip file paths - they're not namespaces
+	if strings.Contains(ns, "/") || strings.Contains(ns, "\\") {
+		return ns
+	}
 	if !IsNamespace(ns) {
 		return ns
 	}
@@ -342,8 +407,9 @@ func (ptr *Obfuscation) ObfuscateNS(ns string) string {
 
 // generateObfuscatedName generates an obfuscated name from city and flower names
 func (ptr *Obfuscation) generateObfuscatedName(matched string) string {
-	city := cities[rand.Intn(len(cities))]
-	flower := flowers[rand.Intn(len(flowers))]
+	// Use deterministic selection based on the matched value
+	city := cities[hashIndex(matched, len(cities))]
+	flower := flowers[hashIndex(matched+"flower", len(flowers))]
 	parts := strings.Split(matched, ".")
 	if len(parts) > 2 {
 		tail := parts[len(parts)-1]
@@ -370,8 +436,9 @@ func (ptr *Obfuscation) ObfuscateSSN(ssn string) string {
 					digits = append(digits, byte(c))
 				}
 			}
-			for i := range digits {
-				j := rand.Intn(i + 1)
+			// Deterministic shuffle using hash
+			for i := len(digits) - 1; i > 0; i-- {
+				j := hashIndex(matched+strconv.Itoa(i), i+1)
 				digits[i], digits[j] = digits[j], digits[i]
 			}
 			newValue = string(digits[:3]) + "-" + string(digits[3:5]) + "-" + string(digits[5:])
@@ -382,7 +449,7 @@ func (ptr *Obfuscation) ObfuscateSSN(ssn string) string {
 	return ssn
 }
 
-// ObfuscatePhoneNo returns a randome phone number with the same format
+// ObfuscatePhoneNo returns a deterministic obfuscated phone number with the same format
 func (ptr *Obfuscation) ObfuscatePhoneNo(phoneNo string) string {
 	if !ContainsPhoneNo(phoneNo) {
 		return phoneNo
@@ -396,7 +463,8 @@ func (ptr *Obfuscation) ObfuscatePhoneNo(phoneNo string) string {
 		if phoneNo[i] >= '0' && phoneNo[i] <= '9' {
 			n++
 			if n > 5 {
-				obfuscated[i] = byte(rand.Intn(10) + '0')
+				// Use deterministic digit based on phone number and position
+				obfuscated[i] = byte(hashIndex(phoneNo+strconv.Itoa(i), 10) + '0')
 			} else {
 				obfuscated[i] = phoneNo[i]
 			}
@@ -406,4 +474,106 @@ func (ptr *Obfuscation) ObfuscatePhoneNo(phoneNo string) string {
 	}
 	ptr.PhoneMap[phoneNo] = string(obfuscated)
 	return string(obfuscated)
+}
+
+// ObfuscateMAC returns a deterministic obfuscated MAC address
+func (ptr *Obfuscation) ObfuscateMAC(value string) string {
+	matches := reMAC.FindStringSubmatch(value)
+	if len(matches) == 0 {
+		return value
+	}
+	matched := matches[0]
+	if ptr.MACMap[matched] != "" {
+		return strings.Replace(value, matched, ptr.MACMap[matched], -1)
+	}
+	// Determine separator used (: or -)
+	sep := ":"
+	if strings.Contains(matched, "-") {
+		sep = "-"
+	}
+	// Parse original octets
+	parts := strings.FieldsFunc(matched, func(r rune) bool { return r == ':' || r == '-' })
+	if len(parts) != 6 {
+		return value
+	}
+	// Keep vendor prefix (first 3 octets), obfuscate device ID (last 3 octets)
+	newParts := make([]string, 6)
+	copy(newParts[:3], parts[:3])
+	for i := 3; i < 6; i++ {
+		newParts[i] = fmt.Sprintf("%02X", hashOctet(matched, i))
+	}
+	newValue := strings.Join(newParts, sep)
+	ptr.MACMap[matched] = newValue
+	return strings.Replace(value, matched, newValue, -1)
+}
+
+// ObfuscateDate shifts dates by a fixed offset while preserving format
+func (ptr *Obfuscation) ObfuscateDate(value string) string {
+	matches := reDate.FindAllString(value, -1)
+	if len(matches) == 0 {
+		return value
+	}
+	for _, matched := range matches {
+		// Parse the date
+		year, _ := strconv.Atoi(matched[0:4])
+		month, _ := strconv.Atoi(matched[5:7])
+		day, _ := strconv.Atoi(matched[8:10])
+
+		// Simple date shift - add offset to day, handle overflow simply
+		day += ptr.DateOffset
+		for day < 1 {
+			month--
+			if month < 1 {
+				month = 12
+				year--
+			}
+			day += 30 // Approximate
+		}
+		for day > 28 {
+			day -= 28
+			month++
+			if month > 12 {
+				month = 1
+				year++
+			}
+		}
+
+		newValue := fmt.Sprintf("%04d-%02d-%02d", year, month, day)
+		value = strings.Replace(value, matched, newValue, 1)
+	}
+	return value
+}
+
+// ObfuscateID obfuscates MRN, account numbers, and other IDs
+func (ptr *Obfuscation) ObfuscateID(value string) string {
+	matches := reMRN.FindStringSubmatch(value)
+	if len(matches) == 0 {
+		return value
+	}
+	matched := matches[0]
+	if ptr.IDMap[matched] != "" {
+		return strings.Replace(value, matched, ptr.IDMap[matched], -1)
+	}
+
+	// Find where the number starts
+	numStart := 0
+	for i, c := range matched {
+		if c >= '0' && c <= '9' {
+			numStart = i
+			break
+		}
+	}
+
+	prefix := matched[:numStart]
+	numPart := matched[numStart:]
+
+	// Generate deterministic replacement digits
+	newDigits := make([]byte, len(numPart))
+	for i := range numPart {
+		newDigits[i] = byte(hashIndex(matched+strconv.Itoa(i), 10) + '0')
+	}
+
+	newValue := prefix + string(newDigits)
+	ptr.IDMap[matched] = newValue
+	return strings.Replace(value, matched, newValue, -1)
 }

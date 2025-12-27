@@ -277,13 +277,18 @@ const headers = `<!DOCTYPE html>
     }
   </style>
   <script>
-    function loadData(url) {
+    function loadData(url, skipHistory) {
     	var loading = document.getElementById('loading');
     	loading.style.display = 'block';
-    	fetch(url)
+    	fetch(url, {
+    		headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    	})
         	.then(response => response.text())
         	.then(data => {
       			loading.style.display = 'none';
+      			if (!skipHistory) {
+      				history.pushState({url: url}, '', url);
+      			}
 				document.open();
 				document.write(data);
 				document.close();
@@ -292,6 +297,14 @@ const headers = `<!DOCTYPE html>
       			loading.style.display = 'none';
         	});
     }
+    // Handle browser back/forward buttons
+    window.onpopstate = function(event) {
+    	if (event.state && event.state.url) {
+    		loadData(event.state.url, true);
+    	} else {
+    		location.href = '/';
+    	}
+    };
   </script>
 </head>
 <body>
@@ -474,7 +487,7 @@ func getMainPage() string {
 				<tr><th>Hatcheted Log</th><th>Processed Time</th></tr>
 {{range $n, $entry := .Hatchets}}
 				<tr class='clickable-row' onclick='selectHatchet("{{$entry.Name}}")'>
-					<td>{{$entry.Name}} <button class='rename-btn' onclick='renameHatchet("{{$entry.Name}}", event)' title='Rename'><i class='fa fa-pencil'></i></button></td>
+					<td><button class='rename-btn' onclick='renameHatchet("{{$entry.Name}}", event)' title='Rename'><i class='fa fa-pencil'></i></button> {{$entry.Name}}</td>
 					<td class='utc-time' data-utc='{{$entry.CreatedAt}}'>{{$entry.CreatedAt}}</td>
 				</tr>
 {{else}}

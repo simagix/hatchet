@@ -15,6 +15,11 @@ const (
 	REST_API_PREFIX = "/api/hatchet/v1.0/hatchets/"
 )
 
+// isAjaxRequest checks if the request is an AJAX request
+func isAjaxRequest(r *http.Request) bool {
+	return r.Header.Get("X-Requested-With") == "XMLHttpRequest"
+}
+
 // Handler responds to API calls
 func Handler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	dbase, err := GetDatabase(GetLogv2().hatchetName) // main page

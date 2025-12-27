@@ -109,11 +109,53 @@ func AnalyzeSlowOp(doc *Logv2Info) (*OpStat, error) {
 		command = doc.Attributes.OriginatingCommand
 		stat.Op = getOp(command)
 	}
-	if stat.Op == cmdInsert || stat.Op == cmdDistinct ||
-		stat.Op == cmdCreateIndexes || stat.Op == cmdCollstats {
+	if stat.Op == cmdInsert || stat.Op == cmdCollstats {
 		stat.QueryPattern = ""
+	} else if stat.Op == cmdDistinct {
+		// Show which field is being distincted
+		if key, ok := command["key"].(string); ok {
+			stat.QueryPattern = fmt.Sprintf("{ key:%q }", key)
+		}
+	} else if stat.Op == cmdCount {
+		// Extract query from count command
+		if query := command["query"]; query != nil {
+			if qmap := toMap(query); qmap != nil {
+				walked := mapWalker.Walk(qmap)
+				if buf, err := json.Marshal(walked); err == nil {
+					stat.QueryPattern = string(buf)
+				}
+			}
+		}
+		if stat.QueryPattern == "" {
+			stat.QueryPattern = "{}"
+		}
+	} else if stat.Op == cmdCreateIndexes {
+		// Extract the index key from createIndexes command and show in Index field
+		stat.QueryPattern = ""
+		if indexes := command["indexes"]; indexes != nil {
+			var indexArr []interface{}
+			switch idx := indexes.(type) {
+			case bson.A:
+				indexArr = idx
+			case []interface{}:
+				indexArr = idx
+			}
+			if len(indexArr) > 0 {
+				if indexDoc := toMap(indexArr[0]); indexDoc != nil {
+					if key := indexDoc["key"]; key != nil {
+						if keyMap := toMap(key); keyMap != nil {
+							if buf, err := json.Marshal(keyMap); err == nil {
+								stat.Index = string(buf)
+								stat.Index = reKey.ReplaceAllString(stat.Index, ` $1:`)
+								stat.Index = strings.ReplaceAll(stat.Index, "}", " }")
+							}
+						}
+					}
+				}
+			}
+		}
 	} else if stat.QueryPattern == "" &&
-		(stat.Op == cmdFind || stat.Op == cmdUpdate || stat.Op == cmdRemove || stat.Op == cmdDelete) {
+		(stat.Op == cmdFind || stat.Op == cmdUpdate || stat.Op == cmdRemove || stat.Op == cmdDelete || stat.Op == cmdFindAndModify) {
 		var query interface{}
 		if command["q"] != nil {
 			query = command["q"]
@@ -201,6 +243,12 @@ func AnalyzeSlowOp(doc *Logv2Info) (*OpStat, error) {
 				} else {
 					stat.QueryPattern = "{ $lookup:{} }"
 				}
+			} else if strings.Contains(stat.QueryPattern, "$sample") {
+				stat.QueryPattern = "{ $sample:{} }"
+			} else if strings.Contains(stat.QueryPattern, "$geoNear") {
+				stat.QueryPattern = "{ $geoNear:{} }"
+			} else if strings.Contains(stat.QueryPattern, "$graphLookup") {
+				stat.QueryPattern = "{ $graphLookup:{} }"
 			} else if !strings.Contains(stat.QueryPattern, "$match") && !strings.Contains(stat.QueryPattern, "$sort") &&
 				!strings.Contains(stat.QueryPattern, "$facet") && !strings.Contains(stat.QueryPattern, "$indexStats") {
 				stat.QueryPattern = "{}"
@@ -341,7 +389,7 @@ func isRegex(doc map[string]interface{}) bool {
 
 func getOp(command map[string]interface{}) string {
 	ops := []string{cmdAggregate, cmdCollstats, cmdCount, cmdCreateIndexes, cmdDelete, cmdDistinct,
-		cmdFind, cmdFindAndModify, cmdGetMore, cmdInsert, cmdUpdate}
+		cmdFind, cmdFindAndModify, cmdGetMore, cmdInsert, cmdRemove, cmdUpdate}
 	for _, v := range ops {
 		if command[v] != nil {
 			return v

@@ -465,9 +465,8 @@ func getMainPage() string {
 <div style='display: flex; align-items: flex-start; gap: 30px; padding: 15px 0; border-bottom: 1px solid var(--border-color); margin-bottom: 15px;'>
 	<div style='flex: 1;'>
 		<h1 style='margin: 0 0 12px 0; font-size: 2.4em; font-family: Righteous, cursive; letter-spacing: 2px;'>Hatchet</h1>
-		<p style='margin: 0 0 12px 0; color: #666; font-size: 1.1em; max-width: 480px; line-height: 1.5;'>
-			A powerful MongoDB JSON log analyzer for performance tuning, security audits, and troubleshooting. 
-			Click a log below to begin your analysis.
+		<p style='margin: 0 0 12px 0; color: #666; font-size: 1.1em; max-width: 720px; line-height: 1.5;'>
+			Like a skilled woodsman reading the rings of a tree, Hatchet reveals the stories hidden within your MongoDB logs — patterns of performance, whispers of security, and trails to resolution.
 		</p>
 		<label style='font-weight: bold; margin-bottom: 6px; display: block;'>Select a hatcheted log:</label>
 		<div class='hatchet-table-container'>
@@ -484,7 +483,7 @@ func getMainPage() string {
 			</table>
 		</div>
 	</div>
-	<div>
+	<div style='display: flex; align-items: center;'>
 		<iframe width="560" height="315" src="https://www.youtube.com/embed/WavOyaFTDE8" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
 	</div>
 </div>

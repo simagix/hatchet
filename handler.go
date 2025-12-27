@@ -42,3 +42,32 @@ func Handler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 		return
 	}
 }
+
+// RenameHandler handles renaming a hatchet
+func RenameHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	w.Header().Set("Content-Type", "application/json")
+
+	oldName := r.URL.Query().Get("old")
+	newName := r.URL.Query().Get("new")
+
+	if oldName == "" || newName == "" {
+		json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": "missing 'old' or 'new' parameter"})
+		return
+	}
+
+	log.Printf("rename request: %s -> %s", oldName, newName)
+
+	dbase, err := GetDatabase(oldName)
+	if err != nil {
+		json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+		return
+	}
+	defer dbase.Close()
+
+	if err = dbase.Rename(newName); err != nil {
+		json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+		return
+	}
+
+	json.NewEncoder(w).Encode(map[string]interface{}{"ok": 1, "newName": newName})
+}

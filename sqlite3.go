@@ -193,6 +193,103 @@ func (ptr *SQLite3DB) Drop() error {
 	return err
 }
 
+// Rename renames a hatchet and all its tables/indexes
+func (ptr *SQLite3DB) Rename(newName string) error {
+	var err error
+	oldName := ptr.hatchetName
+
+	// Validate new name
+	newName, err = ValidateHatchetName(newName)
+	if err != nil {
+		return err
+	}
+
+	// Check if new name already exists
+	var count int
+	err = ptr.db.QueryRow("SELECT COUNT(*) FROM hatchet WHERE name = ?", newName).Scan(&count)
+	if err != nil {
+		return err
+	}
+	if count > 0 {
+		return fmt.Errorf("hatchet '%s' already exists", newName)
+	}
+
+	// 1. Drop old indexes (they reference old table names in their names)
+	dropIndexes := fmt.Sprintf(`
+		DROP INDEX IF EXISTS %v_idx_component_severity;
+		DROP INDEX IF EXISTS %v_idx_context_date;
+		DROP INDEX IF EXISTS %v_idx_context_op_reslen;
+		DROP INDEX IF EXISTS %v_idx_date_op_ns;
+		DROP INDEX IF EXISTS %v_idx_ns_reslen;
+		DROP INDEX IF EXISTS %v_idx_ns_op_filter;
+		DROP INDEX IF EXISTS %v_idx_milli;
+		DROP INDEX IF EXISTS %v_idx_severity;
+		DROP INDEX IF EXISTS %v_idx_appname_reslen;
+		DROP INDEX IF EXISTS %v_audit_idx_type_value;
+		DROP INDEX IF EXISTS %v_clients_idx_ip_accepted;
+		DROP INDEX IF EXISTS %v_clients_idx_ip_context;
+		DROP INDEX IF EXISTS %v_drivers_idx_driver_version_ip;
+		DROP INDEX IF EXISTS %v_ops_idx_avgms;
+		DROP INDEX IF EXISTS %v_ops_idx_index;`,
+		oldName, oldName, oldName, oldName, oldName, oldName, oldName, oldName, oldName,
+		oldName, oldName, oldName, oldName, oldName, oldName,
+	)
+	if _, err = ptr.db.Exec(dropIndexes); err != nil {
+		return fmt.Errorf("failed to drop indexes: %v", err)
+	}
+
+	// 2. Rename tables
+	renameTables := fmt.Sprintf(`
+		ALTER TABLE %v RENAME TO %v;
+		ALTER TABLE %v_audit RENAME TO %v_audit;
+		ALTER TABLE %v_clients RENAME TO %v_clients;
+		ALTER TABLE %v_drivers RENAME TO %v_drivers;
+		ALTER TABLE %v_ops RENAME TO %v_ops;`,
+		oldName, newName,
+		oldName, newName,
+		oldName, newName,
+		oldName, newName,
+		oldName, newName,
+	)
+	if _, err = ptr.db.Exec(renameTables); err != nil {
+		return fmt.Errorf("failed to rename tables: %v", err)
+	}
+
+	// 3. Create new indexes with new names
+	createIndexes := []string{
+		fmt.Sprintf("CREATE INDEX IF NOT EXISTS %v_idx_component_severity ON %v (component,severity);", newName, newName),
+		fmt.Sprintf("CREATE INDEX IF NOT EXISTS %v_idx_context_date ON %v (context,date);", newName, newName),
+		fmt.Sprintf("CREATE INDEX IF NOT EXISTS %v_idx_context_op_reslen ON %v (context,op,reslen);", newName, newName),
+		fmt.Sprintf("CREATE INDEX IF NOT EXISTS %v_idx_milli ON %v (milli);", newName, newName),
+		fmt.Sprintf("CREATE INDEX IF NOT EXISTS %v_idx_ns_reslen ON %v (ns,reslen);", newName, newName),
+		fmt.Sprintf("CREATE INDEX IF NOT EXISTS %v_idx_ns_op_filter ON %v (ns,op,filter);", newName, newName),
+		fmt.Sprintf("CREATE INDEX IF NOT EXISTS %v_idx_severity ON %v (severity);", newName, newName),
+		fmt.Sprintf("CREATE INDEX IF NOT EXISTS %v_idx_appname_reslen ON %v (appname,reslen);", newName, newName),
+		fmt.Sprintf("CREATE INDEX IF NOT EXISTS %v_audit_idx_type_value ON %v_audit (type,value DESC);", newName, newName),
+		fmt.Sprintf("CREATE INDEX IF NOT EXISTS %v_clients_idx_ip_accepted ON %v_clients (ip,accepted);", newName, newName),
+		fmt.Sprintf("CREATE INDEX IF NOT EXISTS %v_clients_idx_ip_context ON %v_clients (ip,context);", newName, newName),
+		fmt.Sprintf("CREATE INDEX IF NOT EXISTS %v_drivers_idx_driver_version_ip ON %v_drivers (driver,version DESC,ip);", newName, newName),
+		fmt.Sprintf("CREATE INDEX IF NOT EXISTS %v_ops_idx_avgms ON %v_ops (avg_ms);", newName, newName),
+		fmt.Sprintf("CREATE INDEX IF NOT EXISTS %v_ops_idx_index ON %v_ops (_index);", newName, newName),
+	}
+	for _, stmt := range createIndexes {
+		if _, err = ptr.db.Exec(stmt); err != nil {
+			return fmt.Errorf("failed to create index: %v", err)
+		}
+	}
+
+	// 4. Update hatchet registry
+	updateStmt := fmt.Sprintf("UPDATE hatchet SET name = '%v' WHERE name = '%v'", newName, oldName)
+	if _, err = ptr.db.Exec(updateStmt); err != nil {
+		return fmt.Errorf("failed to update hatchet registry: %v", err)
+	}
+
+	// Update internal name
+	ptr.hatchetName = newName
+	log.Printf("renamed hatchet '%s' to '%s'", oldName, newName)
+	return nil
+}
+
 func (ptr *SQLite3DB) InsertLog(index int, end string, doc *Logv2Info, stat *OpStat) error {
 	var err error
 	_, err = ptr.pstmt.Exec(index, end, doc.Severity, doc.Component, doc.Context,

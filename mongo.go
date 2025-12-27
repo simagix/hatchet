@@ -7,6 +7,7 @@ package hatchet
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/url"
 	"time"
@@ -22,6 +23,7 @@ const (
 )
 
 type MongoDB struct {
+	client      *mongo.Client
 	db          *mongo.Database
 	hatchetName string
 	url         string
@@ -45,6 +47,7 @@ func NewMongoDB(connstr string, hatchetName string) (*MongoDB, error) {
 	if dbName == "" || dbName == "admin" {
 		dbName = "logdb"
 	}
+	mongodb.client = client
 	mongodb.db = client.Database(dbName)
 	return mongodb, err
 }
@@ -126,6 +129,58 @@ func (ptr *MongoDB) Drop() error {
 	ptr.db.Collection(ptr.hatchetName).Drop(context.Background())
 	ptr.db.Collection("hatchet").DeleteOne(context.Background(), bson.M{"name": ptr.hatchetName})
 	return err
+}
+
+// Rename renames a hatchet and all its collections
+func (ptr *MongoDB) Rename(newName string) error {
+	var err error
+	oldName := ptr.hatchetName
+	ctx := context.Background()
+
+	// Validate new name
+	newName, err = ValidateHatchetName(newName)
+	if err != nil {
+		return err
+	}
+
+	// Check if new name already exists
+	count, err := ptr.db.Collection("hatchet").CountDocuments(ctx, bson.M{"name": newName})
+	if err != nil {
+		return err
+	}
+	if count > 0 {
+		return fmt.Errorf("hatchet '%s' already exists", newName)
+	}
+
+	// Rename collections using admin command
+	adminDB := ptr.client.Database("admin")
+	dbName := ptr.db.Name()
+
+	collections := []string{"", "_audit", "_clients", "_drivers", "_ops"}
+	for _, suffix := range collections {
+		oldColl := oldName + suffix
+		newColl := newName + suffix
+		cmd := bson.D{
+			{Key: "renameCollection", Value: dbName + "." + oldColl},
+			{Key: "to", Value: dbName + "." + newColl},
+		}
+		if err = adminDB.RunCommand(ctx, cmd).Err(); err != nil {
+			return fmt.Errorf("failed to rename collection %s: %v", oldColl, err)
+		}
+	}
+
+	// Update hatchet registry
+	_, err = ptr.db.Collection("hatchet").UpdateOne(ctx,
+		bson.M{"name": oldName},
+		bson.M{"$set": bson.M{"name": newName}})
+	if err != nil {
+		return fmt.Errorf("failed to update hatchet registry: %v", err)
+	}
+
+	// Update internal name
+	ptr.hatchetName = newName
+	log.Printf("renamed hatchet '%s' to '%s'", oldName, newName)
+	return nil
 }
 
 func (ptr *MongoDB) InsertLog(index int, end string, doc *Logv2Info, stat *OpStat) error {

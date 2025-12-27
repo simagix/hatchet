@@ -5,7 +5,12 @@
 
 package hatchet
 
-import "log"
+import (
+	"fmt"
+	"log"
+	"strings"
+	"unicode"
+)
 
 const (
 	SQLite3 = iota
@@ -34,6 +39,7 @@ type Database interface {
 	CountLogs(opts ...string) (int, error)
 	CreateMetaData() error
 	Drop() error
+	Rename(newName string) error
 	GetAcceptedConnsCounts(duration string) ([]NameValue, error)
 	GetAuditData() (map[string][]NameValues, error)
 	GetAverageOpTime(op string, duration string) ([]OpCount, error)
@@ -95,4 +101,25 @@ func GetExistingHatchetNames() ([]string, error) {
 	}
 	defer dbase.Close()
 	return dbase.GetHatchetNames()
+}
+
+// ValidateHatchetName sanitizes and validates a hatchet name
+func ValidateHatchetName(name string) (string, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "", fmt.Errorf("name cannot be empty")
+	}
+	// Replace special characters with underscore
+	for _, sep := range []string{"-", ".", " ", ":", ","} {
+		name = strings.ReplaceAll(name, sep, "_")
+	}
+	// Truncate if too long
+	if len(name) > MAX_SIZE {
+		name = name[:MAX_SIZE]
+	}
+	// Prepend underscore if starts with digit
+	if len(name) > 0 && unicode.IsDigit(rune(name[0])) {
+		name = "_" + name
+	}
+	return name, nil
 }

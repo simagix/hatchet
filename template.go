@@ -384,6 +384,28 @@ func getMainPage() string {
 	function selectHatchet(name) {
 		loadData('/hatchets/' + name + '/stats/audit'); 
 	}
+	function renameHatchet(oldName, event) {
+		event.stopPropagation();
+		var newName = prompt("Enter new name:", oldName);
+		if (newName && newName !== oldName) {
+			var loading = document.getElementById('loading');
+			loading.style.display = 'block';
+			fetch('/api/hatchet/v1.0/rename?old=' + encodeURIComponent(oldName) + '&new=' + encodeURIComponent(newName), {method: 'POST'})
+				.then(response => response.json())
+				.then(data => {
+					loading.style.display = 'none';
+					if (data.ok) {
+						loadData('/');
+					} else {
+						alert('Error: ' + data.error);
+					}
+				})
+				.catch(error => {
+					loading.style.display = 'none';
+					alert('Error: ' + error);
+				});
+		}
+	}
 	// Convert UTC time to browser local time
 	function convertToLocalTime() {
 		document.querySelectorAll('.utc-time').forEach(function(el) {
@@ -423,6 +445,21 @@ func getMainPage() string {
 		background-color: var(--accent-color-3) !important;
 		color: white;
 	}
+	.hatchet-table tr.clickable-row:hover .rename-btn {
+		color: #FFD700;
+	}
+	.rename-btn {
+		background: none;
+		border: none;
+		cursor: pointer;
+		padding: 2px 6px;
+		color: #E8B923;
+		font-size: 14px;
+		border-radius: 3px;
+	}
+	.rename-btn:hover {
+		color: #D4A017;
+	}
 </style>
 
 <div style='display: flex; align-items: flex-start; gap: 30px; padding: 15px 0; border-bottom: 1px solid var(--border-color); margin-bottom: 15px;'>
@@ -432,12 +469,13 @@ func getMainPage() string {
 			A powerful MongoDB JSON log analyzer for performance tuning, security audits, and troubleshooting. 
 			Click a log below to begin your analysis.
 		</p>
+		<label style='font-weight: bold; margin-bottom: 6px; display: block;'>Select a hatcheted log:</label>
 		<div class='hatchet-table-container'>
 			<table class='hatchet-table'>
 				<tr><th>Hatcheted Log</th><th>Processed Time</th></tr>
 {{range $n, $entry := .Hatchets}}
 				<tr class='clickable-row' onclick='selectHatchet("{{$entry.Name}}")'>
-					<td>{{$entry.Name}}</td>
+					<td>{{$entry.Name}} <button class='rename-btn' onclick='renameHatchet("{{$entry.Name}}", event)' title='Rename'><i class='fa fa-pencil'></i></button></td>
 					<td class='utc-time' data-utc='{{$entry.CreatedAt}}'>{{$entry.CreatedAt}}</td>
 				</tr>
 {{else}}

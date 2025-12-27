@@ -3,7 +3,6 @@
 package hatchet
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -22,7 +21,7 @@ func LogsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Param
 	attr := params.ByName("attr")
 	dbase, err := GetDatabase(hatchetName)
 	if err != nil {
-		json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+		renderErrorPage(w, r, hatchetName, err.Error())
 		return
 	}
 	defer dbase.Close()
@@ -52,14 +51,14 @@ func LogsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Param
 		}
 		logs, err := dbase.GetLogs(searchOpts...)
 		if err != nil {
-			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+			renderErrorPage(w, r, hatchetName, err.Error())
 			return
 		}
 		// Get total count for search results
 		totalCount, _ := dbase.CountLogs(searchOpts...)
 		templ, err := GetLogTableTemplate(attr)
 		if err != nil {
-			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+			renderErrorPage(w, r, hatchetName, err.Error())
 			return
 		}
 		toks := strings.Split(limit, ",")
@@ -78,7 +77,7 @@ func LogsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Param
 			"Summary": summary, "Context": context, "Component": component, "Severity": severity,
 			"HasMore": hasMore, "URL": url, "TotalCount": totalCount}
 		if err = templ.Execute(w, doc); err != nil {
-			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+			renderErrorPage(w, r, hatchetName, err.Error())
 			return
 		}
 		return
@@ -89,17 +88,17 @@ func LogsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Param
 		}
 		logstrs, err := dbase.GetSlowestLogs(topN)
 		if err != nil {
-			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+			renderErrorPage(w, r, hatchetName, err.Error())
 			return
 		}
 		templ, err := GetLogTableTemplate(attr)
 		if err != nil {
-			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+			renderErrorPage(w, r, hatchetName, err.Error())
 			return
 		}
 		doc := map[string]interface{}{"Hatchet": hatchetName, "Merge": info.Merge, "Logs": logstrs, "Summary": summary}
 		if err = templ.Execute(w, doc); err != nil {
-			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+			renderErrorPage(w, r, hatchetName, err.Error())
 			return
 		}
 		return

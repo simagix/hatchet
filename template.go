@@ -381,32 +381,70 @@ func getContentHTML() string {
 func getMainPage() string {
 	template := `
 <script>
-	function redirect() {
-		var sel = document.getElementById('table')
-		var value = sel.options[sel.selectedIndex].value;
-		if(value == "") {
-			return;
-		}
-		loadData('/hatchets/' + value + '/stats/audit'); 
-	} 
+	function selectHatchet(name) {
+		loadData('/hatchets/' + name + '/stats/audit'); 
+	}
+	// Convert UTC time to browser local time
+	function convertToLocalTime() {
+		document.querySelectorAll('.utc-time').forEach(function(el) {
+			var utc = el.getAttribute('data-utc');
+			if (utc && utc.length > 0) {
+				// Parse UTC time (format: YYYY-MM-DD HH:MM:SS)
+				var d = new Date(utc.replace(' ', 'T') + 'Z');
+				if (!isNaN(d.getTime())) {
+					el.textContent = d.toLocaleString();
+				}
+			}
+		});
+	}
+	window.onload = convertToLocalTime;
 </script>
+<style>
+	.hatchet-table-container {
+		max-height: 200px;
+		overflow-y: auto;
+		border: 1px solid var(--border-color);
+		border-radius: 4px;
+	}
+	.hatchet-table {
+		width: 100%;
+		margin: 0;
+		border: none;
+	}
+	.hatchet-table th {
+		position: sticky;
+		top: 0;
+		z-index: 1;
+	}
+	.hatchet-table tr.clickable-row {
+		cursor: pointer;
+	}
+	.hatchet-table tr.clickable-row:hover td {
+		background-color: var(--accent-color-3) !important;
+		color: white;
+	}
+</style>
 
 <div style='display: flex; align-items: flex-start; gap: 30px; padding: 15px 0; border-bottom: 1px solid var(--border-color); margin-bottom: 15px;'>
 	<div style='flex: 1;'>
-		<div style='display: flex; align-items: center; gap: 20px; margin-bottom: 12px;'>
-			<h1 style='margin: 0; font-size: 2.4em; font-family: Righteous, cursive; letter-spacing: 2px;'>Hatchet</h1>
-			<select id='table' style='min-width: 280px;' onchange='javascript:redirect(); return false'>
-				<option value=''>Select a hatcheted log</option>
-{{range $n, $value := .Hatchets}}
-				<option value='{{$value}}'>{{$value}}</option>
-{{end}}
-			</select>
-		</div>
-		<p style='margin: 0; color: #666; font-size: 1.1em; max-width: 480px; line-height: 1.5;'>
+		<h1 style='margin: 0 0 12px 0; font-size: 2.4em; font-family: Righteous, cursive; letter-spacing: 2px;'>Hatchet</h1>
+		<p style='margin: 0 0 12px 0; color: #666; font-size: 1.1em; max-width: 480px; line-height: 1.5;'>
 			A powerful MongoDB JSON log analyzer for performance tuning, security audits, and troubleshooting. 
-			Select a hatcheted log from the dropdown above to begin your analysis. 
-			Watch the tutorial video for a quick overview of features and usage.
+			Click a log below to begin your analysis.
 		</p>
+		<div class='hatchet-table-container'>
+			<table class='hatchet-table'>
+				<tr><th>Hatcheted Log</th><th>Processed Time</th></tr>
+{{range $n, $entry := .Hatchets}}
+				<tr class='clickable-row' onclick='selectHatchet("{{$entry.Name}}")'>
+					<td>{{$entry.Name}}</td>
+					<td class='utc-time' data-utc='{{$entry.CreatedAt}}'>{{$entry.CreatedAt}}</td>
+				</tr>
+{{else}}
+				<tr><td colspan='2' style='text-align: center; color: #666;'>No logs processed yet</td></tr>
+{{end}}
+			</table>
+		</div>
 	</div>
 	<div>
 		<iframe width="560" height="315" src="https://www.youtube.com/embed/WavOyaFTDE8" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
@@ -458,4 +496,21 @@ func getMainPage() string {
 `
 	template += fmt.Sprintf(`<div class="footer"><img valign="middle" src='data:image/png;base64,%v'/> Ken Chen</div>`, CHEN_ICO)
 	return template
+}
+
+// GetErrorTemplate returns an error page template
+func GetErrorTemplate() (*template.Template, error) {
+	html := headers + `
+<div style='max-width: 600px; margin: 50px auto; text-align: center;'>
+	<h1 style='color: #DB4437; font-size: 2em;'><i class="fa fa-exclamation-triangle"></i> Error</h1>
+	<div style='background: #FFF; border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; margin: 20px 0;'>
+		<p style='color: #666; font-size: 1.1em; margin-bottom: 15px;'>{{.Message}}</p>
+		<p style='color: #999; font-size: 0.9em;'>Hatchet: <strong>{{.Hatchet}}</strong></p>
+	</div>
+	<button class='button' onclick="location.href='/';" style='font-size: 1.1em; padding: 10px 30px;'>
+		<i class="fa fa-home"></i> Back to Home
+	</button>
+</div>
+</body></html>`
+	return template.New("error").Parse(html)
 }

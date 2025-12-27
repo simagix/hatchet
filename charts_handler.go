@@ -6,7 +6,6 @@
 package hatchet
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -66,7 +65,7 @@ func ChartsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Par
 	attr := params.ByName("attr")
 	dbase, err := GetDatabase(hatchetName)
 	if err != nil {
-		json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+		renderErrorPage(w, r, hatchetName, err.Error())
 		return
 	}
 	defer dbase.Close()
@@ -92,36 +91,36 @@ func ChartsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Par
 				end = docs[len(docs)-1].Date
 			}
 			if err != nil {
-				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+				renderErrorPage(w, r, hatchetName, err.Error())
 				return
 			}
 			templ, err := GetChartTemplate(BUBBLE_CHART)
 			if err != nil {
-				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+				renderErrorPage(w, r, hatchetName, err.Error())
 				return
 			}
 			doc := map[string]interface{}{"Hatchet": hatchetName, "OpCounts": docs, "Chart": charts[chartType],
 				"Type": chartType, "Summary": summary, "Start": start, "End": end, "VAxisLabel": "seconds"}
 			if err = templ.Execute(w, doc); err != nil {
-				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+				renderErrorPage(w, r, hatchetName, err.Error())
 				return
 			}
 		} else if chartType == "counts" {
 			chartType = T_OPS_COUNTS
 			docs, err := dbase.GetOpsCounts(duration)
 			if err != nil {
-				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+				renderErrorPage(w, r, hatchetName, err.Error())
 				return
 			}
 			templ, err := GetChartTemplate(PIE_CHART)
 			if err != nil {
-				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+				renderErrorPage(w, r, hatchetName, err.Error())
 				return
 			}
 			doc := map[string]interface{}{"Hatchet": hatchetName, "NameValues": docs, "Chart": charts[chartType],
 				"Type": chartType, "Summary": summary, "Start": start, "End": end}
 			if err = templ.Execute(w, doc); err != nil {
-				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+				renderErrorPage(w, r, hatchetName, err.Error())
 				return
 			}
 			return
@@ -136,37 +135,37 @@ func ChartsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Par
 			chartType = T_CONNS_ACCEPTED
 			docs, err := dbase.GetAcceptedConnsCounts(duration)
 			if err != nil {
-				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+				renderErrorPage(w, r, hatchetName, err.Error())
 				return
 			}
 			templ, err := GetChartTemplate(PIE_CHART)
 			if err != nil {
-				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+				renderErrorPage(w, r, hatchetName, err.Error())
 				return
 			}
 			doc := map[string]interface{}{"Hatchet": hatchetName, "NameValues": docs, "Chart": charts[chartType],
 				"Type": chartType, "Summary": summary, "Start": start, "End": end}
 			if err = templ.Execute(w, doc); err != nil {
-				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+				renderErrorPage(w, r, hatchetName, err.Error())
 				return
 			}
 			return
 		} else { // type is time or total
 			docs, err := dbase.GetConnectionStats(chartType, duration)
 			if err != nil {
-				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+				renderErrorPage(w, r, hatchetName, err.Error())
 				return
 			}
 			chartType = "connections-" + chartType
 			templ, err := GetChartTemplate(BAR_CHART)
 			if err != nil {
-				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+				renderErrorPage(w, r, hatchetName, err.Error())
 				return
 			}
 			doc := map[string]interface{}{"Hatchet": hatchetName, "Remote": docs, "Chart": charts[chartType],
 				"Type": chartType, "Summary": summary, "Start": start, "End": end}
 			if err = templ.Execute(w, doc); err != nil {
-				json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+				renderErrorPage(w, r, hatchetName, err.Error())
 				return
 			}
 			return
@@ -179,12 +178,12 @@ func ChartsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Par
 		}
 		docs, err := dbase.GetReslenByIP(ip, duration)
 		if err != nil {
-			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+			renderErrorPage(w, r, hatchetName, err.Error())
 			return
 		}
 		templ, err := GetChartTemplate(PIE_CHART)
 		if err != nil {
-			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+			renderErrorPage(w, r, hatchetName, err.Error())
 			return
 		}
 		chart := charts[chartType]
@@ -194,7 +193,7 @@ func ChartsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Par
 		doc := map[string]interface{}{"Hatchet": hatchetName, "NameValues": docs, "Chart": chart,
 			"Type": chartType, "Summary": summary, "Start": start, "End": end}
 		if err = templ.Execute(w, doc); err != nil {
-			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+			renderErrorPage(w, r, hatchetName, err.Error())
 			return
 		}
 		return
@@ -206,12 +205,12 @@ func ChartsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Par
 		}
 		docs, err := dbase.GetReslenByNamespace(ns, duration)
 		if err != nil {
-			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+			renderErrorPage(w, r, hatchetName, err.Error())
 			return
 		}
 		templ, err := GetChartTemplate(PIE_CHART)
 		if err != nil {
-			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+			renderErrorPage(w, r, hatchetName, err.Error())
 			return
 		}
 		chart := charts[chartType]
@@ -221,7 +220,7 @@ func ChartsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Par
 		doc := map[string]interface{}{"Hatchet": hatchetName, "NameValues": docs, "Chart": chart,
 			"Type": chartType, "Summary": summary, "Start": start, "End": end}
 		if err = templ.Execute(w, doc); err != nil {
-			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+			renderErrorPage(w, r, hatchetName, err.Error())
 			return
 		}
 		return
@@ -233,12 +232,12 @@ func ChartsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Par
 		}
 		docs, err := dbase.GetReslenByAppName(appname, duration)
 		if err != nil {
-			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+			renderErrorPage(w, r, hatchetName, err.Error())
 			return
 		}
 		templ, err := GetChartTemplate(PIE_CHART)
 		if err != nil {
-			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+			renderErrorPage(w, r, hatchetName, err.Error())
 			return
 		}
 		chart := charts[chartType]
@@ -248,7 +247,7 @@ func ChartsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Par
 		doc := map[string]interface{}{"Hatchet": hatchetName, "NameValues": docs, "Chart": chart,
 			"Type": chartType, "Summary": summary, "Start": start, "End": end}
 		if err = templ.Execute(w, doc); err != nil {
-			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+			renderErrorPage(w, r, hatchetName, err.Error())
 			return
 		}
 		return

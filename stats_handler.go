@@ -9,9 +9,29 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/julienschmidt/httprouter"
 )
+
+// renderErrorPage renders a user-friendly error page for HTML requests
+func renderErrorPage(w http.ResponseWriter, r *http.Request, hatchetName string, errMsg string) {
+	// For API requests, return JSON
+	if strings.HasPrefix(r.URL.Path, "/api/") {
+		json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": errMsg})
+		return
+	}
+	// For HTML requests, render error page
+	templ, err := GetErrorTemplate()
+	if err != nil {
+		json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": errMsg})
+		return
+	}
+	doc := map[string]interface{}{"Hatchet": hatchetName, "Message": errMsg}
+	if err = templ.Execute(w, doc); err != nil {
+		json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": errMsg})
+	}
+}
 
 // StatsHandler responds to API calls
 func StatsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
@@ -23,7 +43,7 @@ func StatsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Para
 	attr := params.ByName("attr")
 	dbase, err := GetDatabase(hatchetName)
 	if err != nil {
-		json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+		renderErrorPage(w, r, hatchetName, err.Error())
 		return
 	}
 	defer dbase.Close()
@@ -37,17 +57,17 @@ func StatsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Para
 	if attr == "audit" {
 		data, err := dbase.GetAuditData()
 		if err != nil {
-			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+			renderErrorPage(w, r, hatchetName, err.Error())
 			return
 		}
 		templ, err := GetAuditTablesTemplate()
 		if err != nil {
-			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+			renderErrorPage(w, r, hatchetName, err.Error())
 			return
 		}
 		doc := map[string]interface{}{"Hatchet": hatchetName, "Info": info, "Summary": summary, "Data": data}
 		if err = templ.Execute(w, doc); err != nil {
-			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+			renderErrorPage(w, r, hatchetName, err.Error())
 			return
 		}
 		return
@@ -73,17 +93,17 @@ func StatsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Para
 		}
 		ops, err := dbase.GetSlowOps(orderBy, order, collscan)
 		if err != nil {
-			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+			renderErrorPage(w, r, hatchetName, err.Error())
 			return
 		}
 		templ, err := GetStatsTableTemplate(collscan, orderBy, download)
 		if err != nil {
-			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+			renderErrorPage(w, r, hatchetName, err.Error())
 			return
 		}
 		doc := map[string]interface{}{"Hatchet": hatchetName, "Merge": info.Merge, "Ops": ops, "Summary": summary}
 		if err = templ.Execute(w, doc); err != nil {
-			json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+			renderErrorPage(w, r, hatchetName, err.Error())
 			return
 		}
 		return

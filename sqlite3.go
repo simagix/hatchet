@@ -40,7 +40,53 @@ func NewSQLite3DB(dbfile string, hatchetName string, cacheSize int) (*SQLite3DB,
 			return nil, err
 		}
 	}
+	// Run schema migrations
+	if err = sqlite.migrate(); err != nil {
+		log.Println("warning: migration failed:", err)
+	}
 	return sqlite, nil
+}
+
+// migrate checks and applies schema migrations for backward compatibility
+func (ptr *SQLite3DB) migrate() error {
+	// Check if hatchet table exists
+	var count int
+	err := ptr.db.QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='hatchet'").Scan(&count)
+	if err != nil || count == 0 {
+		return nil // Table doesn't exist yet, will be created later
+	}
+
+	// Check if created_at column exists
+	rows, err := ptr.db.Query("PRAGMA table_info(hatchet)")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	hasCreatedAt := false
+	for rows.Next() {
+		var cid int
+		var name, ctype string
+		var notnull, pk int
+		var dflt interface{}
+		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dflt, &pk); err != nil {
+			return err
+		}
+		if name == "created_at" {
+			hasCreatedAt = true
+			break
+		}
+	}
+
+	// Add created_at column if missing
+	if !hasCreatedAt {
+		log.Println("migrating: adding created_at column to hatchet table")
+		_, err = ptr.db.Exec("ALTER TABLE hatchet ADD COLUMN created_at text")
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (ptr *SQLite3DB) GetVerbose() bool {
@@ -185,8 +231,8 @@ func (ptr *SQLite3DB) InsertFailedMessages(m *FailedMessages) error {
 }
 
 func (ptr *SQLite3DB) UpdateHatchetInfo(info HatchetInfo) error {
-	istmt := fmt.Sprintf(`INSERT OR REPLACE INTO hatchet (name, version, module, arch, os, start, end, merge)
-		VALUES ('%v', '%v', '%v', '%v', '%v', '%v', '%v', %v);`,
+	istmt := fmt.Sprintf(`INSERT OR REPLACE INTO hatchet (name, version, module, arch, os, start, end, merge, created_at)
+		VALUES ('%v', '%v', '%v', '%v', '%v', '%v', '%v', %v, datetime('now'));`,
 		ptr.hatchetName, info.Version, info.Module, info.Arch, info.OS, info.Start, info.End, info.Merge)
 	_, err := ptr.db.Exec(istmt)
 	return err
@@ -341,7 +387,8 @@ func CreateTables(db *sql.DB, hatchetName string) ([]string, error) {
 			os text,
 			start text,
 			end text,
-			merge integer);`,
+			merge integer,
+			created_at text);`,
 
 		`CREATE TABLE IF NOT EXISTS %v (
 			id integer not null,

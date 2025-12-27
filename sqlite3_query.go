@@ -349,6 +349,28 @@ func (ptr *SQLite3DB) GetHatchetNames() ([]string, error) {
 	return names, err
 }
 
+func (ptr *SQLite3DB) GetHatchetsWithTime() ([]HatchetEntry, error) {
+	entries := []HatchetEntry{}
+	query := "SELECT name, COALESCE(created_at, '') FROM hatchet ORDER BY created_at DESC"
+	db := ptr.db
+	if ptr.verbose {
+		explain(ptr.db, query)
+	}
+	rows, err := db.Query(query)
+	if err != nil {
+		return entries, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var entry HatchetEntry
+		if err = rows.Scan(&entry.Name, &entry.CreatedAt); err != nil {
+			return entries, err
+		}
+		entries = append(entries, entry)
+	}
+	return entries, err
+}
+
 // GetAcceptedConnsCounts returns opened connection counts
 func (ptr *SQLite3DB) GetAcceptedConnsCounts(duration string) ([]NameValue, error) {
 	hatchetName := ptr.hatchetName

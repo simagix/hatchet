@@ -22,6 +22,11 @@ type NameValues struct {
 	Values []interface{}
 }
 
+type HatchetEntry struct {
+	Name      string
+	CreatedAt string
+}
+
 type Database interface {
 	Begin() error
 	Close() error
@@ -35,6 +40,7 @@ type Database interface {
 	GetConnectionStats(chartType string, duration string) ([]RemoteClient, error)
 	GetHatchetInfo() HatchetInfo
 	GetHatchetNames() ([]string, error)
+	GetHatchetsWithTime() ([]HatchetEntry, error)
 	GetLogs(opts ...string) ([]LegacyLog, error)
 	GetOpsCounts(duration string) ([]NameValue, error)
 	GetReslenByAppName(appname string, duration string) ([]NameValue, error)

@@ -26,7 +26,7 @@ func Handler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	if dbase.GetVerbose() {
 		log.Println(r.URL.Path)
 	}
-	hatchets, err := dbase.GetHatchetNames()
+	hatchets, err := dbase.GetHatchetsWithTime()
 	if err != nil {
 		json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
 		return

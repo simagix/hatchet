@@ -9,6 +9,7 @@ import (
 	"context"
 	"log"
 	"net/url"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -175,7 +176,15 @@ func (ptr *MongoDB) InsertDriver(index int, doc *Logv2Info) error {
 func (ptr *MongoDB) UpdateHatchetInfo(info HatchetInfo) error {
 	var err error
 	filter := bson.M{"name": ptr.hatchetName}
-	update := bson.M{"$set": bson.M{"version": info.Version, "module": info.Module, "arch": info.Arch, "os": info.OS, "start": info.Start, "end": info.End}}
+	update := bson.M{"$set": bson.M{
+		"version":    info.Version,
+		"module":     info.Module,
+		"arch":       info.Arch,
+		"os":         info.OS,
+		"start":      info.Start,
+		"end":        info.End,
+		"created_at": time.Now().UTC().Format("2006-01-02 15:04:05"),
+	}}
 	upsertOptions := options.Update().SetUpsert(true)
 	_, err = ptr.db.Collection("hatchet").UpdateOne(context.Background(), filter, update, upsertOptions)
 	return err

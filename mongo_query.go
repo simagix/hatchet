@@ -176,6 +176,33 @@ func (ptr *MongoDB) GetHatchetNames() ([]string, error) {
 	return names, err
 }
 
+func (ptr *MongoDB) GetHatchetsWithTime() ([]HatchetEntry, error) {
+	var err error
+	ctx := context.Background()
+	entries := []HatchetEntry{}
+	opts := options.Find()
+	opts.SetProjection(bson.M{"name": 1, "created_at": 1})
+	opts.SetSort(bson.M{"created_at": -1})
+	db := ptr.db
+	cur, err := db.Collection("hatchet").Find(ctx, bson.D{{}}, opts)
+	if err != nil {
+		return entries, err
+	}
+	defer cur.Close(ctx)
+	for cur.Next(ctx) {
+		var doc bson.M
+		if err = cur.Decode(&doc); err != nil {
+			return entries, err
+		}
+		entry := HatchetEntry{Name: doc["name"].(string)}
+		if createdAt, ok := doc["created_at"].(string); ok {
+			entry.CreatedAt = createdAt
+		}
+		entries = append(entries, entry)
+	}
+	return entries, err
+}
+
 // GetAcceptedConnsCounts returns opened connection counts
 func (ptr *MongoDB) GetAcceptedConnsCounts(duration string) ([]NameValue, error) {
 	var err error

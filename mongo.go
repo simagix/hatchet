@@ -59,6 +59,10 @@ func (ptr *MongoDB) SetVerbose(b bool) {
 func (ptr *MongoDB) Begin() error {
 	var err error
 	log.Println("creating hatchet", ptr.hatchetName)
+	// Drop existing collections first to allow overwriting
+	if err := ptr.Drop(); err != nil {
+		log.Println("warning: failed to drop existing collections:", err)
+	}
 	collName := ptr.hatchetName
 	for _, keys := range []bson.D{
 		{{Key: "component", Value: 1}},

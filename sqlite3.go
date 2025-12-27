@@ -53,6 +53,10 @@ func (ptr *SQLite3DB) SetVerbose(b bool) {
 
 func (ptr *SQLite3DB) Begin() error {
 	log.Println("creating hatchet", ptr.hatchetName)
+	// Drop existing tables first to allow overwriting
+	if err := ptr.Drop(); err != nil {
+		log.Println("warning: failed to drop existing tables:", err)
+	}
 	stmts, err := CreateTables(ptr.db, ptr.hatchetName)
 	if err != nil {
 		return err

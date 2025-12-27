@@ -34,15 +34,18 @@ const headers = `<!DOCTYPE html>
   <script src="https://www.gstatic.com/charts/loader.js"></script>
   <link href="/favicon.ico" rel="icon" type="image/x-icon" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Righteous&display=swap" rel="stylesheet">
   <style>
     :root {
       --text-color: #2C5234;
-      --header-color: #C1D8C5;
-      --row-color: #E8F1E9;
+      --header-color: #D2E3FC;
+      --row-color: #E8F0FE;
       --background-color: #F3F7F4;
       --accent-color-1: #7BAF9B;
       --accent-color-2: #9FCCB3;
-      --accent-color-3: #5E8961;
+      --accent-color-3: #4A6FA5;
       --border-color: #DDD;
     }
   	body {
@@ -59,7 +62,7 @@ const headers = `<!DOCTYPE html>
     }
     caption {
       caption-side: top;
-      font-size: 1em;
+      font-size: 1.1em;
 	    text-align: left;
     }
     table, th, td {
@@ -70,21 +73,21 @@ const headers = `<!DOCTYPE html>
       background-color: var(--header-color);
       color: var(--text-color);
       font-weight: bold;
-      padding: 0.1rem;
-      font-size: 0.9em;
+      padding: 8px 10px;
+      font-size: 1.1em;
       text-align: left;    
     }
     td {
       background-color: var(--row-color);
-      padding: 0.1rem;
-      font-size: 0.9em;
+      padding: 8px 10px;
+      font-size: 1.1em;
     }
     tr:nth-child(even) td {
       background-color: white;
     }
     .break {
       vertical-align: middle;
-      font-size: .8em;
+      font-size: 1.05em;
       word-break: break-all;
     }
     table a:link {
@@ -101,7 +104,7 @@ const headers = `<!DOCTYPE html>
     }
     ul, ol {
       #font-family: Consolas, monaco, monospace;
-      font-size: .8em;
+      font-size: 1em;
     }
     .btn {
       background-color: transparent;
@@ -110,7 +113,7 @@ const headers = `<!DOCTYPE html>
       color: var(--accent-color-3);
       padding: 2px 2px;
       cursor: pointer;
-      font-size: 16px;
+      font-size: 18px;
       font-weight: bold;
       border-radius: .25em;
     }
@@ -126,7 +129,7 @@ const headers = `<!DOCTYPE html>
       padding: 3px 15px;
       margin: 0px 10px;
       cursor: pointer;
-      font-size: 14px;
+      font-size: 16px;
       font-weight: bold;
       border-radius: 3px;
     }
@@ -175,19 +178,19 @@ const headers = `<!DOCTYPE html>
       opacity: 1;
     }
     h1 {
-      font-size: 1.6em;
+      font-size: 1.8em;
       font-weight: bold;
     }
     h2 {
-      font-size: 1.4em;
+      font-size: 1.6em;
       font-weight: bold;
     }
     h3 {
-      font-size: 1.2em;
+      font-size: 1.3em;
       font-weight: bold;
     }
     h4 {
-      font-size: 1em;
+      font-size: 1.1em;
       font-weight: bold;
     }
     .footer {
@@ -206,9 +209,14 @@ const headers = `<!DOCTYPE html>
       appearance: auto;
       background-color: #fff;
       color: #505950;
-      border-radius: .25em;
-      font-size: .9em;
-      #padding: 5px 5px;
+      border-radius: 4px;
+      font-size: 16px;
+      padding: 8px 12px;
+      border: 1px solid var(--border-color);
+    }
+    select {
+      font-weight: bold;
+      font-size: 17px;
     }
     .rotate23:hover {
       -webkit-transform: rotate(23deg);
@@ -232,7 +240,7 @@ const headers = `<!DOCTYPE html>
       color: var(--border-color);
 	    padding: .5rem;
 	    margin: .5rem;
-      font-size: .8em;
+      font-size: 1em;
     }
     #loading {
       position: fixed;
@@ -305,25 +313,35 @@ func getContentHTML() string {
 		loadData(value);
 	}
 </script>
-<div align='center'>
-	<div style="float: left; margin-right: 10px;">
-	  <button id="title" onClick="javascript:location.href='/'; return false;"
-		class="btn"><i class="fa fa-home"></i></button>Hatchet</div>
-
-  <div style="float: left; margin-right: 10px;">
-  	<button id="logs" onClick="javascript:loadData('/hatchets/{{.Hatchet}}/stats/audit'); return false;"
-		class="btn"><i class="fa fa-shield"></i></button>Audit</div>
-  <div style="float: left; margin-right: 10px;">
-  	<button id="stats" onClick="javascript:loadData('/hatchets/{{.Hatchet}}/stats/slowops'); return false;"
-		class="btn"><i class="fa fa-info"></i></button>Stats</div>
-  <div style="float: left; margin-right: 10px;">
-  	<button id="logs" onClick="javascript:loadData('/hatchets/{{.Hatchet}}/logs/slowops'); return false;"
-		class="btn"><i class="fa fa-list"></i></button>Top N</div>
-  <div style="float: left; margin-right: 10px;">
-  	<button id="search" onClick="javascript:loadData('/hatchets/{{.Hatchet}}/logs/all?component=NONE'); return false;"
-    	class="btn"><i class="fa fa-search"></i></button>Search</div>
-
-	<select id='nextChart' style="float: right;" onchange='gotoChart()'>`
+<style>
+  .menu-bar { display: flex; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-color); margin-bottom: 10px; }
+  .menu-item { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; margin-right: 8px; font-size: 17px; font-weight: bold; color: var(--text-color); background: var(--header-color); border: none; border-radius: 4px; cursor: pointer; text-decoration: none; }
+  .menu-item:hover { background: var(--accent-color-3); color: white; }
+  .menu-item i { font-size: 18px; }
+  .menu-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .menu-select { padding: 8px 12px; font-size: 16px; border: 1px solid var(--border-color); border-radius: 4px; min-width: 180px; }
+</style>
+<div class="menu-bar">
+  <button class="menu-item" onclick="location.href='/'; return false;">
+    <i class="fa fa-home"></i> Hatchet
+  </button>
+  <button class="menu-item" onclick="loadData('/hatchets/{{.Hatchet}}/stats/audit'); return false;">
+    <i class="fa fa-shield"></i> Audit
+  </button>
+  <button class="menu-item" onclick="loadData('/hatchets/{{.Hatchet}}/stats/slowops'); return false;">
+    <i class="fa fa-info"></i> Stats
+  </button>
+  <button class="menu-item" onclick="loadData('/hatchets/{{.Hatchet}}/logs/slowops'); return false;">
+    <i class="fa fa-list"></i> Top N
+  </button>
+  <button class="menu-item" onclick="loadData('/hatchets/{{.Hatchet}}/logs/all?component=NONE'); return false;">
+    <i class="fa fa-search"></i> Search
+  </button>
+  <div class="menu-right">
+    <button class="menu-item" onclick="loadData('/hatchets/{{.Hatchet}}/charts/ops?type=stats'); return false;">
+      <i class="fa fa-bar-chart"></i> Charts
+    </button>
+    <select id='nextChart' class='menu-select' onchange='gotoChart()'>`
 	items := []Chart{}
 	for _, chart := range charts {
 		items = append(items, chart)
@@ -341,8 +359,7 @@ func getContentHTML() string {
 	}
 
 	html += `</select>
-	<button id="chart" onClick="javascript:loadData('/hatchets/{{.Hatchet}}/charts/ops?type=stats'); return false;" 
-    	class="btn" style="float: right;"><i class="fa fa-bar-chart"></i></button>
+  </div>
 </div>
 <script>
 	function setChartType() {
@@ -374,18 +391,26 @@ func getMainPage() string {
 	} 
 </script>
 
-<div align='center'>
-	<h2><img class='rotate23' width='60' valign="middle" src='data:image/png;base64,{{ getHatchetImage }}'>Hatchet - MongoDB JSON Log Analyzer</img></h2>
-	<select id='table' class='hatchet-sel' onchange='javascript:redirect(); return false'>
-		<option value=''>select a hatchet</option>
+<div style='display: flex; align-items: flex-start; gap: 30px; padding: 15px 0; border-bottom: 1px solid var(--border-color); margin-bottom: 15px;'>
+	<div style='flex: 1;'>
+		<div style='display: flex; align-items: center; gap: 20px; margin-bottom: 12px;'>
+			<h1 style='margin: 0; font-size: 2.4em; font-family: Righteous, cursive; letter-spacing: 2px;'>Hatchet</h1>
+			<select id='table' style='min-width: 280px;' onchange='javascript:redirect(); return false'>
+				<option value=''>Select a hatcheted log</option>
 {{range $n, $value := .Hatchets}}
-		<option value='{{$value}}'>{{$value}}</option>
+				<option value='{{$value}}'>{{$value}}</option>
 {{end}}
-	</select>
-</div>
-<hr/>
-<div align='center'>
-<iframe width="560" height="315" src="https://www.youtube.com/embed/WavOyaFTDE8" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+			</select>
+		</div>
+		<p style='margin: 0; color: #666; font-size: 1.1em; max-width: 480px; line-height: 1.5;'>
+			A powerful MongoDB JSON log analyzer for performance tuning, security audits, and troubleshooting. 
+			Select a hatcheted log from the dropdown above to begin your analysis. 
+			Watch the tutorial video for a quick overview of features and usage.
+		</p>
+	</div>
+	<div>
+		<iframe width="560" height="315" src="https://www.youtube.com/embed/WavOyaFTDE8" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+	</div>
 </div>
 <h3>Reports</h3>
     <table width='100%'>

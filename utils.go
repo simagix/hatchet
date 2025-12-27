@@ -75,21 +75,17 @@ func getHatchetName(logname string) string {
 		hatchetName = replaceSpecialChars(hatchetName[0:i])
 	}
 	if len(hatchetName) > MAX_SIZE {
-		hatchetName = hatchetName[:MAX_SIZE-TAIL_SIZE]
+		hatchetName = hatchetName[:MAX_SIZE]
 	}
 	if i = strings.LastIndex(hatchetName, "_gz"); i > 0 {
 		hatchetName = hatchetName[:i]
 	}
-	rand.Seed(time.Now().UnixNano())
-	b := make([]byte, TAIL_SIZE)
-	rand.Read(b)
-	tail := fmt.Sprintf("%x", b)[:TAIL_SIZE-1]
 
 	r := []rune(hatchetName) // convert string to runes
 	if unicode.IsDigit(r[0]) {
 		hatchetName = "_" + hatchetName
 	}
-	return fmt.Sprintf("%v_%v", hatchetName, tail)
+	return hatchetName
 }
 
 func EscapeString(value string) string {

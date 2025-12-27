@@ -47,38 +47,38 @@ The database file is *data/hatchet.db*; use the *sqlite3* command as below:
 sqlite3 ./data/hatchet.db
 ```
 
-After a log file is processed, 3 tables are created in the SQLite3 database.  Part of the table name are from the processed log file.  For example, a table *mongod*_{hex} (e.g., mongod_1b3d5f7) is created after a log file $HOME/Downloads/**mongod**.log.gz is processed.  The other 4 tables are 1) mongod_{hex}_ops stores stats of slow ops, 2) mongod_{hex}_clients stores clients information, 3) mongod_{hex}_audit keeps audit data, and 4) mongod_{hex}_drivers to store driver information.  A few SQL commands follow.
+After a log file is processed, 5 tables are created in the SQLite3 database.  The table name is derived from the parent directory and log file name.  For example, processing *rs1/mongod.log.gz* creates a table named *rs1_mongod*, while processing *rs2/mongod.log.gz* creates *rs2_mongod*.  This allows logs from replica set members with the same filename to be stored separately.  If a name collision still occurs, a sequential suffix (_2, _3, etc.) is added.  The other 4 tables are 1) {name}_ops stores stats of slow ops, 2) {name}_clients stores clients information, 3) {name}_audit keeps audit data, and 4) {name}_drivers to store driver information.  Re-processing the same log file will replace the existing data.  A few SQL commands follow.
 
 ### Query All Data
 ```sqlite3
-SELECT * FROM mongod_1b3d5f7;
+SELECT * FROM mongod;
 ```
 
 ```sqlite3
-SELECT date, severity, component, context, SUBSTR(message, 1, 60) message FROM mongod_1b3d5f7;
+SELECT date, severity, component, context, SUBSTR(message, 1, 60) message FROM mongod;
 ```
 
 ```sqlite3
-SELECT date, severity, message FROM mongod_1b3d5f7 WHERE component = 'NETWORK';
+SELECT date, severity, message FROM mongod WHERE component = 'NETWORK';
 ```
 
 ### Query Ops Stats
 ```sqlite3
 SELECT op, COUNT(*) "count", ROUND(AVG(milli),1) avg_ms, MAX(milli) max_ms, SUM(milli) total_ms,
        ns, _index "index", SUM(reslen) "reslen", filter "query_pattern"
-    FROM mongod_1b3d5f7
+    FROM mongod
     WHERE op != "" GROUP BY op, ns, filter ORDER BY avg_ms DESC;
 ```
 
 ```sqlite3
 SELECT SUBSTR(date, 1, 16), COUNT(op), op, ns, filter 
-    FROM mongod_1b3d5f7 where op != ''
+    FROM mongod where op != ''
     GROUP by SUBSTR(date, 1, 16), op, ns, filter;
 ```
 
 ```sqlite3
 SELECT SUBSTR(date, 1, 16), COUNT(op), op, ns
-    FROM mongod_1b3d5f7 where op != ''
+    FROM mongod where op != ''
     GROUP by SUBSTR(date, 1, 16), op, ns;
 ```
 
@@ -88,7 +88,7 @@ Different drivers are supported for most popular programming languages including
 ## Export TSV File
 Export data to a TVS file and import it to a spreadsheet software.  Here is an example:
 ```bash
-sqlite3 -header -separator $'\t' ./data/hatchet.db "SELECT * FROM mongod_1b3d5f7;" > mongod_1b3d5f7.tsv
+sqlite3 -header -separator $'\t' ./data/hatchet.db "SELECT * FROM mongod;" > mongod.tsv
 ```
 
 ## Hatchet API

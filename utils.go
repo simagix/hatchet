@@ -67,18 +67,37 @@ func replaceSpecialChars(name string) string {
 	return name
 }
 
+const MAX_DIR_SIZE = 24 // Max characters for directory portion
+
 func getHatchetName(logname string) string {
+	// Get parent directory name
+	dir := filepath.Dir(logname)
+	parentDir := filepath.Base(dir)
+	
+	// Get base filename
 	temp := filepath.Base(logname)
 	hatchetName := replaceSpecialChars(temp)
 	i := strings.LastIndex(hatchetName, "_log")
 	if i >= 0 && i >= len(temp)-len(".log.gz") {
 		hatchetName = replaceSpecialChars(hatchetName[0:i])
 	}
-	if len(hatchetName) > MAX_SIZE {
-		hatchetName = hatchetName[:MAX_SIZE]
-	}
 	if i = strings.LastIndex(hatchetName, "_gz"); i > 0 {
 		hatchetName = hatchetName[:i]
+	}
+	
+	// Prepend parent directory if it's meaningful (not "." or empty)
+	if parentDir != "." && parentDir != "" && parentDir != "/" {
+		parentDir = replaceSpecialChars(parentDir)
+		// Truncate long directory names (common with Atlas logs)
+		if len(parentDir) > MAX_DIR_SIZE {
+			parentDir = parentDir[:MAX_DIR_SIZE]
+		}
+		hatchetName = parentDir + "_" + hatchetName
+	}
+	
+	// Truncate if still too long
+	if len(hatchetName) > MAX_SIZE {
+		hatchetName = hatchetName[:MAX_SIZE]
 	}
 
 	r := []rune(hatchetName) // convert string to runes
@@ -86,6 +105,41 @@ func getHatchetName(logname string) string {
 		hatchetName = "_" + hatchetName
 	}
 	return hatchetName
+}
+
+// getUniqueHatchetName returns a unique hatchet name by adding a sequential suffix if needed
+func getUniqueHatchetName(logname string, existingNames []string) string {
+	baseName := getHatchetName(logname)
+	
+	// Check if base name is unique
+	nameExists := func(name string) bool {
+		for _, existing := range existingNames {
+			if existing == name {
+				return true
+			}
+		}
+		return false
+	}
+	
+	if !nameExists(baseName) {
+		return baseName
+	}
+	
+	// Add sequential suffix
+	for i := 2; i <= 999; i++ {
+		candidate := fmt.Sprintf("%s_%d", baseName, i)
+		if len(candidate) > MAX_SIZE {
+			// Truncate base name to make room for suffix
+			suffixLen := len(fmt.Sprintf("_%d", i))
+			candidate = baseName[:MAX_SIZE-suffixLen] + fmt.Sprintf("_%d", i)
+		}
+		if !nameExists(candidate) {
+			return candidate
+		}
+	}
+	
+	// Fallback: should never reach here
+	return baseName
 }
 
 func EscapeString(value string) string {

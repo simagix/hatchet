@@ -71,3 +71,22 @@ func GetDatabase(hatchetName string) (Database, error) {
 	dbase.SetVerbose(logv2.verbose)
 	return dbase, err
 }
+
+// GetExistingHatchetNames returns a list of existing hatchet names from the database
+func GetExistingHatchetNames() ([]string, error) {
+	var err error
+	var dbase Database
+	logv2 := GetLogv2()
+	// Use a temporary name just to connect and query
+	if GetLogv2().GetDBType() == Mongo {
+		if dbase, err = NewMongoDB(logv2.url, "_temp"); err != nil {
+			return nil, err
+		}
+	} else {
+		if dbase, err = NewSQLite3DB(logv2.url, "_temp", logv2.cacheSize); err != nil {
+			return nil, err
+		}
+	}
+	defer dbase.Close()
+	return dbase.GetHatchetNames()
+}

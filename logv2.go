@@ -152,7 +152,8 @@ func (ptr *Logv2) Analyze(logname string, marker int) error {
 	var reader *bufio.Reader
 	ptr.logname = logname
 	if !ptr.merge {
-		ptr.hatchetName = getHatchetName(ptr.logname)
+		existingNames, _ := GetExistingHatchetNames()
+		ptr.hatchetName = getUniqueHatchetName(ptr.logname, existingNames)
 	}
 	if !ptr.legacy {
 		log.Println("processing", logname)

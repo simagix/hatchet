@@ -3,8 +3,6 @@
 package hatchet
 
 import (
-	"path/filepath"
-	"strings"
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -35,51 +33,103 @@ func TestReplaceSpecialChars(t *testing.T) {
 }
 
 func TestGetHatchetName(t *testing.T) {
+	// Simple filename without directory - no parent dir prefix
 	filename := "mongod.log"
-	length := len(filename) - len(".log") + TAIL_SIZE
 	hatchetName := getHatchetName(filename)
-	if len(hatchetName) != length {
-		t.Fatal("expected", length, "but got", len(hatchetName))
+	expected := "mongod"
+	if hatchetName != expected {
+		t.Fatalf("expected %q but got %q", expected, hatchetName)
 	}
 
+	// With .log.gz extension
 	filename = "mongod.log.gz"
-	length = len(filename) - len(".log.gz") + TAIL_SIZE
 	hatchetName = getHatchetName(filename)
-	if len(hatchetName) != length {
-		t.Fatal("expected", length, "but got", len(hatchetName))
+	expected = "mongod"
+	if hatchetName != expected {
+		t.Fatalf("expected %q but got %q", expected, hatchetName)
 	}
 
+	// No extension
 	filename = "mongod"
-	length = len(filename) + TAIL_SIZE
 	hatchetName = getHatchetName(filename)
-	if len(hatchetName) != length {
-		t.Fatal("expected", length, "but got", len(hatchetName))
+	expected = "mongod"
+	if hatchetName != expected {
+		t.Fatalf("expected %q but got %q", expected, hatchetName)
 	}
 
+	// Long filename (should be truncated to MAX_SIZE)
 	filename = "filesys-shard-00-01.abcde.mongodb.net_2021-07-24T10_12_58_2021-07-25T10_12_58_mongodb.log.gz"
-	length = len(filename) + TAIL_SIZE
 	hatchetName = getHatchetName(filename)
-	modified := "filesys_shard_00_01_abcde_mongodb_net_2021_07_24T10_12_58_2021_07_25T10_12_58_mongodb"
-	if !strings.HasPrefix(hatchetName, modified) {
-		t.Fatal(modified+"_*", length, "but got", hatchetName)
+	if len(hatchetName) > MAX_SIZE {
+		t.Fatalf("expected length <= %d but got %d", MAX_SIZE, len(hatchetName))
 	}
 
+	// With directory - should include parent dir
 	filename = "testdata/demo_errmsg.log.gz"
-	fname := filepath.Base((filename))
-	t.Log(fname)
 	hatchetName = getHatchetName(filename)
 	t.Log(hatchetName)
-	if len(hatchetName) != len(fname) {
-		t.Fatal("expected", len(fname), "but got", len(hatchetName))
+	expected = "testdata_demo_errmsg"
+	if hatchetName != expected {
+		t.Fatalf("expected %q but got %q", expected, hatchetName)
 	}
 
+	// With directory, filename starts with digit - should add underscore prefix
 	filename = "testdata/0_errmsg.log.gz"
-	fname = filepath.Base((filename))
-	t.Log(fname)
 	hatchetName = getHatchetName(filename)
 	t.Log(hatchetName)
-	if len(hatchetName) != len(fname)+1 { // added _
-		t.Fatal("expected", len(fname), "but got", len(hatchetName))
+	expected = "testdata_0_errmsg"
+	if hatchetName != expected {
+		t.Fatalf("expected %q but got %q", expected, hatchetName)
+	}
+
+	// Test replica set scenario - different directories, same filename
+	file1 := "rs1/mongod.log"
+	file2 := "rs2/mongod.log"
+	name1 := getHatchetName(file1)
+	name2 := getHatchetName(file2)
+	if name1 == name2 {
+		t.Fatalf("expected different names for different directories, got %q and %q", name1, name2)
+	}
+	if name1 != "rs1_mongod" {
+		t.Fatalf("expected rs1_mongod but got %q", name1)
+	}
+	if name2 != "rs2_mongod" {
+		t.Fatalf("expected rs2_mongod but got %q", name2)
+	}
+
+	// Test Atlas-style long directory names - should be truncated to MAX_DIR_SIZE
+	atlasPath := "cluster0-shard-00-00.abc123.mongodb.net_2023-10-15T12_00_00_2023-10-16T12_00_00/mongod.log.gz"
+	atlasName := getHatchetName(atlasPath)
+	t.Logf("Atlas path name: %s (len=%d)", atlasName, len(atlasName))
+	if len(atlasName) > MAX_SIZE {
+		t.Fatalf("expected length <= %d but got %d", MAX_SIZE, len(atlasName))
+	}
+	// Directory should be truncated, but filename should be preserved
+	if atlasName[len(atlasName)-6:] != "mongod" {
+		t.Fatalf("expected name to end with 'mongod' but got %q", atlasName)
+	}
+}
+
+func TestGetUniqueHatchetName(t *testing.T) {
+	// No existing names - should return base name
+	existing := []string{}
+	name := getUniqueHatchetName("rs1/mongod.log", existing)
+	if name != "rs1_mongod" {
+		t.Fatalf("expected rs1_mongod but got %q", name)
+	}
+
+	// With collision - should add suffix
+	existing = []string{"rs1_mongod"}
+	name = getUniqueHatchetName("rs1/mongod.log", existing)
+	if name != "rs1_mongod_2" {
+		t.Fatalf("expected rs1_mongod_2 but got %q", name)
+	}
+
+	// Multiple collisions
+	existing = []string{"rs1_mongod", "rs1_mongod_2", "rs1_mongod_3"}
+	name = getUniqueHatchetName("rs1/mongod.log", existing)
+	if name != "rs1_mongod_4" {
+		t.Fatalf("expected rs1_mongod_4 but got %q", name)
 	}
 }
 

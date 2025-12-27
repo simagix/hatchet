@@ -5,6 +5,7 @@ package hatchet
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 
@@ -34,7 +35,7 @@ var (
 	reMatchSort = regexp.MustCompile(`^{("\$match"|"\$sort"):(\S+)}$`)
 	reFacet     = regexp.MustCompile(`^{("(\$facet")):\S+}$`)
 	reOid       = regexp.MustCompile(`{"\$oid":1}`)
-	reIn        = regexp.MustCompile(`("\$n?in"):\[\S+(,\s?\S+)*\]`)
+	reIn        = regexp.MustCompile(`("\$n?in"):\[[^\]]+\]`)
 	reKey       = regexp.MustCompile(`"(\$?\w+)":`)
 	reRegex     = regexp.MustCompile(`{(.*):{"\$regularExpression":{"options":"(\S+)?","pattern":"(\^)?(\S+)"}}}`)
 	mapWalker   = gox.NewMapWalker(cb) // Reusable walker instance
@@ -150,13 +151,35 @@ func AnalyzeSlowOp(doc *Logv2Info) (*OpStat, error) {
 		if len(pipeline) == 0 {
 			return stat, errors.New("pipeline not found")
 		}
-		var stage interface{}
+		// Find the first $match stage or use first stage for special cases
+		var matchStage interface{}
+		firstStage := pipeline[0]
 		for _, v := range pipeline {
-			stage = v
-			break
+			stageMap := toMap(v)
+			if stageMap != nil {
+				if _, ok := stageMap["$match"]; ok {
+					matchStage = v
+					break
+				}
+			}
+		}
+		// Use $match stage if found, otherwise use first stage
+		stage := firstStage
+		if matchStage != nil {
+			stage = matchStage
 		}
 		fmap := toMap(stage)
 		if fmap != nil && !isRegex(fmap) {
+			// Check for $lookup BEFORE walking (which replaces values with 1)
+			var lookupFrom string
+			if lookupVal := fmap["$lookup"]; lookupVal != nil {
+				lookupMap := toMap(lookupVal)
+				if lookupMap != nil {
+					if from, ok := lookupMap["from"].(string); ok {
+						lookupFrom = from
+					}
+				}
+			}
 			walked := mapWalker.Walk(fmap)
 			if buf, err := json.Marshal(walked); err == nil {
 				stat.QueryPattern = string(buf)
@@ -169,6 +192,14 @@ func AnalyzeSlowOp(doc *Logv2Info) (*OpStat, error) {
 					stat.QueryPattern = string(buf)
 				} else {
 					stat.QueryPattern = "{}"
+				}
+			} else if strings.Contains(stat.QueryPattern, "$collStats") {
+				stat.QueryPattern = "{ $collStats:{} }"
+			} else if strings.Contains(stat.QueryPattern, "$lookup") {
+				if lookupFrom != "" {
+					stat.QueryPattern = fmt.Sprintf("{ $lookup:{ from:%q } }", lookupFrom)
+				} else {
+					stat.QueryPattern = "{ $lookup:{} }"
 				}
 			} else if !strings.Contains(stat.QueryPattern, "$match") && !strings.Contains(stat.QueryPattern, "$sort") &&
 				!strings.Contains(stat.QueryPattern, "$facet") && !strings.Contains(stat.QueryPattern, "$indexStats") {

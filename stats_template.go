@@ -92,7 +92,7 @@ func getStatsTable(collscan bool, orderBy string, download string) string {
 		{{else}}
 			<td align='right'>{{ add $n 1 }}</td>
 		{{end}}
-			<td class='break'>{{ $value.Op }}</td>
+			<td style='white-space: nowrap;'>{{ $value.Op }}</td>
 			<td class='break'>{{ $value.Namespace }}</td>
 			<td align='right'>{{ numPrinter $value.Count }}</td>
 			<td align='right'>{{ numPrinter $value.AvgMilli }}</td>

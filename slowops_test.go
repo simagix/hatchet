@@ -6,6 +6,7 @@
 package hatchet
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/simagix/gox"
@@ -107,6 +108,87 @@ func TestAnalyzeSlowOpChangeStreams(t *testing.T) {
 	stat, err := AnalyzeSlowOp(&doc)
 	if err != nil {
 		t.Fatal(err)
+	}
+	t.Log(gox.Stringify(stat, "", "  "))
+}
+
+func TestAnalyzeSlowOpMatchWithAnd(t *testing.T) {
+	// Test for $match with $and and $in - regression test for reIn regex bug
+	str := `{"t":{"$date":"2025-10-06T10:00:00.000+00:00"},"s":"I","c":"COMMAND","id":51803,"ctx":"conn1","msg":"Slow query","attr":{"type":"command","ns":"edu.csats","command":{"aggregate":"csats","pipeline":[{"$match":{"$and":[{"SSOId":{"$in":["a@mongodb.com","a"]}},{"CreatedDate":{"$lte":{"$date":"2024-03-13T00:00:00Z"}}}]}},{"$group":{"_id":"$SSOId"}}],"cursor":{},"$db":"edu"},"planSummary":"IXSCAN { CreatedDate: -1 }","keysExamined":100,"docsExamined":100,"cursorExhausted":true,"numYields":1,"nreturned":1,"reslen":300,"durationMillis":123}}`
+	t.Log(str)
+	doc := Logv2Info{}
+	err := bson.UnmarshalExtJSON([]byte(str), false, &doc)
+	if err != nil {
+		t.Fatalf("bson unmarshal error %v", err)
+	}
+
+	if err = AddLegacyString(&doc); err != nil {
+		t.Fatalf("logv2 marshal error %v", err)
+	}
+
+	stat, err := AnalyzeSlowOp(&doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The pattern should contain both $and conditions, not be truncated
+	if !strings.Contains(stat.QueryPattern, "SSOId") || !strings.Contains(stat.QueryPattern, "CreatedDate") {
+		t.Fatal("expected pattern to contain both SSOId and CreatedDate, but got", stat.QueryPattern)
+	}
+	t.Log(gox.Stringify(stat, "", "  "))
+}
+
+func TestAnalyzeSlowOpAddFieldsThenMatch(t *testing.T) {
+	// Test for pipeline where $addFields comes before $match
+	str := `{"t":{"$date":"2025-10-06T10:00:00.000+00:00"},"s":"I","c":"COMMAND","id":51803,"ctx":"conn1","msg":"Slow query","attr":{"type":"command","ns":"edu.support_cases","command":{"getMore":123,"collection":"support_cases","$db":"edu"},"originatingCommand":{"aggregate":"support_cases","pipeline":[{"$addFields":{"case_closed_date":{"$convert":{"input":"$case_closed_date","to":"date"}}}},{"$match":{"$and":[{"case_closed_date":{"$gt":"2024-01-01"}},{"case_components":{"$eq":"Atlas Search"}}]}}],"cursor":{},"$db":"edu"},"planSummary":"COLLSCAN","keysExamined":0,"docsExamined":55208,"numYields":497,"nreturned":44,"reslen":2992,"durationMillis":8686}}`
+	t.Log(str)
+	doc := Logv2Info{}
+	err := bson.UnmarshalExtJSON([]byte(str), false, &doc)
+	if err != nil {
+		t.Fatalf("bson unmarshal error %v", err)
+	}
+
+	if err = AddLegacyString(&doc); err != nil {
+		t.Fatalf("logv2 marshal error %v", err)
+	}
+
+	stat, err := AnalyzeSlowOp(&doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Should find the $match stage even though $addFields comes first
+	if !strings.Contains(stat.QueryPattern, "case_closed_date") || !strings.Contains(stat.QueryPattern, "case_components") {
+		t.Fatal("expected pattern to contain case_closed_date and case_components from $match stage, but got", stat.QueryPattern)
+	}
+	if stat.QueryPattern == "{ }" || stat.QueryPattern == "{}" {
+		t.Fatal("expected non-empty pattern, but got", stat.QueryPattern)
+	}
+	t.Log(gox.Stringify(stat, "", "  "))
+}
+
+func TestAnalyzeSlowOpCollStats(t *testing.T) {
+	// Test for $collStats aggregate operation
+	str := `{"t":{"$date":"2025-10-06T10:00:00.000+00:00"},"s":"I","c":"COMMAND","id":51803,"ctx":"conn1","msg":"Slow query","attr":{"type":"command","ns":"edu.csats_bad","appName":"MongoDB Automation Agent","command":{"aggregate":"csats_bad","pipeline":[{"$collStats":{"storageStats":{}}}],"cursor":{},"$db":"edu"},"keysExamined":0,"docsExamined":0,"cursorExhausted":true,"numYields":0,"nreturned":1,"reslen":125823,"durationMillis":141}}`
+	t.Log(str)
+	doc := Logv2Info{}
+	err := bson.UnmarshalExtJSON([]byte(str), false, &doc)
+	if err != nil {
+		t.Fatalf("bson unmarshal error %v", err)
+	}
+
+	if err = AddLegacyString(&doc); err != nil {
+		t.Fatalf("logv2 marshal error %v", err)
+	}
+
+	stat, err := AnalyzeSlowOp(&doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := `{ $collStats:{ }  }`
+	if stat.QueryPattern != expected {
+		t.Fatal("expected", expected, "but got", stat.QueryPattern)
+	}
+	if stat.Op != "aggregate" {
+		t.Fatal("expected op aggregate but got", stat.Op)
 	}
 	t.Log(gox.Stringify(stat, "", "  "))
 }

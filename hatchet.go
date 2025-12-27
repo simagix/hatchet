@@ -132,12 +132,7 @@ func Run(fullVersion string) {
 	instance = &logv2
 	str := *connstr
 	if strings.HasPrefix(*connstr, "mongodb") {
-		fmt.Println("MongoDB support is deprecated and will be removed in the futre release.")
-		pattern := regexp.MustCompile(`mongodb(\+srv)?:\/\/(.+):(.+)@(.+)`)
-		matches := pattern.FindStringSubmatch(str)
-		if matches != nil {
-			str = fmt.Sprintf("mongodb%s://%s@%s", matches[1], matches[2], matches[4])
-		}
+		log.Fatalln("MongoDB backend is no longer supported. Please use SQLite3 (default) or in-memory mode.")
 	}
 	log.Println("using database", str)
 	if GetLogv2().GetDBType() == SQLite3 {

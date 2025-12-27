@@ -1,3 +1,5 @@
 data/
 dist/
+logs/
 vendor/
+hatchet

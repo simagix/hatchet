@@ -76,3 +76,30 @@ func RenameHandler(w http.ResponseWriter, r *http.Request, params httprouter.Par
 
 	json.NewEncoder(w).Encode(map[string]interface{}{"ok": 1, "newName": newName})
 }
+
+// DeleteHandler handles deleting a hatchet
+func DeleteHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	w.Header().Set("Content-Type", "application/json")
+
+	name := r.URL.Query().Get("name")
+	if name == "" {
+		json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": "missing 'name' parameter"})
+		return
+	}
+
+	log.Printf("delete request: %s", name)
+
+	dbase, err := GetDatabase(name)
+	if err != nil {
+		json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+		return
+	}
+	defer dbase.Close()
+
+	if err = dbase.Drop(); err != nil {
+		json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": err.Error()})
+		return
+	}
+
+	json.NewEncoder(w).Encode(map[string]interface{}{"ok": 1})
+}

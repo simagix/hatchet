@@ -163,6 +163,7 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 	</table>
 {{end}}
 	<div style='clear: left;' align='center'><hr/><p/>@simagix</div>
+</div><!-- end content-container -->
 	`
 	html += "</body></html>"
 	return template.New("hatchet").Funcs(template.FuncMap{

@@ -23,7 +23,7 @@ func GetLogTableTemplate(attr string) (*template.Template, error) {
 	} else {
 		html += getLegacyLogsTable()
 	}
-	html += "</body></html>"
+	html += "</div><!-- end content-container --></body></html>"
 	return template.New("hatchet").Funcs(template.FuncMap{
 		"add": func(a int, b int) int {
 			return a + b
@@ -143,10 +143,9 @@ func getLegacyLogsTable() string {
 	<button id="find" onClick="findLogs()" class="button" style="float: right;">Find</button>
   </div>
 
-<p/>
-<div>
+<div style="clear: both; padding-top: 25px;">
 {{ if .Logs }}
-	<div style="clear: both; margin-bottom: 10px;">
+	<div style="margin-bottom: 5px;">
 		<span style="font-weight: bold;">Total records: {{.TotalCount}}</span>
 	</div>
 	{{if .HasMore}}

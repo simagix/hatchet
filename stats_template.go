@@ -22,7 +22,11 @@ func GetStatsTableTemplate(collscan bool, orderBy string, download string) (*tem
 	if download == "" {
 		html = getContentHTML()
 	}
-	html += getStatsTable(collscan, orderBy, download) + "</body></html>"
+	html += getStatsTable(collscan, orderBy, download)
+	if download == "" {
+		html += "</div><!-- end content-container -->"
+	}
+	html += "</body></html>"
 	return template.New("hatchet").Funcs(template.FuncMap{
 		"add": func(a int, b int) int {
 			return a + b
@@ -63,7 +67,7 @@ func getStatsTable(collscan bool, orderBy string, download string) string {
 	html += `<div align='left'>`
 	if download == "" {
 		html += `<button id="download" onClick="downloadStats(); return false;"
-			class="btn" style="float: right;"><i class="fa fa-download"></i></button>`
+			class="btn" style="float: right; font-size: 24px;"><i class="fa fa-download"></i></button>`
 	} else {
 		html += "<div align='center'>{{.Summary}}</div>"
 		asc = ""

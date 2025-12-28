@@ -40,13 +40,13 @@ const headers = `<!DOCTYPE html>
   <style>
     :root {
       --text-color: #2C5234;
-      --header-color: #D2E3FC;
-      --row-color: #E8F0FE;
-      --background-color: #F3F7F4;
+      --header-color: #D5E0D5;
+      --row-color: #F5F8F5;
+      --background-color: #FFF9F0;
       --accent-color-1: #7BAF9B;
       --accent-color-2: #9FCCB3;
-      --accent-color-3: #4A6FA5;
-      --border-color: #DDD;
+      --accent-color-3: #3D6B47;
+      --border-color: #C5D5C5;
     }
   	body {
       font-family: Helvetica, Arial, sans-serif;
@@ -123,15 +123,16 @@ const headers = `<!DOCTYPE html>
     }
     .button { 
       background-color: var(--text-color);
-      border: none; 
+      border: 1px solid #999; 
       outline: none;
       color: var(--background-color);
-      padding: 3px 15px;
+      padding: 8px 15px;
       margin: 0px 10px;
       cursor: pointer;
       font-size: 16px;
       font-weight: bold;
-      border-radius: 3px;
+      border-radius: 4px;
+      box-sizing: border-box;
     }
     .exclamation {
       background: none;
@@ -207,12 +208,12 @@ const headers = `<!DOCTYPE html>
     input, select, textarea {
       font-family: "Trebuchet MS";
       appearance: auto;
-      background-color: #fff;
-      color: #505950;
+      background-color: #f2f2f2;
+      color: var(--text-color);
       border-radius: 4px;
       font-size: 16px;
       padding: 8px 12px;
-      border: 1px solid var(--border-color);
+      border: 1px solid #999;
     }
     select {
       font-weight: bold;
@@ -316,45 +317,42 @@ const headers = `<!DOCTYPE html>
 func getContentHTML() string {
 	html := headers
 	html += `
-<script>
-	function gotoChart() {
-		var sel = document.getElementById('nextChart')
-		var value = sel.options[sel.selectedIndex].value;
-		if(value == "") {
-			return;
-		}
-		loadData(value);
-	}
-</script>
 <style>
   .menu-bar { display: flex; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-color); margin-bottom: 10px; }
   .menu-item { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; margin-right: 8px; font-size: 17px; font-weight: bold; color: var(--text-color); background: var(--header-color); border: none; border-radius: 4px; cursor: pointer; text-decoration: none; }
   .menu-item:hover { background: var(--accent-color-3); color: white; }
+  .menu-item.active { background: var(--text-color); color: white; }
   .menu-item i { font-size: 18px; }
   .menu-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
-  .menu-select { padding: 8px 12px; font-size: 16px; border: 1px solid var(--border-color); border-radius: 4px; min-width: 180px; }
+  .menu-dropdown { position: relative; display: inline-block; }
+  .menu-dropdown-content { display: none; position: absolute; right: 0; background: #fff; min-width: 220px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border-radius: 6px; z-index: 100; max-height: 400px; overflow-y: auto; }
+  .menu-dropdown-content a { display: block; padding: 10px 16px; color: var(--text-color); text-decoration: none; font-size: 15px; }
+  .menu-dropdown-content a:hover { background: var(--header-color); }
+  .menu-dropdown:hover .menu-dropdown-content { display: block; }
+  .menu-dropdown:hover .menu-item { background: var(--accent-color-3); color: white; }
+  .content-container { background: #EEF2EE; border-radius: 24px; padding: 30px 40px; margin: 20px auto; box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08); }
 </style>
 <div class="menu-bar">
-  <button class="menu-item" onclick="location.href='/'; return false;">
+  <button class="menu-item" data-page="home" onclick="location.href='/'; return false;">
     <i class="fa fa-home"></i> Hatchet
   </button>
-  <button class="menu-item" onclick="loadData('/hatchets/{{.Hatchet}}/stats/audit'); return false;">
+  <button class="menu-item" data-page="audit" onclick="loadData('/hatchets/{{.Hatchet}}/stats/audit'); return false;">
     <i class="fa fa-shield"></i> Audit
   </button>
-  <button class="menu-item" onclick="loadData('/hatchets/{{.Hatchet}}/stats/slowops'); return false;">
+  <button class="menu-item" data-page="stats" onclick="loadData('/hatchets/{{.Hatchet}}/stats/slowops'); return false;">
     <i class="fa fa-info"></i> Stats
   </button>
-  <button class="menu-item" onclick="loadData('/hatchets/{{.Hatchet}}/logs/slowops'); return false;">
+  <button class="menu-item" data-page="topn" onclick="loadData('/hatchets/{{.Hatchet}}/logs/slowops'); return false;">
     <i class="fa fa-list"></i> Top N
   </button>
-  <button class="menu-item" onclick="loadData('/hatchets/{{.Hatchet}}/logs/all?component=NONE'); return false;">
+  <button class="menu-item" data-page="search" onclick="loadData('/hatchets/{{.Hatchet}}/logs/all?component=NONE'); return false;">
     <i class="fa fa-search"></i> Search
   </button>
-  <div class="menu-right">
-    <button class="menu-item" onclick="loadData('/hatchets/{{.Hatchet}}/charts/ops?type=stats'); return false;">
-      <i class="fa fa-bar-chart"></i> Charts
+  <div class="menu-dropdown">
+    <button class="menu-item" data-page="charts">
+      <i class="fa fa-bar-chart"></i> Charts <i class="fa fa-caret-down" style="margin-left: 4px;"></i>
     </button>
-    <select id='nextChart' class='menu-select' onchange='gotoChart()'>`
+    <div class="menu-dropdown-content">`
 	items := []Chart{}
 	for _, chart := range charts {
 		items = append(items, chart)
@@ -363,21 +361,19 @@ func getContentHTML() string {
 		return items[i].Index < items[j].Index
 	})
 
-	html += "<option value=''>select a chart</option>"
 	for i, item := range items {
 		if i == 0 {
 			continue
 		}
-		html += fmt.Sprintf("<option value='/hatchets/{{.Hatchet}}/charts%v'>%v</option>", item.URL, item.Title)
+		html += fmt.Sprintf("<a href='#' onclick=\"loadData('/hatchets/{{.Hatchet}}/charts%v'); return false;\">%v</a>", item.URL, item.Title)
 	}
 
-	html += `</select>
+	html += `</div>
   </div>
 </div>
 <script>
 	function setChartType() {
-		var sel = document.getElementById('nextChart')
-		sel.selectedIndex = {{.Chart.Index}};
+		// No longer needed - charts dropdown is now in menu
 	}
 
 	function refreshChart() {
@@ -385,7 +381,21 @@ func getContentHTML() string {
 		var ed = document.getElementById('end').value;
 		loadData('/hatchets/{{.Hatchet}}/charts{{.Chart.URL}}&duration=' + sd + ',' + ed);
 	}
+
+	// Highlight active menu item based on URL
+	(function() {
+		var path = window.location.pathname;
+		var page = 'home';
+		if (path.includes('/stats/audit')) page = 'audit';
+		else if (path.includes('/stats/slowops')) page = 'stats';
+		else if (path.includes('/logs/slowops')) page = 'topn';
+		else if (path.includes('/logs/all')) page = 'search';
+		else if (path.includes('/charts/')) page = 'charts';
+		var btn = document.querySelector('.menu-item[data-page="' + page + '"]');
+		if (btn) btn.classList.add('active');
+	})();
 </script>
+<div class="content-container">
 `
 	html += getFooter()
 	return html
@@ -503,33 +513,79 @@ func getMainPage() string {
 	.delete-btn:hover {
 		color: #FF4444;
 	}
+	.help-link {
+		color: var(--accent-color-3);
+		cursor: pointer;
+		font-size: 1em;
+		text-decoration: none;
+	}
+	.help-link:hover {
+		color: var(--text-color);
+		text-decoration: underline;
+	}
+	.help-link i {
+		margin-right: 6px;
+	}
+	.help-section {
+		display: none;
+		margin-top: 15px;
+		border: 1px solid var(--border-color);
+		border-radius: 6px;
+		background: #fff;
+		padding: 16px;
+	}
+	.help-section.open {
+		display: block;
+	}
+	.help-section h3:first-child {
+		margin-top: 0;
+	}
+	.home-container {
+		background: #EEF2EE;
+		border-radius: 24px;
+		padding: 30px 40px;
+		margin: 30px auto;
+		max-width: 1200px;
+		box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+	}
 </style>
 
-<div style='display: flex; align-items: flex-start; gap: 30px; padding: 15px 0; border-bottom: 1px solid var(--border-color); margin-bottom: 15px;'>
-	<div style='flex: 1;'>
-		<h1 style='margin: 0 0 12px 0; font-size: 2.4em; font-family: Righteous, cursive; letter-spacing: 2px;'>Hatchet</h1>
-		<p style='margin: 0 0 12px 0; color: #666; font-size: 1.1em; max-width: 720px; line-height: 1.5;'>
-			Like a skilled woodsman reading the rings of a tree, Hatchet reveals the stories hidden within your MongoDB logs — patterns of performance, whispers of security, and trails to resolution.
+<div class="home-container">
+<!-- Row 1: Title/Description (50%) | Tutorial Video (50%) -->
+<div style='display: flex; gap: 30px; padding: 15px 0; border-bottom: 1px solid var(--border-color); margin-bottom: 15px;'>
+	<div style='flex: 1; display: flex; flex-direction: column; justify-content: flex-start;'>
+		<h1 style='margin: 0 0 16px 0; font-size: 3.2em; font-family: Righteous, cursive; letter-spacing: 3px; color: #333;'>Hatchet<img src='data:image/png;base64,` + CHEN_ICO + `' style='vertical-align: top; margin-left: 2px; transform: rotate(-15deg); position: relative; top: -5px;'/></h1>
+		<p style='margin: 0; color: #444; font-size: 1.35em; line-height: 1.6; max-width: 560px; font-style: italic;'>
+			Like a skilled woodsman reading the rings of a tree, Hatchet reveals the stories hidden within your MongoDB logs — from performance patterns and activity rhythms to security insights and troubleshooting trails.
 		</p>
-		<label style='font-weight: bold; margin-bottom: 6px; display: block;'>Select a hatcheted log:</label>
-		<div class='hatchet-table-container'>
-			<table class='hatchet-table'>
-				<tr><th>Hatcheted Log</th><th>Processed Time</th></tr>
-{{range $n, $entry := .Hatchets}}
-				<tr class='clickable-row' onclick='selectHatchet("{{$entry.Name}}")'>
-					<td><button class='action-btn' onclick='renameHatchet("{{$entry.Name}}", event)' title='Rename'><i class='fa fa-pencil'></i></button><button class='action-btn delete-btn' onclick='deleteHatchet("{{$entry.Name}}", event)' title='Delete'><i class='fa fa-trash'></i></button> {{$entry.Name}}</td>
-					<td class='utc-time' data-utc='{{$entry.CreatedAt}}'>{{$entry.CreatedAt}}</td>
-				</tr>
-{{else}}
-				<tr><td colspan='2' style='text-align: center; color: #666;'>No logs processed yet</td></tr>
-{{end}}
-			</table>
-		</div>
 	</div>
-	<div style='display: flex; align-items: center;'>
+	<div style='flex: 1; display: flex; align-items: center; justify-content: center;'>
 		<iframe width="560" height="315" src="https://www.youtube.com/embed/WavOyaFTDE8" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
 	</div>
 </div>
+
+<!-- Row 2: Hatcheted Logs Selection (full width) -->
+<div style='margin-bottom: 15px;'>
+	<label style='font-weight: bold; font-size: 1.3em; margin-bottom: 8px; display: block;'>Select a hatcheted log:</label>
+	<div class='hatchet-table-container'>
+		<table class='hatchet-table'>
+			<tr><th>Hatcheted Log</th><th>Processed Time</th></tr>
+{{range $n, $entry := .Hatchets}}
+			<tr class='clickable-row' onclick='selectHatchet("{{$entry.Name}}")'>
+				<td><button class='action-btn' onclick='renameHatchet("{{$entry.Name}}", event)' title='Rename'><i class='fa fa-pencil'></i></button><button class='action-btn delete-btn' onclick='deleteHatchet("{{$entry.Name}}", event)' title='Delete'><i class='fa fa-trash'></i></button> {{$entry.Name}}</td>
+				<td class='utc-time' data-utc='{{$entry.CreatedAt}}'>{{$entry.CreatedAt}}</td>
+			</tr>
+{{else}}
+			<tr><td colspan='2' style='text-align: center; color: #666;'>No logs processed yet</td></tr>
+{{end}}
+		</table>
+	</div>
+</div>
+
+<a class="help-link" onclick="document.getElementById('help-section').classList.toggle('open'); this.querySelector('span').textContent = document.getElementById('help-section').classList.contains('open') ? 'Hide documentation' : 'View documentation'; return false;">
+	<i class="fa fa-question-circle"></i> <span>View documentation</span> →
+</a>
+<div id="help-section" class="help-section">
 <h3>Reports</h3>
     <table width='100%'>
       <tr><th></th><th>Title</th><th>Description</th></tr>
@@ -539,7 +595,7 @@ func getMainPage() string {
       <tr><td align=center><i class="fa fa-info"></i></td><td>Stats</td><td>Summary of slow operational query patterns and duration</td></tr>
       <tr><td align=center><i class="fa fa-list"></i></td><td>TopN</td><td>Display the slowest 23 operation logs</td></tr>
     </table>
-<h3>Charts</h3>
+<h3 style='margin-top: 24px;'>Charts</h3>
     <table width='100%'>
       <tr><th></th><th>Title</th><th>Description</th></tr>`
 	size := len(charts) - 1
@@ -555,7 +611,7 @@ func getMainPage() string {
 			chart.Index, chart.Title, chart.Descr)
 	}
 	template += "</table>"
-	template += `<h3>URL</h3>
+	template += `<h3 style='margin-top: 24px;'>URL</h3>
 <ul class="api">
 	<li>/</li>
 	<li>/hatchets/{hatchet}/charts/{chart}[?type={str}]</li>
@@ -564,7 +620,7 @@ func getMainPage() string {
 	<li>/hatchets/{hatchet}/stats/slowops[?COLLSCAN={bool}&orderBy={str}]</li>
 </ul>
 
-<h3>API</h3>
+<h3 style='margin-top: 24px;'>API</h3>
 <ul class="api">
 	<li>/api/hatchet/v1.0/hatchets/{hatchet}/logs/all[?component={str}&context={str}&duration={date},{date}&severity={str}&limit=[{offset},]{int}]</li>
 	<li>/api/hatchet/v1.0/hatchets/{hatchet}/logs/slowops[?topN={int}]</li>
@@ -572,6 +628,8 @@ func getMainPage() string {
 	<li>/api/hatchet/v1.0/hatchets/{hatchet}/stats/slowops[?COLLSCAN={bool}&orderBy={str}]</li>
 	<li>/api/hatchet/v1.0/mongodb/{version}/drivers/{driver}?compatibleWith={driver version}</li>
 </ul>
+</div>
+</div><!-- end home-container -->
 <h4 align='center'><hr/>{{.Version}}</h4>
 `
 	template += fmt.Sprintf(`<div class="footer"><img valign="middle" src='data:image/png;base64,%v'/> Ken Chen</div>`, CHEN_ICO)

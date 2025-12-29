@@ -737,14 +737,15 @@ func getMainPage() string {
 			<label style='font-weight: bold; font-size: 1.3em; margin-bottom: 8px; display: block;'>Select a hatcheted log:</label>
 			<div class='hatchet-table-container'>
 				<table class='hatchet-table'>
-					<tr><th>Hatcheted Log</th><th>Processed Time</th></tr>
+					<tr><th>#</th><th>Hatcheted Log</th><th>Processed Time</th></tr>
 {{range $n, $entry := .Hatchets}}
 					<tr class='clickable-row' onclick='selectHatchet("{{$entry.Name}}")'>
+						<td style='text-align: center; width: 40px;'>{{add $n 1}}</td>
 						<td><button class='action-btn' onclick='renameHatchet("{{$entry.Name}}", event)' title='Rename'><i class='fa fa-pencil'></i></button><button class='action-btn delete-btn' onclick='deleteHatchet("{{$entry.Name}}", event)' title='Delete'><i class='fa fa-trash'></i></button> {{$entry.Name}}</td>
 						<td class='utc-time' data-utc='{{$entry.CreatedAt}}'>{{$entry.CreatedAt}}</td>
 					</tr>
 {{else}}
-					<tr><td colspan='2' style='text-align: center; color: #666;'>No logs processed yet</td></tr>
+					<tr><td colspan='3' style='text-align: center; color: #666;'>No logs processed yet</td></tr>
 {{end}}
 				</table>
 			</div>

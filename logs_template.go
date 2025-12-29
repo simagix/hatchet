@@ -113,7 +113,7 @@ func getSlowOpsLogsTable() string {
 		</tr>
 {{end}}
 	</table>
-	<div style='clear: left;' align='center'><hr/><p/>@simagix</div>
+	<div style='clear: left;' align='center'><hr/><p/>{{.Version}}</div>
 </div>
 `
 	return template
@@ -186,7 +186,7 @@ func getLegacyLogsTable() string {
 		<button onClick="javascript:loadData('{{.URL}}'); return false;"
 			class="btn" style="float: right; clear: right;"><i class="fa fa-arrow-right"></i></button>
 	{{end}}
-<div align='center'><hr/><p/>@simagix</div>
+<div align='center'><hr/><p/>{{.Version}}</div>
 {{end}}
 </div>
 <script>

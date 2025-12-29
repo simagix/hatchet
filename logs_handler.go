@@ -75,7 +75,7 @@ func LogsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Param
 			component, context, severity, duration, limit)
 		doc := map[string]interface{}{"Hatchet": hatchetName, "Merge": info.Merge, "Logs": logs, "Seq": seq,
 			"Summary": summary, "Context": context, "Component": component, "Severity": severity,
-			"HasMore": hasMore, "URL": url, "TotalCount": totalCount}
+			"HasMore": hasMore, "URL": url, "TotalCount": totalCount, "Version": GetLogv2().version}
 		if err = templ.Execute(w, doc); err != nil {
 			renderErrorPage(w, r, hatchetName, err.Error())
 			return
@@ -96,7 +96,7 @@ func LogsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Param
 			renderErrorPage(w, r, hatchetName, err.Error())
 			return
 		}
-		doc := map[string]interface{}{"Hatchet": hatchetName, "Merge": info.Merge, "Logs": logstrs, "Summary": summary}
+		doc := map[string]interface{}{"Hatchet": hatchetName, "Merge": info.Merge, "Logs": logstrs, "Summary": summary, "Version": GetLogv2().version}
 		if err = templ.Execute(w, doc); err != nil {
 			renderErrorPage(w, r, hatchetName, err.Error())
 			return

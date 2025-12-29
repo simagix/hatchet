@@ -162,7 +162,7 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 	{{end}}
 	</table>
 {{end}}
-	<div style='clear: left;' align='center'><hr/><p/>@simagix</div>
+	<div style='clear: left;' align='center'><hr/><p/>{{.Version}}</div>
 </div><!-- end content-container -->
 	`
 	html += "</body></html>"

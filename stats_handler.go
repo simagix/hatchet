@@ -27,7 +27,7 @@ func renderErrorPage(w http.ResponseWriter, r *http.Request, hatchetName string,
 		json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": errMsg})
 		return
 	}
-	doc := map[string]interface{}{"Hatchet": hatchetName, "Message": errMsg}
+	doc := map[string]interface{}{"Hatchet": hatchetName, "Message": errMsg, "Version": GetLogv2().version}
 	if err = templ.Execute(w, doc); err != nil {
 		json.NewEncoder(w).Encode(map[string]interface{}{"ok": 0, "error": errMsg})
 	}
@@ -65,7 +65,7 @@ func StatsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Para
 			renderErrorPage(w, r, hatchetName, err.Error())
 			return
 		}
-		doc := map[string]interface{}{"Hatchet": hatchetName, "Info": info, "Summary": summary, "Data": data}
+		doc := map[string]interface{}{"Hatchet": hatchetName, "Info": info, "Summary": summary, "Data": data, "Version": GetLogv2().version}
 		if err = templ.Execute(w, doc); err != nil {
 			renderErrorPage(w, r, hatchetName, err.Error())
 			return
@@ -101,7 +101,7 @@ func StatsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Para
 			renderErrorPage(w, r, hatchetName, err.Error())
 			return
 		}
-		doc := map[string]interface{}{"Hatchet": hatchetName, "Merge": info.Merge, "Ops": ops, "Summary": summary}
+		doc := map[string]interface{}{"Hatchet": hatchetName, "Merge": info.Merge, "Ops": ops, "Summary": summary, "Version": GetLogv2().version}
 		if err = templ.Execute(w, doc); err != nil {
 			renderErrorPage(w, r, hatchetName, err.Error())
 			return

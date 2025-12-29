@@ -118,7 +118,7 @@ func getStatsTable(collscan bool, orderBy string, download string) string {
 {{end}}
 	</table>
 	</div>
-	<div align='center'><hr/><p/>@simagix</div>
+	<div align='center'><hr/><p/>{{.Version}}</div>
 </div>`
 	return html
 }

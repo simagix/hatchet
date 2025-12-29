@@ -182,6 +182,8 @@ func Run(fullVersion string) {
 	router.GET("/hatchets/:hatchet/stats/:attr", StatsHandler)
 	router.POST("/api/hatchet/v1.0/rename", RenameHandler)
 	router.DELETE("/api/hatchet/v1.0/delete", DeleteHandler)
+	router.POST("/api/hatchet/v1.0/upload", UploadHandler)
+	router.GET("/api/hatchet/v1.0/upload/status/:name", UploadStatusHandler)
 
 	addr := fmt.Sprintf(":%d", *port)
 	if listener, err := net.Listen("tcp", addr); err != nil {

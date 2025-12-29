@@ -345,9 +345,6 @@ func getContentHTML() string {
   <button class="menu-item" data-page="topn" onclick="loadData('/hatchets/{{.Hatchet}}/logs/slowops'); return false;">
     <i class="fa fa-list"></i> Top N
   </button>
-  <button class="menu-item" data-page="search" onclick="loadData('/hatchets/{{.Hatchet}}/logs/all?component=NONE'); return false;">
-    <i class="fa fa-search"></i> Search
-  </button>
   <div class="menu-dropdown">
     <button class="menu-item" data-page="charts">
       <i class="fa fa-bar-chart"></i> Charts <i class="fa fa-caret-down" style="margin-left: 4px;"></i>
@@ -370,6 +367,9 @@ func getContentHTML() string {
 
 	html += `</div>
   </div>
+  <button class="menu-item" data-page="search" onclick="loadData('/hatchets/{{.Hatchet}}/logs/all?component=NONE'); return false;">
+    <i class="fa fa-search"></i> Search
+  </button>
 </div>
 <script>
 	function setChartType() {
@@ -450,6 +450,92 @@ func getMainPage() string {
 				});
 		}
 	}
+
+	// Upload handling
+	function setupUploadZone() {
+		var zone = document.getElementById('upload-zone');
+		if (!zone) return;
+		
+		zone.addEventListener('dragover', function(e) {
+			e.preventDefault();
+			zone.classList.add('dragover');
+		});
+		zone.addEventListener('dragleave', function(e) {
+			e.preventDefault();
+			zone.classList.remove('dragover');
+		});
+		zone.addEventListener('drop', function(e) {
+			e.preventDefault();
+			zone.classList.remove('dragover');
+			var files = e.dataTransfer.files;
+			if (files.length > 0) {
+				handleFileSelect(files[0]);
+			}
+		});
+	}
+	
+	function handleFileSelect(file) {
+		if (!file) return;
+		
+		var zone = document.getElementById('upload-zone');
+		var status = document.getElementById('upload-status');
+		
+		zone.classList.add('uploading');
+		status.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Uploading ' + file.name + '...';
+		
+		var formData = new FormData();
+		formData.append('logfile', file);
+		
+		fetch('/api/hatchet/v1.0/upload', {
+			method: 'POST',
+			body: formData
+		})
+		.then(response => response.json())
+		.then(data => {
+			zone.classList.remove('uploading');
+			if (data.status === 'processing') {
+				status.innerHTML = '<i class="fa fa-check" style="color: green;"></i> ' + data.message;
+				// Poll for completion
+				pollUploadStatus(data.name);
+			} else {
+				status.innerHTML = '<i class="fa fa-times" style="color: red;"></i> Error: ' + (data.error || 'Upload failed');
+			}
+		})
+		.catch(error => {
+			zone.classList.remove('uploading');
+			status.innerHTML = '<i class="fa fa-times" style="color: red;"></i> Error: ' + error;
+		});
+	}
+	
+	function pollUploadStatus(name) {
+		var status = document.getElementById('upload-status');
+		var pollCount = 0;
+		var maxPolls = 300; // 5 minutes max
+		
+		var poll = setInterval(function() {
+			pollCount++;
+			fetch('/api/hatchet/v1.0/upload/status/' + encodeURIComponent(name))
+				.then(response => response.json())
+				.then(data => {
+					if (data.status === 'complete') {
+						clearInterval(poll);
+						status.innerHTML = '<i class="fa fa-check" style="color: green;"></i> Processing complete!';
+						loadData('/'); // Refresh the page to show new hatchet
+					} else if (pollCount >= maxPolls) {
+						clearInterval(poll);
+						status.innerHTML = '<i class="fa fa-clock-o"></i> Still processing... refresh page to check.';
+					} else {
+						status.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Processing... (' + pollCount + 's)';
+					}
+				})
+				.catch(error => {
+					// Keep polling on error
+				});
+		}, 1000);
+	}
+	
+	// Initialize upload zone on page load
+	document.addEventListener('DOMContentLoaded', setupUploadZone);
 	// Convert UTC time to browser local time
 	function convertToLocalTime() {
 		document.querySelectorAll('.utc-time').forEach(function(el) {
@@ -494,6 +580,28 @@ func getMainPage() string {
 	}
 	.hatchet-table tr.clickable-row:hover .delete-btn {
 		color: #FF6B6B;
+	}
+	.upload-zone {
+		border: 2px dashed #999;
+		border-radius: 8px;
+		padding: 20px;
+		text-align: center;
+		cursor: pointer;
+		background: #f9f9f9;
+		transition: all 0.2s ease;
+		min-height: 120px;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+	}
+	.upload-zone:hover, .upload-zone.dragover {
+		border-color: var(--accent-color-3);
+		background: #f0f5f0;
+	}
+	.upload-zone.uploading {
+		opacity: 0.7;
+		pointer-events: none;
 	}
 	.action-btn {
 		background: none;
@@ -554,7 +662,7 @@ func getMainPage() string {
 <!-- Row 1: Title/Description (50%) | Tutorial Video (50%) -->
 <div style='display: flex; gap: 30px; padding: 15px 0; border-bottom: 1px solid var(--border-color); margin-bottom: 15px;'>
 	<div style='flex: 1; display: flex; flex-direction: column; justify-content: flex-start;'>
-		<h1 style='margin: 0 0 16px 0; font-size: 3.2em; font-family: Righteous, cursive; letter-spacing: 3px; color: #333;'>Hatchet<img src='data:image/png;base64,` + CHEN_ICO + `' style='vertical-align: top; margin-left: 2px; transform: rotate(-15deg); position: relative; top: -5px;'/></h1>
+		<h1 style='margin: 0 0 16px 0; font-size: 3.2em; font-family: Righteous, cursive; letter-spacing: 3px; color: #333;'>Hatchet<img src='data:image/png;base64,` + CHEN_ICO + `' style='vertical-align: top; margin-left: 2px; transform: rotate(-23deg); position: relative; top: -5px;'/></h1>
 		<p style='margin: 0; color: #444; font-size: 1.35em; line-height: 1.6; max-width: 560px; font-style: italic;'>
 			Like a skilled woodsman reading the rings of a tree, Hatchet reveals the stories hidden within your MongoDB logs — from performance patterns and activity rhythms to security insights and troubleshooting trails.
 		</p>
@@ -564,21 +672,37 @@ func getMainPage() string {
 	</div>
 </div>
 
-<!-- Row 2: Hatcheted Logs Selection (full width) -->
+<!-- Row 2: Upload and Hatcheted Logs Selection (full width) -->
 <div style='margin-bottom: 15px;'>
-	<label style='font-weight: bold; font-size: 1.3em; margin-bottom: 8px; display: block;'>Select a hatcheted log:</label>
-	<div class='hatchet-table-container'>
-		<table class='hatchet-table'>
-			<tr><th>Hatcheted Log</th><th>Processed Time</th></tr>
+	<div style='display: flex; gap: 20px; align-items: flex-start;'>
+		<!-- Upload Section -->
+		<div style='flex: 0 0 280px;'>
+			<label style='font-weight: bold; font-size: 1.3em; margin-bottom: 8px; display: block;'>Upload log file:</label>
+			<div id='upload-zone' class='upload-zone' onclick='document.getElementById("file-input").click()'>
+				<i class='fa fa-cloud-upload' style='font-size: 2em; color: #666; margin-bottom: 8px;'></i>
+				<div>Drop file here or click to browse</div>
+				<div style='font-size: 0.85em; color: #888; margin-top: 4px;'>Supports .log, .gz, .log.gz</div>
+				<input type='file' id='file-input' accept='.log,.gz,.zst' style='display: none;' onchange='handleFileSelect(this.files[0])'>
+			</div>
+			<div id='upload-status' style='margin-top: 8px; font-size: 0.9em;'></div>
+		</div>
+		<!-- Hatcheted Logs Table -->
+		<div style='flex: 1;'>
+			<label style='font-weight: bold; font-size: 1.3em; margin-bottom: 8px; display: block;'>Select a hatcheted log:</label>
+			<div class='hatchet-table-container'>
+				<table class='hatchet-table'>
+					<tr><th>Hatcheted Log</th><th>Processed Time</th></tr>
 {{range $n, $entry := .Hatchets}}
-			<tr class='clickable-row' onclick='selectHatchet("{{$entry.Name}}")'>
-				<td><button class='action-btn' onclick='renameHatchet("{{$entry.Name}}", event)' title='Rename'><i class='fa fa-pencil'></i></button><button class='action-btn delete-btn' onclick='deleteHatchet("{{$entry.Name}}", event)' title='Delete'><i class='fa fa-trash'></i></button> {{$entry.Name}}</td>
-				<td class='utc-time' data-utc='{{$entry.CreatedAt}}'>{{$entry.CreatedAt}}</td>
-			</tr>
+					<tr class='clickable-row' onclick='selectHatchet("{{$entry.Name}}")'>
+						<td><button class='action-btn' onclick='renameHatchet("{{$entry.Name}}", event)' title='Rename'><i class='fa fa-pencil'></i></button><button class='action-btn delete-btn' onclick='deleteHatchet("{{$entry.Name}}", event)' title='Delete'><i class='fa fa-trash'></i></button> {{$entry.Name}}</td>
+						<td class='utc-time' data-utc='{{$entry.CreatedAt}}'>{{$entry.CreatedAt}}</td>
+					</tr>
 {{else}}
-			<tr><td colspan='2' style='text-align: center; color: #666;'>No logs processed yet</td></tr>
+					<tr><td colspan='2' style='text-align: center; color: #666;'>No logs processed yet</td></tr>
 {{end}}
-		</table>
+				</table>
+			</div>
+		</div>
 	</div>
 </div>
 
@@ -622,6 +746,10 @@ func getMainPage() string {
 
 <h3 style='margin-top: 24px;'>API</h3>
 <ul class="api">
+	<li><b>POST</b> /api/hatchet/v1.0/upload - Upload log file (multipart form: logfile, name)</li>
+	<li><b>GET</b> /api/hatchet/v1.0/upload/status/{name} - Check upload processing status</li>
+	<li><b>POST</b> /api/hatchet/v1.0/rename?old={name}&new={name} - Rename a hatchet</li>
+	<li><b>DELETE</b> /api/hatchet/v1.0/delete?name={name} - Delete a hatchet</li>
 	<li>/api/hatchet/v1.0/hatchets/{hatchet}/logs/all[?component={str}&context={str}&duration={date},{date}&severity={str}&limit=[{offset},]{int}]</li>
 	<li>/api/hatchet/v1.0/hatchets/{hatchet}/logs/slowops[?topN={int}]</li>
 	<li>/api/hatchet/v1.0/hatchets/{hatchet}/stats/audit</li>

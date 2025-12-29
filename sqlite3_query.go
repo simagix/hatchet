@@ -336,6 +336,10 @@ func (ptr *SQLite3DB) GetHatchetNames() ([]string, error) {
 	}
 	rows, err := db.Query(query)
 	if err != nil {
+		// Return empty list if table doesn't exist yet (fresh database)
+		if strings.Contains(err.Error(), "no such table") {
+			return names, nil
+		}
 		return names, err
 	}
 	defer rows.Close()
@@ -358,6 +362,10 @@ func (ptr *SQLite3DB) GetHatchetsWithTime() ([]HatchetEntry, error) {
 	}
 	rows, err := db.Query(query)
 	if err != nil {
+		// Return empty list if table doesn't exist yet (fresh database)
+		if strings.Contains(err.Error(), "no such table") {
+			return entries, nil
+		}
 		return entries, err
 	}
 	defer rows.Close()

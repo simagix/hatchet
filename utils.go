@@ -204,11 +204,12 @@ func GetMongoDateSubString(start string, end string) bson.M {
 
 func GetHatchetSummary(info HatchetInfo) string {
 	arr := []string{}
-	if info.Module == "" {
-		info.Module = "community"
-	}
 	if info.Version != "" {
-		arr = append(arr, fmt.Sprintf(": MongoDB v%v (%v)", info.Version, info.Module))
+		if info.Module != "" {
+			arr = append(arr, fmt.Sprintf(": MongoDB v%v (%v)", info.Version, info.Module))
+		} else {
+			arr = append(arr, fmt.Sprintf(": MongoDB v%v", info.Version))
+		}
 	}
 	if info.OS != "" {
 		arr = append(arr, "os: "+info.OS)

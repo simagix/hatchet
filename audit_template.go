@@ -231,7 +231,7 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 				if info.Arch != "" && info.OS != "" {
 					html += fmt.Sprintf("The server is on a <span style='color: orange;'>%v</span> architecture server that running the <span style='color: orange;'>%v</span> operating system. ", info.Arch, info.OS)
 				}
-				if info.Module != "enterprise" {
+				if info.Module != "" && info.Module != "enterprise" {
 					html += fmt.Sprintf("Although %v edition works, it is recommended to upgrade to the enterprise edition or migrate to Atlas. ", info.Module)
 				}
 				if info.Start != "" && info.End != "" {

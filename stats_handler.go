@@ -60,7 +60,7 @@ func StatsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Para
 			renderErrorPage(w, r, hatchetName, err.Error())
 			return
 		}
-		templ, err := GetAuditTablesTemplate()
+		templ, err := GetAuditTablesTemplate(download)
 		if err != nil {
 			renderErrorPage(w, r, hatchetName, err.Error())
 			return

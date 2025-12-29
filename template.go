@@ -121,6 +121,21 @@ const headers = `<!DOCTYPE html>
       background-color: var(--border-color);
       color: #DB4437;
     }
+    .download-btn {
+      background-color: #e8efe8;
+      border: 1px solid #ccc;
+      color: #666;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      transition: all 0.2s ease;
+    }
+    .download-btn:hover {
+      background-color: var(--accent-color-3);
+      color: white;
+      border-color: var(--accent-color-3);
+    }
     .button { 
       background-color: var(--text-color);
       border: 1px solid #999; 

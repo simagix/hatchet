@@ -8,7 +8,6 @@ package hatchet
 import (
 	"fmt"
 	"html/template"
-	"math/rand"
 	"strings"
 	"time"
 
@@ -18,9 +17,28 @@ import (
 )
 
 // GetAuditTablesTemplate returns HTML
-func GetAuditTablesTemplate() (*template.Template, error) {
-	html := headers + getContentHTML()
+func GetAuditTablesTemplate(download string) (*template.Template, error) {
+	html := headers
+	if download == "" {
+		html += getContentHTML()
+	}
 	html += `{{$name := .Hatchet}}
+<script>
+	function downloadAudit() {
+		anchor = document.createElement('a');
+		anchor.download = '{{.Hatchet}}_audit.html';
+		anchor.href = '/hatchets/{{.Hatchet}}/stats/audit?download=true';
+		anchor.dataset.downloadurl = ['text/html', anchor.download, anchor.href].join(':');
+		anchor.click();
+	}
+</script>`
+	if download == "" {
+		html += `<button id="download" onClick="downloadAudit(); return false;"
+			class="download-btn" style="float: right;"><i class="fa fa-download"></i> Download</button>`
+	} else {
+		html += "<div align='center'>{{.Summary}}</div>"
+	}
+	html += `
 	<div style='margin: 5px 5px; width=100%; clear: left;'>
 	  <table style='border: none; margin: 10px 10px; width=100%; clear: left;' width='100%'>
 		{{$flag := coinToss}}
@@ -163,8 +181,10 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 	</table>
 {{end}}
 	<div style='clear: left;' align='center'><hr/><p/>{{.Version}}</div>
-</div><!-- end content-container -->
-	`
+`
+	if download == "" {
+		html += "</div><!-- end content-container -->"
+	}
 	html += "</body></html>"
 	return template.New("hatchet").Funcs(template.FuncMap{
 		"add": func(a int, b int) int {
@@ -198,9 +218,10 @@ func GetAuditTablesTemplate() (*template.Template, error) {
 			return printer.Sprintf("%v", numbers[i])
 		},
 		"coinToss": func() bool {
-			rand.Seed(time.Now().UnixNano())
-			randomNum := rand.Intn(2)
-			return (randomNum%2 == 0)
+			// rand.Seed(time.Now().UnixNano())
+			// randomNum := rand.Intn(2)
+			// return (randomNum%2 == 0)
+			return false // always Simone
 		},
 		"getDurationFromSeconds": func(s int) string {
 			return gox.GetDurationFromSeconds(float64(s))

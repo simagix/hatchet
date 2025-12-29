@@ -24,9 +24,6 @@ const (
 	maxUploadSizeMB = 200
 )
 
-// validExtensions lists allowed file extensions for upload
-var validExtensions = []string{".log", ".log.gz"}
-
 // UploadHandler handles file uploads for processing
 func UploadHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	if r.Method != http.MethodPost {
@@ -52,25 +49,6 @@ func UploadHandler(w http.ResponseWriter, r *http.Request, params httprouter.Par
 		return
 	}
 	defer file.Close()
-
-	// Validate file extension
-	filename := strings.ToLower(header.Filename)
-	validExt := false
-	for _, ext := range validExtensions {
-		if strings.HasSuffix(filename, ext) {
-			validExt = true
-			break
-		}
-	}
-	if !validExt {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"status": "error",
-			"error":  fmt.Sprintf("Invalid file type. Accepted: %v", validExtensions),
-		})
-		return
-	}
 
 	// Validate file size
 	if header.Size > maxUploadSize {
@@ -118,6 +96,18 @@ func UploadHandler(w http.ResponseWriter, r *http.Request, params httprouter.Par
 	}
 
 	log.Printf("Uploaded %s (%d bytes) -> %s", header.Filename, written, tempPath)
+
+	// Validate file is a MongoDB log by checking content
+	if !isMongoDBLog(tempPath) {
+		os.Remove(tempPath)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status": "error",
+			"error":  "Not a valid MongoDB log file. File must contain MongoDB logv2 JSON format.",
+		})
+		return
+	}
 
 	// Create a new Logv2 instance for this upload to support concurrent uploads
 	// Copy config from the singleton but use separate state

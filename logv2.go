@@ -13,6 +13,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -144,20 +145,101 @@ func (ptr *Logv2) GetDBType() int {
 	return SQLite3
 }
 
-// Analyze analyzes logs from a file
+// isMongoDBLog checks if a file is a MongoDB log by reading and validating the first line
+func isMongoDBLog(filename string) bool {
+	file, err := os.Open(filename)
+	if err != nil {
+		return false
+	}
+	defer file.Close()
+
+	reader, err := gox.NewReader(file)
+	if err != nil {
+		return false
+	}
+
+	// Read first non-empty line
+	for {
+		line, _, err := reader.ReadLine()
+		if err != nil {
+			return false
+		}
+		if len(line) == 0 {
+			continue
+		}
+		// Try to parse as MongoDB logv2 JSON
+		doc := Logv2Info{}
+		if err := bson.UnmarshalExtJSON(line, false, &doc); err != nil {
+			return false
+		}
+		// Check for required logv2 fields: timestamp and severity
+		return !doc.Timestamp.IsZero() && doc.Severity != ""
+	}
+}
+
+// Analyze analyzes logs from a file or directory (1 level only)
 func (ptr *Logv2) Analyze(logname string, marker int) error {
-	var err error
+	// Check if input is a directory
+	fileInfo, err := os.Stat(logname)
+	if err != nil {
+		return err
+	}
+	if fileInfo.IsDir() {
+		// Process directory (1 level only, no recursion)
+		entries, err := os.ReadDir(logname)
+		if err != nil {
+			return err
+		}
+		// Get existing names once, then track new names locally to avoid DB query timing issues
+		existingNames, _ := GetExistingHatchetNames()
+		processedNames := make([]string, 0)
+		fileCount := 0
+		for _, entry := range entries {
+			if entry.IsDir() {
+				continue // skip subdirectories
+			}
+			name := entry.Name()
+			if strings.HasPrefix(name, ".") {
+				continue // skip hidden files
+			}
+			fullPath := filepath.Join(logname, name)
+			// Check if file is a MongoDB log by reading first line
+			if !isMongoDBLog(fullPath) {
+				log.Printf("skipping %s (not a MongoDB log)", name)
+				continue
+			}
+			fileCount++
+			// Generate unique name using combined existing + processed names
+			allNames := append(existingNames, processedNames...)
+			hatchetName := getUniqueHatchetName(fullPath, allNames)
+			processedNames = append(processedNames, hatchetName)
+			// Set the name before calling Analyze
+			ptr.hatchetName = hatchetName
+			if err := ptr.Analyze(fullPath, 0); err != nil { // marker=0 to skip name regeneration
+				log.Printf("error processing %s: %v", fullPath, err)
+				// continue with other files
+			}
+			// Print summary for each file
+			if !ptr.legacy {
+				ptr.PrintSummary()
+			}
+		}
+		if fileCount == 0 {
+			log.Printf("no MongoDB log files found in directory %s", logname)
+		}
+		return nil
+	}
+
 	var buf []byte
 	var file *os.File
 	var reader *bufio.Reader
 	ptr.logname = logname
 	// Generate unique hatchet name for each file when not merging
-	// Skip if hatchetName was pre-set (e.g., upload handler sets it)
-	if !ptr.merge {
-		if ptr.hatchetName == "" || marker > 1 {
-			existingNames, _ := GetExistingHatchetNames()
-			ptr.hatchetName = getUniqueHatchetName(ptr.logname, existingNames)
-		}
+	// marker=0: name pre-set by directory handler or upload handler, skip regeneration
+	// marker>=1: command line files, generate name for each
+	if !ptr.merge && marker > 0 {
+		existingNames, _ := GetExistingHatchetNames()
+		ptr.hatchetName = getUniqueHatchetName(ptr.logname, existingNames)
 	}
 	if !ptr.legacy {
 		log.Println("processing", logname)

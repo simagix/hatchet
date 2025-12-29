@@ -166,13 +166,17 @@ func GetSQLDateSubString(start string, end string) string {
 	}
 	minutes := etime.Sub(stime).Minutes()
 	if minutes < 1 {
-		return "SUBSTR(date, 1, 19)"
+		return "SUBSTR(date, 1, 19)" // second precision
 	} else if minutes < 10 {
-		return "SUBSTR(date, 1, 18)||'9'"
+		return "SUBSTR(date, 1, 18)||'9'" // ~minute precision
 	} else if minutes < 60 {
-		return "SUBSTR(date, 1, 16)||':59'"
+		return "SUBSTR(date, 1, 16)||':59'" // ~10 minute precision
+	} else if minutes < 1440 { // < 24 hours
+		return "SUBSTR(date, 1, 15)||'9:59'" // hour precision
+	} else if minutes < 43200 { // < 30 days
+		return "SUBSTR(date, 1, 13)||':59:59'" // day precision
 	} else {
-		return "SUBSTR(date, 1, 15)||'9:59'"
+		return "SUBSTR(date, 1, 10)||'T23:59:59'" // month precision
 	}
 }
 

@@ -67,7 +67,7 @@ Use the URL `http://localhost:3721/` in a browser to view reports and charts.  A
 When running as a web service, Hatchet provides a rich set of features through its web interface:
 
 ### Upload Log Files
-Upload MongoDB log files directly through the web interface - no command line needed. Simply drag and drop files onto the upload zone or click to browse. Supports `.log`, `.gz`, and `.log.gz` files. Multiple concurrent uploads are supported.
+Upload MongoDB log files directly through the web interface - no command line needed. Simply drag and drop files onto the upload zone or click to browse. Supports any MongoDB log file (including `.gz` compressed). Multiple concurrent uploads are supported.
 
 ### Share Analysis via Direct Links
 Share your analysis with team members using direct URLs:

@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/julienschmidt/httprouter"
 )
@@ -21,19 +22,25 @@ import (
 // UploadHandler handles file uploads for processing
 func UploadHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		json.NewEncoder(w).Encode(map[string]interface{}{"status": "error", "error": "Method not allowed"})
 		return
 	}
 
 	// Parse multipart form - 32MB max in memory, rest goes to temp files
 	if err := r.ParseMultipartForm(32 << 20); err != nil {
-		http.Error(w, fmt.Sprintf("Failed to parse form: %v", err), http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{"status": "error", "error": fmt.Sprintf("Failed to parse form: %v", err)})
 		return
 	}
 
 	file, header, err := r.FormFile("logfile")
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to get file: %v", err), http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{"status": "error", "error": fmt.Sprintf("Failed to get file: %v", err)})
 		return
 	}
 	defer file.Close()
@@ -47,22 +54,17 @@ func UploadHandler(w http.ResponseWriter, r *http.Request, params httprouter.Par
 		hatchetName = strings.TrimSuffix(hatchetName, ".zst")
 		hatchetName = strings.TrimSuffix(hatchetName, ".log")
 	}
-	hatchetName = getHatchetName(hatchetName)
-
-	// Check if hatchet already exists
+	// Get unique name (adds _2, _3 suffix if name exists, like CLI does)
 	existingNames, _ := GetExistingHatchetNames()
-	for _, name := range existingNames {
-		if name == hatchetName {
-			http.Error(w, fmt.Sprintf("Hatchet '%s' already exists", hatchetName), http.StatusConflict)
-			return
-		}
-	}
+	hatchetName = getUniqueHatchetName(hatchetName, existingNames)
 
 	// Create temp file to store the upload
 	tempDir := os.TempDir()
 	tempFile, err := os.CreateTemp(tempDir, "hatchet-upload-*")
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to create temp file: %v", err), http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]interface{}{"status": "error", "error": fmt.Sprintf("Failed to create temp file: %v", err)})
 		return
 	}
 	tempPath := tempFile.Name()
@@ -72,20 +74,28 @@ func UploadHandler(w http.ResponseWriter, r *http.Request, params httprouter.Par
 	tempFile.Close()
 	if err != nil {
 		os.Remove(tempPath)
-		http.Error(w, fmt.Sprintf("Failed to save file: %v", err), http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]interface{}{"status": "error", "error": fmt.Sprintf("Failed to save file: %v", err)})
 		return
 	}
 
 	log.Printf("Uploaded %s (%d bytes) -> %s", header.Filename, written, tempPath)
 
-	// Process the file using existing Logv2 analyzer
-	// This runs in parallel automatically
-	logv2 := GetLogv2()
-	logv2.hatchetName = hatchetName
+	// Create a new Logv2 instance for this upload to support concurrent uploads
+	// Copy config from the singleton but use separate state
+	baseLogv2 := GetLogv2()
+	uploadLogv2 := &Logv2{
+		url:         baseLogv2.url,
+		hatchetName: hatchetName,
+		version:     baseLogv2.version,
+		cacheSize:   baseLogv2.cacheSize,
+		from:        time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC), // Include all past logs
+		to:          time.Now().Add(24 * time.Hour),              // Include logs up to tomorrow
+	}
 
-	go func(name string) {
-		defer os.Remove(tempPath)                 // Clean up temp file when done
-		defer func() { logv2.hatchetName = "" }() // Reset for next upload
+	go func(name string, logv2 *Logv2) {
+		defer os.Remove(tempPath) // Clean up temp file when done
 
 		if err := logv2.Analyze(tempPath, 1); err != nil {
 			log.Printf("Error processing upload %s: %v", header.Filename, err)
@@ -93,7 +103,7 @@ func UploadHandler(w http.ResponseWriter, r *http.Request, params httprouter.Par
 		}
 		logv2.PrintSummary()
 		log.Printf("Finished processing upload: %s -> %s", header.Filename, name)
-	}(hatchetName)
+	}(hatchetName, uploadLogv2)
 
 	// Return immediately with status
 	w.Header().Set("Content-Type", "application/json")

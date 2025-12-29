@@ -496,30 +496,43 @@ func getMainPage() string {
 		var status = document.getElementById('upload-status');
 		
 		zone.classList.add('uploading');
-		status.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Uploading ' + file.name + '...';
+		status.innerHTML = '<div class="progress-container"><div class="progress-bar" id="upload-progress"></div></div><div id="progress-text">Uploading ' + file.name + '... 0%</div>';
 		
 		var formData = new FormData();
 		formData.append('logfile', file);
 		
-		fetch('/api/hatchet/v1.0/upload', {
-			method: 'POST',
-			body: formData
-		})
-		.then(response => response.json())
-		.then(data => {
-			zone.classList.remove('uploading');
-			if (data.status === 'processing') {
-				status.innerHTML = '<i class="fa fa-check" style="color: green;"></i> ' + data.message;
-				// Poll for completion
-				pollUploadStatus(data.name);
-			} else {
-				status.innerHTML = '<i class="fa fa-times" style="color: red;"></i> Error: ' + (data.error || 'Upload failed');
+		var xhr = new XMLHttpRequest();
+		xhr.open('POST', '/api/hatchet/v1.0/upload', true);
+		
+		xhr.upload.onprogress = function(e) {
+			if (e.lengthComputable) {
+				var percent = Math.round((e.loaded / e.total) * 100);
+				document.getElementById('upload-progress').style.width = percent + '%';
+				document.getElementById('progress-text').textContent = 'Uploading ' + file.name + '... ' + percent + '%';
 			}
-		})
-		.catch(error => {
+		};
+		
+		xhr.onload = function() {
 			zone.classList.remove('uploading');
-			status.innerHTML = '<i class="fa fa-times" style="color: red;"></i> Error: ' + error;
-		});
+			try {
+				var data = JSON.parse(xhr.responseText);
+				if (data.status === 'processing') {
+					status.innerHTML = '<i class="fa fa-cog fa-spin"></i> Processing ' + data.name + '...';
+					pollUploadStatus(data.name);
+				} else {
+					status.innerHTML = '<i class="fa fa-times" style="color: red;"></i> Error: ' + (data.error || 'Upload failed');
+				}
+			} catch (e) {
+				status.innerHTML = '<i class="fa fa-times" style="color: red;"></i> Error: ' + xhr.responseText;
+			}
+		};
+		
+		xhr.onerror = function() {
+			zone.classList.remove('uploading');
+			status.innerHTML = '<i class="fa fa-times" style="color: red;"></i> Upload failed';
+		};
+		
+		xhr.send(formData);
 	}
 	
 	function pollUploadStatus(name) {
@@ -617,6 +630,24 @@ func getMainPage() string {
 	.upload-zone.uploading {
 		opacity: 0.7;
 		pointer-events: none;
+	}
+	.progress-container {
+		width: 100%;
+		height: 8px;
+		background: #ddd;
+		border-radius: 4px;
+		overflow: hidden;
+		margin-bottom: 6px;
+	}
+	.progress-bar {
+		height: 100%;
+		width: 0%;
+		background: var(--accent-color-3);
+		transition: width 0.2s ease;
+	}
+	#progress-text {
+		font-size: 0.9em;
+		color: #666;
 	}
 	.action-btn {
 		background: none;

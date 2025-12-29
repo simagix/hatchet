@@ -63,6 +63,34 @@ Use the URL `http://localhost:3721/` in a browser to view reports and charts.  A
 ./dist/hatchet -url in-memory logs/sample-mongod.log.gz
 ```
 
+## Web UI Features
+When running as a web service, Hatchet provides a rich set of features through its web interface:
+
+### Upload Log Files
+Upload MongoDB log files directly through the web interface - no command line needed. Simply drag and drop files onto the upload zone or click to browse. Supports `.log`, `.gz`, and `.log.gz` files. Multiple concurrent uploads are supported.
+
+### Share Analysis via Direct Links
+Share your analysis with team members using direct URLs:
+- `/hatchets/{name}/stats/audit` - Security audit report
+- `/hatchets/{name}/stats/slowops` - Slow query statistics
+- `/hatchets/{name}/charts/operations` - Performance charts
+
+### Download Reports
+Download Audit and Stats reports as standalone HTML files for offline viewing or sharing via email/Slack. Click the "Download" button on any report page.
+
+### Manage Hatcheted Logs
+- **Rename**: Click the pencil icon to rename a hatcheted log
+- **Delete**: Click the trash icon to remove a hatcheted log
+
+### REST API
+Hatchet provides a REST API for programmatic access:
+- `POST /api/hatchet/v1.0/upload` - Upload log file (multipart form)
+- `GET /api/hatchet/v1.0/upload/status/{name}` - Check upload status
+- `POST /api/hatchet/v1.0/rename?old={name}&new={name}` - Rename hatchet
+- `DELETE /api/hatchet/v1.0/delete?name={name}` - Delete hatchet
+- `GET /api/hatchet/v1.0/hatchets/{name}/stats/audit` - Get audit data (JSON)
+- `GET /api/hatchet/v1.0/hatchets/{name}/stats/slowops` - Get slow ops data (JSON)
+
 if you choose to view in the legacy format without a browser, use the command below:
 ```bash
 ./dist/hatchet -legacy logs/sample-mongod.log.gz

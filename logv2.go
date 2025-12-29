@@ -151,9 +151,13 @@ func (ptr *Logv2) Analyze(logname string, marker int) error {
 	var file *os.File
 	var reader *bufio.Reader
 	ptr.logname = logname
-	if !ptr.merge && ptr.hatchetName == "" {
-		existingNames, _ := GetExistingHatchetNames()
-		ptr.hatchetName = getUniqueHatchetName(ptr.logname, existingNames)
+	// Generate unique hatchet name for each file when not merging
+	// Skip if hatchetName was pre-set (e.g., upload handler sets it)
+	if !ptr.merge {
+		if ptr.hatchetName == "" || marker > 1 {
+			existingNames, _ := GetExistingHatchetNames()
+			ptr.hatchetName = getUniqueHatchetName(ptr.logname, existingNames)
+		}
 	}
 	if !ptr.legacy {
 		log.Println("processing", logname)

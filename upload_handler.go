@@ -19,6 +19,14 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
+const (
+	maxUploadSize   = 200 << 20 // 200 MB max file size
+	maxUploadSizeMB = 200
+)
+
+// validExtensions lists allowed file extensions for upload
+var validExtensions = []string{".log", ".log.gz"}
+
 // UploadHandler handles file uploads for processing
 func UploadHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	if r.Method != http.MethodPost {
@@ -45,13 +53,42 @@ func UploadHandler(w http.ResponseWriter, r *http.Request, params httprouter.Par
 	}
 	defer file.Close()
 
+	// Validate file extension
+	filename := strings.ToLower(header.Filename)
+	validExt := false
+	for _, ext := range validExtensions {
+		if strings.HasSuffix(filename, ext) {
+			validExt = true
+			break
+		}
+	}
+	if !validExt {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status": "error",
+			"error":  fmt.Sprintf("Invalid file type. Accepted: %v", validExtensions),
+		})
+		return
+	}
+
+	// Validate file size
+	if header.Size > maxUploadSize {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status": "error",
+			"error":  fmt.Sprintf("File too large (%d MB). Maximum size: %d MB", header.Size>>20, maxUploadSizeMB),
+		})
+		return
+	}
+
 	// Get optional hatchet name from form, default to filename
 	hatchetName := r.FormValue("name")
 	if hatchetName == "" {
 		hatchetName = header.Filename
 		// Remove common extensions
 		hatchetName = strings.TrimSuffix(hatchetName, ".gz")
-		hatchetName = strings.TrimSuffix(hatchetName, ".zst")
 		hatchetName = strings.TrimSuffix(hatchetName, ".log")
 	}
 	// Get unique name (adds _2, _3 suffix if name exists, like CLI does)

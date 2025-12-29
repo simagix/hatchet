@@ -727,8 +727,8 @@ func getMainPage() string {
 			<div id='upload-zone' class='upload-zone' onclick='document.getElementById("file-input").click()'>
 				<i class='fa fa-cloud-upload' style='font-size: 2em; color: #666; margin-bottom: 8px;'></i>
 				<div>Drop file here or click to browse</div>
-				<div style='font-size: 0.85em; color: #888; margin-top: 4px;'>Supports .log, .gz, .log.gz</div>
-				<input type='file' id='file-input' accept='.log,.gz,.zst' style='display: none;' onchange='handleFileSelect(this.files[0])'>
+				<div style='font-size: 0.85em; color: #888; margin-top: 4px;'>Supports .log, .log.gz (max 200 MB)</div>
+				<input type='file' id='file-input' style='display: none;' onchange='handleFileSelect(this.files[0])'>
 			</div>
 			<div id='upload-status' style='margin-top: 8px; font-size: 0.9em;'></div>
 		</div>

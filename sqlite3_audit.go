@@ -102,11 +102,12 @@ func (ptr *SQLite3DB) GetAuditData() (map[string][]NameValues, error) {
 	}
 
 	category = "ip"
-	query = fmt.Sprintf(`SELECT a.name ip, a.value count, b.value reslen, COALESCE(c.value, 0) ended
+	query = fmt.Sprintf(`SELECT a.name ip, MAX(a.value) count, MAX(b.value) reslen, MAX(COALESCE(c.value, 0)) ended
 		FROM %v_audit a
 		JOIN %v_audit b ON a.name = b.name AND b.type = 'reslen-ip'
 		LEFT JOIN %v_audit c ON a.name = c.name AND c.type = 'ended-ip'
 		WHERE a.type == '%v'
+		GROUP BY a.name
 		ORDER BY reslen DESC;`,
 		ptr.hatchetName, ptr.hatchetName, ptr.hatchetName, category)
 	if ptr.verbose {
@@ -132,7 +133,7 @@ func (ptr *SQLite3DB) GetAuditData() (map[string][]NameValues, error) {
 	}
 
 	category = "ns"
-	query = fmt.Sprintf(`SELECT a.name ns, a.value count, b.value reslen FROM %v_audit a, %v_audit b WHERE a.type == '%v' AND b.type = 'reslen-ns' AND a.name = b.name ORDER BY reslen DESC;`,
+	query = fmt.Sprintf(`SELECT a.name ns, MAX(a.value) count, MAX(b.value) reslen FROM %v_audit a, %v_audit b WHERE a.type == '%v' AND b.type = 'reslen-ns' AND a.name = b.name GROUP BY a.name ORDER BY reslen DESC;`,
 		ptr.hatchetName, ptr.hatchetName, category)
 	if ptr.verbose {
 		log.Println(query)
@@ -180,7 +181,7 @@ func (ptr *SQLite3DB) GetAuditData() (map[string][]NameValues, error) {
 	}
 
 	category = "appname"
-	query = fmt.Sprintf(`SELECT a.name appname, a.value count, b.value reslen FROM %v_audit a, %v_audit b WHERE a.type == '%v' AND b.type = 'reslen-appname' AND a.name = b.name ORDER BY reslen DESC;`,
+	query = fmt.Sprintf(`SELECT CASE WHEN a.name = '' THEN 'unknown' ELSE a.name END AS appname, MAX(a.value) count, MAX(b.value) reslen FROM %v_audit a, %v_audit b WHERE a.type == '%v' AND b.type = 'reslen-appname' AND a.name = b.name GROUP BY a.name ORDER BY reslen DESC;`,
 		ptr.hatchetName, ptr.hatchetName, category)
 	if ptr.verbose {
 		log.Println(query)

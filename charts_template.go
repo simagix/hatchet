@@ -16,6 +16,21 @@ func getFooter() string {
 // GetChartTemplate returns HTML
 func GetChartTemplate(chartType string) (*template.Template, error) {
 	html := getContentHTML()
+	// Add header based on chart type
+	icon := "bar-chart"
+	color := "#1565c0"
+	if chartType == BUBBLE_CHART {
+		icon = "area-chart"
+		color = "#2e7d32"
+	} else if chartType == PIE_CHART {
+		icon = "pie-chart"
+		color = "#ef6c00"
+	}
+	html += fmt.Sprintf(`
+<!-- Header Bar -->
+<div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;'>
+	<h2 style='margin: 0; color: #444; font-size: 1.4em;'><i class='fa fa-%s' style='color: %s;'></i> {{.Chart.Title}}</h2>
+</div>`, icon, color)
 	if chartType == BUBBLE_CHART {
 		html += getOpStatsChart()
 	} else if chartType == PIE_CHART {

@@ -66,8 +66,13 @@ func getStatsTable(collscan bool, orderBy string, download string) string {
 	desc := "<i class='fa fa-sort-desc'/>"
 	html += `<div align='left'>`
 	if download == "" {
-		html += `<button id="download" onClick="downloadStats(); return false;"
-			class="download-btn" style="float: right;"><i class="fa fa-download"></i> Download</button>`
+		html += `
+<!-- Header Bar -->
+<div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;'>
+	<h2 style='margin: 0; color: #444; font-size: 1.4em;'><i class='fa fa-info-circle' style='color: #1565c0;'></i> Slow Query Patterns</h2>
+	<button id="download" onClick="downloadStats(); return false;"
+		class="download-btn"><i class="fa fa-download"></i> Download</button>
+</div>`
 	} else {
 		html += "<div align='center'>{{.Summary}}</div>"
 		asc = ""

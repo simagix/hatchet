@@ -82,8 +82,11 @@ func highlightLog(log string, params ...string) string {
 }
 
 func getSlowOpsLogsTable() string {
-	template := ` 
-<p/>
+	template := `
+<!-- Header Bar -->
+<div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;'>
+	<h2 style='margin: 0; color: #444; font-size: 1.4em;'><i class='fa fa-list-ol' style='color: #ef6c00;'></i> Top N Slowest Operations</h2>
+</div>
 <div align='center'>
 	<table width='100%'>
 		<tr>
@@ -121,6 +124,10 @@ func getSlowOpsLogsTable() string {
 
 func getLegacyLogsTable() string {
 	template := `
+<!-- Header Bar -->
+<div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;'>
+	<h2 style='margin: 0; color: #444; font-size: 1.4em;'><i class='fa fa-search' style='color: #7b1fa2;'></i> Search Logs</h2>
+</div>
   <div style="float: left; margin-right: 20px; clear: left;">
 	<label><i class="fa fa-leaf"></i></label>
 	<select id='component'>

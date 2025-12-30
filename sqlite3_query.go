@@ -23,13 +23,13 @@ type OpCount struct {
 func (ptr *SQLite3DB) GetSlowOps(orderBy string, order string, collscan bool) ([]OpStat, error) {
 	ops := []OpStat{}
 	db := ptr.db
-	query := fmt.Sprintf(`SELECT op, count, avg_ms, max_ms,
-			total_ms, ns, _index "index", reslen, filter "query_pattern", marker
-			FROM %v_ops ORDER BY %v %v`, ptr.hatchetName, orderBy, order)
+	query := fmt.Sprintf(`SELECT op, SUM(count) count, ROUND(AVG(avg_ms),1) avg_ms, MAX(max_ms) max_ms,
+			SUM(total_ms) total_ms, ns, _index "index", SUM(reslen) reslen, filter "query_pattern", MAX(marker) marker
+			FROM %v_ops GROUP BY op, ns, filter, _index ORDER BY %v %v`, ptr.hatchetName, orderBy, order)
 	if collscan {
-		query = fmt.Sprintf(`SELECT op, count, avg_ms, max_ms,
-				total_ms, ns, _index "index", reslen, filter "query_pattern", marker
-				FROM %v_ops WHERE _index = "COLLSCAN" ORDER BY %v %v`, ptr.hatchetName, orderBy, order)
+		query = fmt.Sprintf(`SELECT op, SUM(count) count, ROUND(AVG(avg_ms),1) avg_ms, MAX(max_ms) max_ms,
+				SUM(total_ms) total_ms, ns, _index "index", SUM(reslen) reslen, filter "query_pattern", MAX(marker) marker
+				FROM %v_ops WHERE _index = "COLLSCAN" GROUP BY op, ns, filter, _index ORDER BY %v %v`, ptr.hatchetName, orderBy, order)
 	}
 	if ptr.verbose {
 		explain(ptr.db, query)

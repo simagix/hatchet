@@ -20,7 +20,7 @@ An executable *hatchet* is output to the directory *dist/*.  Note that the scrip
 ## Quick Start
 Use the command below to process a log file, mongod.log.gz and start a web server listening to port 3721.  The default database is SQLite3.
 ```bash
-./dist/hatchet -web logs/sample-mongod.log.gz
+./dist/hatchet -server logs/sample-mongod.log.gz
 ```
 
 ## Docker
@@ -34,7 +34,7 @@ docker exec -it hatchet_container /bin/sh
 
 in all commands you can just use `hatchet` instead of `./dist/hatchet` for example
 
-`hatchet -web logs/replica.tar.gz`
+`hatchet -server logs/replica.tar.gz`
 
 any files in the logs folder on your system will be available in the container
 
@@ -45,17 +45,17 @@ to clean up run `docker compose down` it will stop the hatchet container and del
 
 Load a file within a defined time range:
 ```bash
-./dist/hatchet -web -from "2023-09-23T20:25:00" -to "2023-09-23T20:26:00" logs/sample-mongod.log.gz
+./dist/hatchet -server -from "2023-09-23T20:25:00" -to "2023-09-23T20:26:00" logs/sample-mongod.log.gz
 ```
 
 Load multiple files and process them individually:
 ```bash
-./dist/hatchet -web rs1/mongod.log rs2/mongod.log rs3/mongod.log
+./dist/hatchet -server rs1/mongod.log rs2/mongod.log rs3/mongod.log
 ```
 
 Load multiple files and process them collectively:
 ```bash
-./dist/hatchet -web -merge rs1/mongod.log rs2/mongod.log rs3/mongod.log
+./dist/hatchet -server -merge rs1/mongod.log rs2/mongod.log rs3/mongod.log
 ```
 
 Use the URL `http://localhost:3721/` in a browser to view reports and charts.  Alternatively, you can use the *in-memory* mode without persisting data, for example:

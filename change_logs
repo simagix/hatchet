@@ -7,7 +7,7 @@
 
 For example:
 ```bash
-hatchet -web -cache_size 100000 mongod.log.gz
+hatchet -server -cache_size 100000 mongod.log.gz
 ```
 
 # v0.4.5

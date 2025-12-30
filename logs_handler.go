@@ -56,7 +56,7 @@ func LogsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Param
 		}
 		// Get total count for search results
 		totalCount, _ := dbase.CountLogs(searchOpts...)
-		templ, err := GetLogTableTemplate(attr)
+		templ, err := GetLogTableTemplate(attr, "")
 		if err != nil {
 			renderErrorPage(w, r, hatchetName, err.Error())
 			return
@@ -83,6 +83,7 @@ func LogsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Param
 		return
 	} else if attr == "slowops" {
 		topN := ToInt(r.URL.Query().Get("topN"))
+		download := r.URL.Query().Get("download")
 		if topN == 0 {
 			topN = TOP_N
 		}
@@ -91,7 +92,7 @@ func LogsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Param
 			renderErrorPage(w, r, hatchetName, err.Error())
 			return
 		}
-		templ, err := GetLogTableTemplate(attr)
+		templ, err := GetLogTableTemplate(attr, download)
 		if err != nil {
 			renderErrorPage(w, r, hatchetName, err.Error())
 			return

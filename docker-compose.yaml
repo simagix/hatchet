@@ -7,5 +7,7 @@ services:
     container_name: hatchet_container
     volumes:
       - ./logs:/home/simagix/logs
+      - ./data:/home/simagix/data
     ports:
       - "3721:3721" # so that http://localhost:3721/ will work
+    command: ["/bin/hatchet", "-server"]

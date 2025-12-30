@@ -45,7 +45,12 @@ func Run(fullVersion string) {
 	verbose := flag.Bool("v", false, "turn on verbose")
 	ver := flag.Bool("version", false, "print version number")
 	web := flag.Bool("web", false, "starts a web server")
+	server := flag.Bool("server", false, "starts a web server (alias for -web)")
 	flag.Parse()
+	// -server is an alias for -web
+	if *server {
+		*web = true
+	}
 	flagset := make(map[string]bool)
 	flag.Visit(func(f *flag.Flag) { flagset[f.Name] = true })
 

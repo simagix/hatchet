@@ -217,7 +217,7 @@ func getLegacyLogsTable() string {
   <div style="float: left; margin-right: 20px;">
 	<label><i class="fa fa-search"></i></label>
 	<span style="position: relative; display: inline-block;">
-		<input id='context' type='text' value='{{.Context}}' size='30' style='padding-right: 20px;'/>
+		<input id='context' type='text' value='{{.Context}}' size='60' placeholder='context, namespace, or keyword...' style='padding-right: 20px;'/>
 		<span id='clear-context' onclick='clearContext()' style='position: absolute; right: 5px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #999; display: none;' title='Clear'>&times;</span>
 	</span>
 	<button id="find" onClick="findLogs()" class="button" style="float: right;">Find</button>

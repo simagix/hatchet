@@ -61,7 +61,100 @@ func getStatsTable(collscan bool, orderBy string, download string) string {
         anchor.dataset.downloadurl = ['text/html', anchor.download, anchor.href].join(':');
         anchor.click();
     }
-</script>`, orderBy)
+	function toggleStatsJson(id) {
+		var row = document.getElementById('json-stats-' + id);
+		var btn = document.getElementById('btn-stats-' + id);
+		if (row.style.display === 'none' || row.style.display === '') {
+			row.style.display = 'table-row';
+			btn.classList.add('active');
+			// Format on first open
+			var indexEl = document.getElementById('index-content-' + id);
+			var patternEl = document.getElementById('pattern-content-' + id);
+			if (indexEl && !indexEl.dataset.formatted) {
+				indexEl.innerHTML = formatJsonContent(indexEl.textContent);
+				indexEl.dataset.formatted = 'true';
+			}
+			if (patternEl && !patternEl.dataset.formatted) {
+				patternEl.innerHTML = formatJsonContent(patternEl.textContent);
+				patternEl.dataset.formatted = 'true';
+			}
+		} else {
+			row.style.display = 'none';
+			btn.classList.remove('active');
+		}
+	}
+	function syntaxHighlightStats(json) {
+		json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+		return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+			var cls = 'json-number';
+			if (/^"/.test(match)) {
+				if (/:$/.test(match)) {
+					cls = 'json-key';
+				} else {
+					cls = 'json-string';
+				}
+			} else if (/true|false/.test(match)) {
+				cls = 'json-boolean';
+			} else if (/null/.test(match)) {
+				cls = 'json-null';
+			}
+			return '<span class="' + cls + '">' + match + '</span>';
+		});
+	}
+	function formatJsonContent(text) {
+		try {
+			var json = JSON.parse(text);
+			return syntaxHighlightStats(JSON.stringify(json, null, 2));
+		} catch(e) {
+			// Try to fix unquoted keys (Go-style map format)
+			try {
+				// Add quotes around unquoted keys: word: or $word:
+				var fixed = text.replace(/([{,]\s*)(\$?[a-zA-Z_][a-zA-Z0-9_.]*)\s*:/g, '$1"$2":');
+				var json = JSON.parse(fixed);
+				return syntaxHighlightStats(JSON.stringify(json, null, 2));
+			} catch(e2) {
+				// Still not valid, return as-is
+				return text;
+			}
+		}
+	}
+</script>
+<style>
+	.stats-json-btn {
+		background: #f0f0f0;
+		border: 1px solid #ccc;
+		border-radius: 3px;
+		padding: 2px 6px;
+		cursor: pointer;
+		font-family: monospace;
+		font-size: 0.85em;
+		color: #666;
+		margin-right: 5px;
+	}
+	.stats-json-btn:hover {
+		background: #e0e0e0;
+	}
+	.stats-json-btn.active {
+		background: #d0e8d0;
+		border-color: #7BAF9B;
+	}
+	.stats-json-row {
+		display: none;
+	}
+	.stats-json-content {
+		background: #1e1e1e;
+		color: #d4d4d4;
+		padding: 12px;
+		border-radius: 4px;
+		font-family: 'Consolas', 'Monaco', monospace;
+		font-size: 0.9em;
+		white-space: pre-wrap;
+		word-break: break-all;
+		margin: 5px 0;
+		max-height: 400px;
+		overflow: auto;
+	}
+</style>`, orderBy)
 	asc := "<i class='fa fa-sort-asc'/>"
 	desc := "<i class='fa fa-sort-desc'/>"
 	html += `<div align='left'>`
@@ -87,11 +180,11 @@ func getStatsTable(collscan bool, orderBy string, download string) string {
 	html += fmt.Sprintf(`<th>total ms <a class='sort' href='/hatchets/{{.Hatchet}}/stats/slowops?orderBy=total_ms&COLLSCAN=%v'>%v</th>`, collscan, desc)
 	html += fmt.Sprintf(`<th>reslen <a class='sort' href='/hatchets/{{.Hatchet}}/stats/slowops?orderBy=reslen&COLLSCAN=%v'>%v</th>`, collscan, desc)
 	if download == "" {
-		html += fmt.Sprintf(`<th valign='middle'>index <input type='checkbox' id='collscan' onchange='getSlowopsStats(); return false;' %v></th>`, checked)
+		html += fmt.Sprintf(`<th valign='middle'>index <label title='Show COLLSCAN only' style='cursor: pointer; font-weight: normal; font-size: 0.85em;'><input type='checkbox' id='collscan' onchange='getSlowopsStats(); return false;' %v> only</label></th>`, checked)
 	} else {
 		html += "<th valign='middle'>index</th>"
 	}
-	html += `<th>query pattern</th>
+	html += `<th>query pattern</th><th style='width: 40px;'></th>
 		</tr>
 {{$merge := .Merge}}
 {{range $n, $value := .Ops}}
@@ -119,11 +212,27 @@ func getStatsTable(collscan bool, orderBy string, download string) string {
 			<td>{{ $value.Index }}</td>
 		{{end}}
 			<td class='break'>{{ $value.QueryPattern }}</td>
+			<td align='center'><button id='btn-stats-{{$n}}' class='stats-json-btn' onclick='toggleStatsJson({{$n}})' title='View formatted'>{}</button></td>
+		</tr>
+		<tr id='json-stats-{{$n}}' class='stats-json-row'>
+			<td colspan='11' style='padding: 5px 10px;'>
+				<div style='display: flex; gap: 20px;'>
+					<div style='flex: 1;'>
+						<div style='font-weight: bold; margin-bottom: 5px; color: #666;'>Index:</div>
+						<pre class='stats-json-content' id='index-content-{{$n}}'>{{ $value.Index }}</pre>
+					</div>
+					<div style='flex: 2;'>
+						<div style='font-weight: bold; margin-bottom: 5px; color: #666;'>Query Pattern:</div>
+						<pre class='stats-json-content' id='pattern-content-{{$n}}'>{{ $value.QueryPattern }}</pre>
+					</div>
+				</div>
+			</td>
 		</tr>
 {{end}}
 	</table>
 	</div>
 	<div align='center'><hr/><p/>{{.Version}}</div>
-</div>`
+</div>
+`
 	return html
 }

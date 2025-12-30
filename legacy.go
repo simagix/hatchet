@@ -16,6 +16,16 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+// SetRawJSONMessage stores the original JSON log line in the Message field
+// It first calls AddLegacyString to extract client/driver info, then overwrites Message with raw JSON
+func SetRawJSONMessage(doc *Logv2Info, rawJSON string) error {
+	// Call AddLegacyString to extract client/driver metadata
+	AddLegacyString(doc)
+	// Overwrite Message with the original JSON
+	doc.Message = rawJSON
+	return nil
+}
+
 // AddLegacyString converts log to legacy format
 func AddLegacyString(doc *Logv2Info) error {
 	var err error

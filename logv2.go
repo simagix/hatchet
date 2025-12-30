@@ -382,8 +382,8 @@ func (ptr *Logv2) Analyze(logname string, marker int) error {
 				return
 			}
 			doc.Marker = marker
-			if localErr = AddLegacyString(&doc); localErr != nil {
-				log.Println("error AddLegacyString line", index, localErr)
+			if localErr = SetRawJSONMessage(&doc, instr); localErr != nil {
+				log.Println("error SetRawJSONMessage line", index, localErr)
 				return
 			}
 			// Protect buildInfo access with mutex

@@ -68,7 +68,7 @@ func highlightLog(log string, params ...string) string {
 	log = re.ReplaceAllString(log, "<mark>$1</mark>")
 	re = regexp.MustCompile(`((\d+ms$))`)
 	log = re.ReplaceAllString(log, "<mark>$1</mark>")
-	re = regexp.MustCompile(`(("?(keysExamined|keysInserted|docsExamined|nreturned|nMatched|nModified|ndeleted|ninserted|reslen)"?:)\d+)`)
+	re = regexp.MustCompile(`(("?(keysExamined|keysInserted|docsExamined|nreturned|nMatched|nModified|ndeleted|ninserted|reslen|durationMillis)"?:)\d+)`)
 	log = re.ReplaceAllString(log, "<mark>$1</mark>")
 	re = regexp.MustCompile(`(?i)("?(errMsg)"?:\s?"(.*?)"|planSummary:\s?"?COLLSCAN"?)`)
 	log = re.ReplaceAllString(log, "<span style='color: red; font-weight: bold;'>$1</span>")
@@ -112,7 +112,7 @@ func getSlowOpsLogsTable() string {
 			<td>{{ $value.Severity }}</td>
 			<td>{{ $value.Component }}</td>
 			<td><a href='/hatchets/{{$hatchet}}/logs/all?context={{$value.Context}}'>{{ $value.Context }}</a></td>
-			<td>{{ highlightLog $value.Message }}</td>
+			<td class='break'>{{ highlightLog $value.Message }}</td>
 		</tr>
 {{end}}
 	</table>
@@ -185,7 +185,7 @@ func getLegacyLogsTable() string {
 			<td>{{ $value.Severity }}</td>
 			<td>{{ $value.Component }}</td>
 			<td><a href='/hatchets/{{$hatchet}}/logs/all?context={{$value.Context}}'>{{ $value.Context }}</a></td>
-			<td>{{ highlightLog $value.Message $search }}</td>
+			<td class='break'>{{ highlightLog $value.Message $search }}</td>
 		</tr>
 	{{end}}
 	</table>

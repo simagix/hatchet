@@ -291,6 +291,57 @@ const headers = `<!DOCTYPE html>
       margin: 10px 10px;
       border-radius: .5em;
     }
+    /* JSON Log View Styles */
+    .json-toggle-btn {
+      background: none;
+      border: 1px solid #aaa;
+      border-radius: 3px;
+      padding: 2px 6px;
+      cursor: pointer;
+      font-family: monospace;
+      font-size: 12px;
+      color: #666;
+      transition: all 0.2s;
+    }
+    .json-toggle-btn:hover {
+      background: #e8efe8;
+      border-color: var(--accent-color-3);
+      color: var(--accent-color-3);
+    }
+    .json-toggle-btn.active {
+      background: var(--accent-color-3);
+      color: white;
+      border-color: var(--accent-color-3);
+    }
+    .json-row {
+      display: none;
+    }
+    .json-row.visible {
+      display: table-row;
+    }
+    .json-content {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 15px;
+      border-radius: 8px;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 13px;
+      line-height: 1.5;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 400px;
+      overflow-y: auto;
+      margin: 5px 0;
+    }
+    .json-content .json-key { color: #9cdcfe; }
+    .json-content .json-string { color: #ce9178; }
+    .json-content .json-number { color: #b5cea8; }
+    .json-content .json-boolean { color: #569cd6; }
+    .json-content .json-null { color: #569cd6; }
+    .json-content .json-bracket { color: #ffd700; }
+    .json-content .json-highlight { background: #4a3f00; padding: 0 2px; border-radius: 2px; }
+    .json-content .json-error { color: #f44747; font-weight: bold; }
   </style>
   <script>
     function loadData(url, skipHistory) {
@@ -321,6 +372,46 @@ const headers = `<!DOCTYPE html>
     		location.href = '/';
     	}
     };
+    
+    // Toggle JSON log view
+    function toggleJsonView(rowId) {
+      var jsonRow = document.getElementById('json-' + rowId);
+      var btn = document.getElementById('btn-' + rowId);
+      if (jsonRow.classList.contains('visible')) {
+        jsonRow.classList.remove('visible');
+        btn.classList.remove('active');
+      } else {
+        jsonRow.classList.add('visible');
+        btn.classList.add('active');
+      }
+    }
+    
+    // Format and highlight log message as structured view
+    function formatLogMessage(message) {
+      // Escape HTML first
+      var escaped = message.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      
+      // Highlight important patterns
+      var patterns = [
+        { regex: /(planSummary[:\s]*"?COLLSCAN"?)/gi, cls: 'json-error' },
+        { regex: /(errMsg[:\s]*"[^"]*")/gi, cls: 'json-error' },
+        { regex: /(planSummary[:\s]*"?[^"\s,}]+)/gi, cls: 'json-highlight' },
+        { regex: /(\d+ms\b)/g, cls: 'json-highlight' },
+        { regex: /(keysExamined|docsExamined|nreturned|nMatched|nModified|ndeleted|ninserted|reslen)([:\s]*\d+)/gi, cls: 'json-highlight' },
+        { regex: /("[\w$]+")\s*:/g, cls: 'json-key' },
+        { regex: /:\s*("[^"]*")/g, cls: 'json-string' },
+        { regex: /:\s*(\d+\.?\d*)/g, cls: 'json-number' },
+        { regex: /:\s*(true|false)/gi, cls: 'json-boolean' },
+        { regex: /:\s*(null)/gi, cls: 'json-null' },
+        { regex: /([{}\[\]])/g, cls: 'json-bracket' }
+      ];
+      
+      var result = escaped;
+      for (var i = 0; i < patterns.length; i++) {
+        result = result.replace(patterns[i].regex, '<span class="' + patterns[i].cls + '">$1</span>');
+      }
+      return result;
+    }
   </script>
 </head>
 <body>

@@ -213,20 +213,28 @@ func (ptr *Logv2) Analyze(logname string, marker int) error {
 			allNames := append(existingNames, processedNames...)
 			hatchetName := getUniqueHatchetName(fullPath, allNames)
 			processedNames = append(processedNames, hatchetName)
-			// Set the name before calling Analyze
-			ptr.hatchetName = hatchetName
-			if err := ptr.Analyze(fullPath, 0); err != nil { // marker=0 to skip name regeneration
+			// Create a new Logv2 instance for each file to avoid state issues
+			fileLogv2 := &Logv2{
+				hatchetName: hatchetName,
+				url:         ptr.url,
+				legacy:      ptr.legacy,
+				from:        ptr.from,
+				to:          ptr.to,
+			}
+			if err := fileLogv2.Analyze(fullPath, 0); err != nil { // marker=0 to skip name regeneration
 				log.Printf("error processing %s: %v", fullPath, err)
 				// continue with other files
 			}
 			// Print summary for each file
-			if !ptr.legacy {
-				ptr.PrintSummary()
+			if !fileLogv2.legacy {
+				fileLogv2.PrintSummary()
 			}
 		}
 		if fileCount == 0 {
 			log.Printf("no MongoDB log files found in directory %s", logname)
 		}
+		// Clear hatchetName so caller knows not to print summary again
+		ptr.hatchetName = ""
 		return nil
 	}
 
@@ -485,6 +493,10 @@ func (ptr *Logv2) Analyze(logname string, marker int) error {
 }
 
 func (ptr *Logv2) PrintSummary() error {
+	// Skip if no hatchet name (e.g., after directory processing)
+	if ptr.hatchetName == "" {
+		return nil
+	}
 	dbase, err := GetDatabase(ptr.hatchetName)
 	if err != nil {
 		return err

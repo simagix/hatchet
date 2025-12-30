@@ -114,7 +114,6 @@ func getSlowOpsLogsTable(download string) string {
 	<table width='100%'>
 		<tr>
 			<th>#</th>
-			<th style='width: 40px;'></th>
 		{{ if .Merge }}
 			<th>M</th>
 		{{ end }}
@@ -123,13 +122,13 @@ func getSlowOpsLogsTable(download string) string {
 			<th>component</th>
 			<th>context</th>
 			<th>message</th>
+			<th style='width: 40px;'></th>
 		</tr>
 {{$hatchet := .Hatchet}}
 {{$merge := .Merge}}
 {{range $n, $value := .Logs}}
 		<tr>
 			<td align='right'>{{ add $n 1 }}</td>
-			<td align='center'><button id='btn-topn-{{$n}}' class='json-toggle-btn' onclick='toggleJsonView("topn-{{$n}}")' title='View formatted JSON'>{}</button></td>
 		{{ if $merge }}
 			<td>{{ getMarkerHTML $value.Marker }}</td>
 		{{ end }}
@@ -138,6 +137,7 @@ func getSlowOpsLogsTable(download string) string {
 			<td>{{ $value.Component }}</td>
 			<td><a href='/hatchets/{{$hatchet}}/logs/all?context={{$value.Context}}'>{{ $value.Context }}</a></td>
 			<td class='break'>{{ highlightLog $value.Message }}</td>
+			<td align='center'><button id='btn-topn-{{$n}}' class='json-toggle-btn' onclick='toggleJsonView("topn-{{$n}}")' title='View formatted JSON'>{}</button></td>
 		</tr>
 		<tr id='json-topn-{{$n}}' class='json-row'>
 			<td colspan='{{ if $merge }}8{{ else }}7{{ end }}' style='padding: 0 10px;'>
@@ -216,7 +216,10 @@ func getLegacyLogsTable() string {
 
   <div style="float: left; margin-right: 20px;">
 	<label><i class="fa fa-search"></i></label>
-	<input id='context' type='text' value='{{.Context}}' size='30'/>
+	<span style="position: relative; display: inline-block;">
+		<input id='context' type='text' value='{{.Context}}' size='30' style='padding-right: 20px;'/>
+		<span id='clear-context' onclick='clearContext()' style='position: absolute; right: 5px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #999; display: none;' title='Clear'>&times;</span>
+	</span>
 	<button id="find" onClick="findLogs()" class="button" style="float: right;">Find</button>
   </div>
 
@@ -232,7 +235,6 @@ func getLegacyLogsTable() string {
 	<table width='100%'>
 		<tr>
 			<th>#</th>
-			<th style='width: 40px;'></th>
 	{{ if .Merge }}
 			<th>M</th>
 	{{end}}
@@ -241,6 +243,7 @@ func getLegacyLogsTable() string {
 			<th>component</th>
 			<th>context</th>
 			<th>message</th>
+			<th style='width: 40px;'></th>
 		</tr>
 	{{$search := .Context}}
 	{{$seq := .Seq}}
@@ -249,7 +252,6 @@ func getLegacyLogsTable() string {
 	{{range $n, $value := .Logs}}
 		<tr>
 			<td align='right'>{{ add $n $seq }}</td>
-			<td align='center'><button id='btn-search-{{$n}}' class='json-toggle-btn' onclick='toggleJsonView("search-{{$n}}")' title='View formatted JSON'>{}</button></td>
 		{{ if $merge }}
 			<td>{{ getMarkerHTML $value.Marker }}</td>
 		{{ end }}
@@ -258,6 +260,7 @@ func getLegacyLogsTable() string {
 			<td>{{ $value.Component }}</td>
 			<td><a href='/hatchets/{{$hatchet}}/logs/all?context={{$value.Context}}'>{{ $value.Context }}</a></td>
 			<td class='break'>{{ highlightLog $value.Message $search }}</td>
+			<td align='center'><button id='btn-search-{{$n}}' class='json-toggle-btn' onclick='toggleJsonView("search-{{$n}}")' title='View formatted JSON'>{}</button></td>
 		</tr>
 		<tr id='json-search-{{$n}}' class='json-row'>
 			<td colspan='{{ if $merge }}8{{ else }}7{{ end }}' style='padding: 0 10px;'>
@@ -275,6 +278,21 @@ func getLegacyLogsTable() string {
 </div>
 <script>
 	var input = document.getElementById("context");
+	var clearBtn = document.getElementById("clear-context");
+	
+	// Show/hide clear button based on input content
+	function updateClearBtn() {
+		clearBtn.style.display = input.value ? 'inline' : 'none';
+	}
+	input.addEventListener("input", updateClearBtn);
+	updateClearBtn(); // Initial check
+	
+	function clearContext() {
+		input.value = '';
+		updateClearBtn();
+		input.focus();
+	}
+	
 	input.addEventListener("keypress", function(event) {
 		if (event.key === "Enter") {
 			event.preventDefault();
@@ -288,8 +306,45 @@ func getLegacyLogsTable() string {
 		sel = document.getElementById('severity')
 		var severity = sel.options[sel.selectedIndex].value;
 		var context = document.getElementById('context').value
+		// Save search params to localStorage
+		localStorage.setItem('hatchet_search_{{.Hatchet}}', JSON.stringify({
+			component: component,
+			severity: severity,
+			context: context
+		}));
 		loadData('/hatchets/{{.Hatchet}}/logs/all?component='+component+'&severity='+severity+'&context='+context);
 	}
+
+	// Restore previous search if component=NONE (clicked from menu)
+	(function() {
+		var urlParams = new URLSearchParams(window.location.search);
+		if (urlParams.get('component') === 'NONE') {
+			var saved = localStorage.getItem('hatchet_search_{{.Hatchet}}');
+			if (saved) {
+				var params = JSON.parse(saved);
+				// Set dropdowns and input
+				var compSel = document.getElementById('component');
+				for (var i = 0; i < compSel.options.length; i++) {
+					if (compSel.options[i].value === params.component) {
+						compSel.selectedIndex = i;
+						break;
+					}
+				}
+				var sevSel = document.getElementById('severity');
+				for (var i = 0; i < sevSel.options.length; i++) {
+					if (sevSel.options[i].value === params.severity) {
+						sevSel.selectedIndex = i;
+						break;
+					}
+				}
+				document.getElementById('context').value = params.context || '';
+				// Auto-search with restored params
+				if (params.component || params.severity || params.context) {
+					findLogs();
+				}
+			}
+		}
+	})();
 
 	// Format all JSON content on page load
 	document.querySelectorAll('.json-content').forEach(function(el) {

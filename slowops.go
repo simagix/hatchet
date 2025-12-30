@@ -66,18 +66,21 @@ func AnalyzeSlowOp(doc *Logv2Info) (*OpStat, error) {
 	if stat.Namespace == "" {
 		return stat, errors.New("no namespace found")
 	} else if strings.HasSuffix(stat.Namespace, ".$cmd") {
+		// Extract actual namespace from command for .$cmd namespaces
 		if commands, ok := BsonD2M(doc.Attr)["command"].(bson.D); ok {
 			if len(commands) > 0 {
 				elem := commands[0]
-				stat.Op = elem.Key
-				if doc.Attributes.NS, ok = elem.Value.(string); !ok {
-					doc.Attributes.NS = stat.Namespace
-				}
-				if !strings.Contains(doc.Attributes.NS, ".") {
-					doc.Attributes.NS = strings.ReplaceAll(stat.Namespace, "$cmd", doc.Attributes.NS)
+				if ns, ok := elem.Value.(string); ok {
+					if strings.Contains(ns, ".") {
+						doc.Attributes.NS = ns
+					} else {
+						doc.Attributes.NS = strings.ReplaceAll(stat.Namespace, "$cmd", ns)
+					}
 				}
 			}
 		}
+		// Update stat.Namespace with corrected value
+		stat.Namespace = doc.Attributes.NS
 		if doc.Attributes.ErrMsg != "" {
 			stat.Index = "ErrMsg: " + doc.Attributes.ErrMsg
 			return stat, errors.New("unrecognized collection, ignored")
@@ -100,14 +103,16 @@ func AnalyzeSlowOp(doc *Logv2Info) (*OpStat, error) {
 	}
 	command := doc.Attributes.Command
 	stat.Op = doc.Attributes.Type
-	if stat.Op == "command" || stat.Op == "none" {
+	if stat.Op == "command" || stat.Op == "none" || stat.Op == "" {
 		stat.Op = getOp(command)
 	}
 	var isGetMore bool
 	if stat.Op == cmdGetMore {
 		isGetMore = true
-		command = doc.Attributes.OriginatingCommand
-		stat.Op = getOp(command)
+		if doc.Attributes.OriginatingCommand != nil {
+			command = doc.Attributes.OriginatingCommand
+			stat.Op = getOp(command)
+		}
 	}
 	if stat.Op == cmdInsert || stat.Op == cmdCollstats {
 		stat.QueryPattern = ""
@@ -154,8 +159,8 @@ func AnalyzeSlowOp(doc *Logv2Info) (*OpStat, error) {
 				}
 			}
 		}
-	} else if stat.QueryPattern == "" &&
-		(stat.Op == cmdFind || stat.Op == cmdUpdate || stat.Op == cmdRemove || stat.Op == cmdDelete || stat.Op == cmdFindAndModify) {
+	} else if stat.Op == cmdFind || stat.Op == cmdUpdate || stat.Op == cmdRemove || stat.Op == cmdDelete || stat.Op == cmdFindAndModify {
+		// Extract query/filter for find, update, delete, remove, findAndModify
 		var query interface{}
 		if command["q"] != nil {
 			query = command["q"]
@@ -193,9 +198,8 @@ func AnalyzeSlowOp(doc *Logv2Info) (*OpStat, error) {
 		if len(pipeline) == 0 {
 			return stat, errors.New("pipeline not found")
 		}
-		// Find the first $match stage or use first stage for special cases
+		// Find the first $match stage
 		var matchStage interface{}
-		firstStage := pipeline[0]
 		for _, v := range pipeline {
 			stageMap := toMap(v)
 			if stageMap != nil {
@@ -205,59 +209,23 @@ func AnalyzeSlowOp(doc *Logv2Info) (*OpStat, error) {
 				}
 			}
 		}
-		// Use $match stage if found, otherwise use first stage
-		stage := firstStage
+		// If $match found, extract its filter pattern
 		if matchStage != nil {
-			stage = matchStage
-		}
-		fmap := toMap(stage)
-		if fmap != nil && !isRegex(fmap) {
-			// Check for $lookup BEFORE walking (which replaces values with 1)
-			var lookupFrom string
-			if lookupVal := fmap["$lookup"]; lookupVal != nil {
-				lookupMap := toMap(lookupVal)
-				if lookupMap != nil {
-					if from, ok := lookupMap["from"].(string); ok {
-						lookupFrom = from
-					}
-				}
-			}
-			walked := mapWalker.Walk(fmap)
-			if buf, err := json.Marshal(walked); err == nil {
-				stat.QueryPattern = string(buf)
-			} else {
-				stat.QueryPattern = "{}"
-			}
-			if strings.Contains(stat.QueryPattern, "$changeStream") {
-				if len(pipeline) > 1 {
-					buf, _ := json.Marshal(pipeline[1])
+			fmap := toMap(matchStage)
+			if fmap != nil && !isRegex(fmap) {
+				walked := mapWalker.Walk(fmap)
+				if buf, err := json.Marshal(walked); err == nil {
 					stat.QueryPattern = string(buf)
 				} else {
 					stat.QueryPattern = "{}"
 				}
-			} else if strings.Contains(stat.QueryPattern, "$collStats") {
-				stat.QueryPattern = "{ $collStats:{} }"
-			} else if strings.Contains(stat.QueryPattern, "$lookup") {
-				if lookupFrom != "" {
-					stat.QueryPattern = fmt.Sprintf("{ $lookup:{ from:%q } }", lookupFrom)
-				} else {
-					stat.QueryPattern = "{ $lookup:{} }"
-				}
-			} else if strings.Contains(stat.QueryPattern, "$sample") {
-				stat.QueryPattern = "{ $sample:{} }"
-			} else if strings.Contains(stat.QueryPattern, "$geoNear") {
-				stat.QueryPattern = "{ $geoNear:{} }"
-			} else if strings.Contains(stat.QueryPattern, "$graphLookup") {
-				stat.QueryPattern = "{ $graphLookup:{} }"
-			} else if !strings.Contains(stat.QueryPattern, "$match") && !strings.Contains(stat.QueryPattern, "$sort") &&
-				!strings.Contains(stat.QueryPattern, "$facet") && !strings.Contains(stat.QueryPattern, "$indexStats") {
-				stat.QueryPattern = "{}"
+			} else if fmap != nil {
+				buf, _ := json.Marshal(fmap)
+				stat.QueryPattern = reRegex.ReplaceAllString(string(buf), "{$1:/$3.../$2}")
 			}
-		} else if fmap != nil {
-			buf, _ := json.Marshal(fmap)
-			stat.QueryPattern = reRegex.ReplaceAllString(string(buf), "{$1:/$3.../$2}")
 		} else {
-			stat.QueryPattern = "{}"
+			// No $match - show full pipeline with normalized values
+			stat.QueryPattern = getPipelinePattern(pipeline)
 		}
 	} else {
 		var fmap map[string]interface{}
@@ -400,4 +368,25 @@ func getOp(command map[string]interface{}) string {
 
 func cb(value interface{}) interface{} {
 	return 1
+}
+
+// getPipelinePattern returns the full pipeline with values normalized to 1
+func getPipelinePattern(pipeline []interface{}) string {
+	// Walk the entire pipeline to normalize values
+	var normalizedPipeline []interface{}
+	for _, stage := range pipeline {
+		stageMap := toMap(stage)
+		if stageMap != nil {
+			walked := mapWalker.Walk(stageMap)
+			normalizedPipeline = append(normalizedPipeline, walked)
+		}
+	}
+	if len(normalizedPipeline) == 0 {
+		return "{}"
+	}
+	buf, err := json.Marshal(normalizedPipeline)
+	if err != nil {
+		return "{}"
+	}
+	return string(buf)
 }

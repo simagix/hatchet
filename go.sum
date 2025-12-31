@@ -24,8 +24,8 @@ github.com/montanaflynn/stats v0.7.1/go.mod h1:etXPPgVO6n31NxCd9KQUMvCM+ve0ruNzt
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
-github.com/simagix/gox v0.2.5 h1:H4fLckaFi0X/GsXFO3Pdgz5dZki+cqa6YkAR22fOmnw=
-github.com/simagix/gox v0.2.5/go.mod h1:6wmXiu8410nIv7sNHK281d/HZoC1JajZU4IYWE/pL1Q=
+github.com/simagix/gox v0.3.0 h1:p18iJtz3zTsQbixlbX6WQ0Wl4lDhLPTNbYdz+nP0gGE=
+github.com/simagix/gox v0.3.0/go.mod h1:6wmXiu8410nIv7sNHK281d/HZoC1JajZU4IYWE/pL1Q=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/xdg-go/pbkdf2 v1.0.0 h1:Su7DPu48wXMwC3bs7MCNG+z4FhcyEuz5dlvchbq0B0c=
 github.com/xdg-go/pbkdf2 v1.0.0/go.mod h1:jrpuAogTd400dnrH08LKmI/xc1MbPOebTwRqcT5RDeI=

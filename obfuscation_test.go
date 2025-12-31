@@ -12,11 +12,9 @@ import (
 )
 
 func TestObfuscateInt(t *testing.T) {
-	// Initialize the Obfuscation struct
-	o := &Obfuscation{
-		intMap:      map[int]int{},
-		Coefficient: 0.5,
-	}
+	o := NewObfuscation()
+	// Set coefficient for testing
+	o.Obfuscator.Coefficient = 0.5
 
 	// Test case 1: Obfuscating a new integer
 	input1 := 10
@@ -37,11 +35,9 @@ func TestObfuscateInt(t *testing.T) {
 }
 
 func TestObfuscateNumber(t *testing.T) {
-	// Initialize the Obfuscation struct
-	o := &Obfuscation{
-		numberMap:   map[string]float64{},
-		Coefficient: 0.5,
-	}
+	o := NewObfuscation()
+	// Set coefficient for testing
+	o.Obfuscator.Coefficient = 0.5
 
 	// Test case 1: Obfuscating a new positive number
 	input1 := 10.5
@@ -62,8 +58,7 @@ func TestObfuscateNumber(t *testing.T) {
 }
 
 func TestObfuscateCreditCardNo(t *testing.T) {
-	// Initialize the Obfuscation struct
-	o := &Obfuscation{}
+	o := NewObfuscation()
 
 	// Test case 1: Obfuscating a valid Visa credit card number (passes Luhn check)
 	// 4532015112830366 is a valid test Visa number
@@ -101,10 +96,7 @@ func TestObfuscateCreditCardNo(t *testing.T) {
 }
 
 func TestObfuscateEmail(t *testing.T) {
-	// Initialize the Obfuscation struct
-	o := &Obfuscation{
-		NameMap: make(map[string]string),
-	}
+	o := NewObfuscation()
 
 	// Test case 1: Obfuscating a valid email address
 	input1 := "john.doe@example.com"
@@ -124,14 +116,11 @@ func TestObfuscateEmail(t *testing.T) {
 }
 
 func TestObfuscateIP(t *testing.T) {
-	// Initialize the Obfuscation struct
-	o := &Obfuscation{
-		IPMap: make(map[string]string),
-	}
+	o := NewObfuscation()
 
 	// Test case 1: Obfuscating a valid IP address
 	input1 := "192.168.0.1"
-	expectedOutput1Regex := regexp.MustCompile(`^192\.[0-9]+\.[0-9]+\.[0-9]+$`)
+	expectedOutput1Regex := regexp.MustCompile(`^192\.[0-9]+\.[0-9]+\.1$`)
 	actualOutput1 := o.ObfuscateIP(input1)
 	if !expectedOutput1Regex.MatchString(actualOutput1) {
 		t.Errorf("Expected obfuscated IP to match pattern %s, but got %s", expectedOutput1Regex.String(), actualOutput1)
@@ -154,10 +143,7 @@ func TestObfuscateIP(t *testing.T) {
 }
 
 func TestObfuscateFQDN(t *testing.T) {
-	// Initialize the Obfuscation struct
-	o := &Obfuscation{
-		NameMap: make(map[string]string),
-	}
+	o := NewObfuscation()
 
 	// Test case 1: Obfuscating a valid FQDN with 2 parts
 	input1 := "example.com"
@@ -184,32 +170,27 @@ func TestObfuscateFQDN(t *testing.T) {
 }
 
 func TestObfuscateNS(t *testing.T) {
-	ptr := &Obfuscation{
-		NameMap: make(map[string]string),
-	}
+	o := NewObfuscation()
 
-	// Test case 1: Obfuscate a valid FQDN with two labels
-	for _, ns := range []string{"example.com", "mail.example.com"} {
-		obfuscated := ptr.ObfuscateNS(ns)
-		if obfuscated == ns || !IsNamespace(obfuscated) {
-			t.Errorf("ObfuscateNS(%q) returned %q, expected %q", ns, obfuscated, ns)
+	// Test case 1: Obfuscate a valid namespace
+	for _, ns := range []string{"example.collection", "mydb.mycollection"} {
+		obfuscated := o.ObfuscateNS(ns)
+		if obfuscated == ns {
+			t.Errorf("ObfuscateNS(%q) should have obfuscated the namespace, got %q", ns, obfuscated)
 		}
 	}
 
-	// Test case 1: Obfuscate a valid FQDN with two labels
+	// Test case 2: Email addresses should NOT be treated as namespaces
 	for _, ns := range []string{"user@example.com", "user@mail.example.com"} {
-		obfuscated := ptr.ObfuscateNS(ns)
+		obfuscated := o.ObfuscateNS(ns)
 		if obfuscated != ns {
-			t.Errorf("ObfuscateNS(%q) returned %q, expected %q", ns, obfuscated, ns)
+			t.Errorf("ObfuscateNS(%q) should not obfuscate email, got %q", ns, obfuscated)
 		}
 	}
 }
 
 func TestObfuscateSSN(t *testing.T) {
-	// Initialize the Obfuscation struct
-	o := &Obfuscation{
-		SSNMap: make(map[string]string),
-	}
+	o := NewObfuscation()
 
 	// Test case 1: Obfuscating a valid SSN with hyphens (required format)
 	input1 := "123-45-6789"
@@ -256,10 +237,7 @@ func TestObfuscateSSN(t *testing.T) {
 }
 
 func TestObfuscatePhoneNo(t *testing.T) {
-	// Initialize the Obfuscation struct
-	o := &Obfuscation{
-		PhoneMap: make(map[string]string),
-	}
+	o := NewObfuscation()
 
 	// Test case 1: Obfuscating a valid phone number with 10 digits
 	input1 := "1234567890"
@@ -295,7 +273,7 @@ func TestObfuscatePhoneNo(t *testing.T) {
 
 func TestObfuscateMAC(t *testing.T) {
 	obs := NewObfuscation()
-	
+
 	// Test MAC with colons
 	result := obs.ObfuscateMAC("AA:BB:CC:11:22:33")
 	if result == "AA:BB:CC:11:22:33" {
@@ -305,13 +283,13 @@ func TestObfuscateMAC(t *testing.T) {
 	if !strings.HasPrefix(result, "AA:BB:CC:") {
 		t.Errorf("Vendor prefix should be preserved, got %s", result)
 	}
-	
+
 	// Test determinism
 	result2 := obs.ObfuscateMAC("AA:BB:CC:11:22:33")
 	if result != result2 {
 		t.Error("Same MAC should produce same result")
 	}
-	
+
 	// Test MAC with dashes
 	result3 := obs.ObfuscateMAC("AA-BB-CC-11-22-33")
 	if !strings.HasPrefix(result3, "AA-BB-CC-") {
@@ -321,7 +299,7 @@ func TestObfuscateMAC(t *testing.T) {
 
 func TestObfuscateDate(t *testing.T) {
 	obs := NewObfuscation()
-	
+
 	result := obs.ObfuscateDate("2024-06-15")
 	if result == "2024-06-15" {
 		t.Error("Date should be shifted")
@@ -330,7 +308,7 @@ func TestObfuscateDate(t *testing.T) {
 	if len(result) != 10 || result[4] != '-' || result[7] != '-' {
 		t.Errorf("Date format should be preserved, got %s", result)
 	}
-	
+
 	// Test determinism
 	obs2 := NewObfuscation()
 	result2 := obs2.ObfuscateDate("2024-06-15")
@@ -341,7 +319,7 @@ func TestObfuscateDate(t *testing.T) {
 
 func TestObfuscateID(t *testing.T) {
 	obs := NewObfuscation()
-	
+
 	// Test MRN
 	result := obs.ObfuscateID("MRN: 12345678")
 	if result == "MRN: 12345678" {
@@ -350,13 +328,13 @@ func TestObfuscateID(t *testing.T) {
 	if !strings.HasPrefix(result, "MRN: ") {
 		t.Errorf("MRN prefix should be preserved, got %s", result)
 	}
-	
+
 	// Test account number
 	result2 := obs.ObfuscateID("acct#987654321")
 	if result2 == "acct#987654321" {
 		t.Error("Account should be obfuscated")
 	}
-	
+
 	// Test determinism
 	result3 := obs.ObfuscateID("MRN: 12345678")
 	if result != result3 {

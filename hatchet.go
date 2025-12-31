@@ -46,6 +46,7 @@ func Run(fullVersion string) {
 	ver := flag.Bool("version", false, "print version number")
 	web := flag.Bool("web", false, "starts a web server")
 	server := flag.Bool("server", false, "starts a web server (alias for -web)")
+	report := flag.Bool("report", false, "generate HTML reports to ./html directory")
 	flag.Parse()
 	// -server is an alias for -web
 	if *server {
@@ -157,6 +158,13 @@ func Run(fullVersion string) {
 			log.Fatal(err)
 		}
 	}
+	// Track hatchet names before processing
+	existingBefore, _ := GetExistingHatchetNames()
+	existingSet := make(map[string]bool)
+	for _, name := range existingBefore {
+		existingSet[name] = true
+	}
+
 	for i, logname := range flag.Args() {
 		if err := logv2.Analyze(logname, i+1); err != nil {
 			log.Fatal(err)
@@ -168,6 +176,21 @@ func Run(fullVersion string) {
 	if *merge && !*legacy {
 		logv2.PrintSummary()
 	}
+
+	// Generate HTML reports if -report flag is set
+	if *report && len(flag.Args()) > 0 {
+		existingAfter, _ := GetExistingHatchetNames()
+		for _, name := range existingAfter {
+			if !existingSet[name] {
+				// This is a newly processed hatchet
+				if err := GenerateReports(name); err != nil {
+					log.Printf("Warning: failed to generate report for %s: %v", name, err)
+				}
+			}
+		}
+		return
+	}
+
 	if *legacy || !*web {
 		if len(flag.Args()) == 0 {
 			flag.PrintDefaults()

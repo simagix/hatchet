@@ -1,15 +1,31 @@
-FROM golang:1.25-alpine AS builder
-RUN apk update && apk add git bash build-base gcc musl-dev && rm -rf /var/cache/apk/*
-WORKDIR /build
-COPY . .
-RUN CGO_ENABLED=1 go build -ldflags "-X main.version=v$(cat version)-$(date +%Y%m%d) -X main.repo=simagix/hatchet" -o ./dist/hatchet main/hatchet.go
+# Copyright 2022-present Kuei-chun Chen. All rights reserved.
+FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS builder
 
-FROM alpine
+ARG TARGETARCH
+ARG TARGETOS=linux
+
+# Install dependencies first (cached layer)
+RUN apk update && apk add git bash && rm -rf /var/cache/apk/*
+
+WORKDIR /github.com/simagix/hatchet
+
+# Copy go.mod and go.sum first for dependency caching
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy the rest of the source code
+COPY . .
+
+# Cross-compile for target platform (native Go cross-compilation, no QEMU)
+RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} ./build.sh binary
+
+FROM alpine:3.19
 LABEL maintainer="Ken Chen <ken.chen@simagix.com>"
 RUN apk add --no-cache ca-certificates
 RUN addgroup -S simagix && adduser -S simagix -G simagix
+COPY --from=builder /github.com/simagix/hatchet/hatchet /bin/hatchet
+RUN ln -s /bin/hatchet /hatchet
 USER simagix
 WORKDIR /home/simagix
-COPY --from=builder /build/dist/hatchet /bin/hatchet
 
 CMD ["/bin/hatchet", "-version"]

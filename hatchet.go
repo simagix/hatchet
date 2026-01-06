@@ -6,7 +6,7 @@
 package hatchet
 
 import (
-	"database/sql"
+	"database/sql/driver"
 	"encoding/base64"
 	"encoding/json"
 	"flag"
@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/julienschmidt/httprouter"
-	"github.com/mattn/go-sqlite3"
+	"modernc.org/sqlite"
 )
 
 const SQLITE3_FILE = "./data/hatchet.db"
@@ -142,15 +142,12 @@ func Run(fullVersion string) {
 	}
 	log.Println("using database", str)
 	if GetLogv2().GetDBType() == SQLite3 {
-		regex := func(re, s string) (bool, error) {
-			return regexp.MatchString(re, s)
-		}
-		sql.Register("sqlite3_extended",
-			&sqlite3.SQLiteDriver{
-				ConnectHook: func(conn *sqlite3.SQLiteConn) error {
-					return conn.RegisterFunc("regexp", regex, true)
-				},
-			})
+		// Register regexp function for modernc.org/sqlite
+		sqlite.MustRegisterDeterministicScalarFunction("regexp", 2, func(ctx *sqlite.FunctionContext, args []driver.Value) (driver.Value, error) {
+			pattern, _ := args[0].(string)
+			s, _ := args[1].(string)
+			return regexp.MatchString(pattern, s)
+		})
 	}
 	if *s3 {
 		var err error

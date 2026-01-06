@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-// Note: sqlite3_extended driver is registered in audit_test.go init()
+// Note: sqlite regexp function is registered in audit_test.go init()
 
 func TestAnalyze(t *testing.T) {
 	filename := "testdata/mongod_ops.log.gz"

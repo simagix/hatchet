@@ -1,8 +1,5 @@
 # Copyright 2022-present Kuei-chun Chen. All rights reserved.
-FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS builder
-
-ARG TARGETARCH
-ARG TARGETOS=linux
+FROM golang:1.25-alpine AS builder
 
 # Install dependencies first (cached layer)
 RUN apk update && apk add git bash && rm -rf /var/cache/apk/*
@@ -16,8 +13,8 @@ RUN go mod download
 # Copy the rest of the source code
 COPY . .
 
-# Cross-compile for target platform (native Go cross-compilation, no QEMU)
-RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} ./build.sh binary
+# Build for native platform (CGO requires native compilation)
+RUN go mod tidy && ./build.sh binary
 
 FROM alpine:3.19
 LABEL maintainer="Ken Chen <ken.chen@simagix.com>"

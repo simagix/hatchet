@@ -30,7 +30,7 @@ func NewSQLite3DB(dbfile string, hatchetName string, cacheSize int) (*SQLite3DB,
 	sqlite := &SQLite3DB{dbfile: dbfile, hatchetName: hatchetName}
 	dirname := filepath.Dir(dbfile)
 	os.Mkdir(dirname, 0755)
-	if sqlite.db, err = sql.Open("sqlite3_extended", dbfile); err != nil {
+	if sqlite.db, err = sql.Open("sqlite", dbfile); err != nil {
 		return nil, err
 	}
 	if cacheSize > 0 && cacheSize != 2000 {

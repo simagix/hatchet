@@ -62,7 +62,7 @@ case "$1" in
     ;;
 
   binary)
-    # Internal: called by Dockerfile. Cross-compiles using GOOS/GOARCH env vars
+    # Internal: called by Dockerfile. Pure Go sqlite (modernc.org/sqlite), no CGO needed
     LDFLAGS="${LDFLAGS} -X main.docker=docker"
     CGO_ENABLED=0 go build -ldflags "$LDFLAGS" -o hatchet main/hatchet.go
     echo "Built hatchet for ${GOOS:-$(go env GOOS)}/${GOARCH:-$(go env GOARCH)}"

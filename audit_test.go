@@ -6,26 +6,22 @@
 package hatchet
 
 import (
-	"database/sql"
+	"database/sql/driver"
 	"os"
 	"path/filepath"
 	"regexp"
 	"testing"
 
-	"github.com/mattn/go-sqlite3"
+	"modernc.org/sqlite"
 )
 
 func init() {
-	// Register sqlite3_extended driver with regex support
-	regex := func(re, s string) (bool, error) {
-		return regexp.MatchString(re, s)
-	}
-	sql.Register("sqlite3_extended",
-		&sqlite3.SQLiteDriver{
-			ConnectHook: func(conn *sqlite3.SQLiteConn) error {
-				return conn.RegisterFunc("regexp", regex, true)
-			},
-		})
+	// Register regexp function for modernc.org/sqlite
+	sqlite.MustRegisterDeterministicScalarFunction("regexp", 2, func(ctx *sqlite.FunctionContext, args []driver.Value) (driver.Value, error) {
+		pattern, _ := args[0].(string)
+		s, _ := args[1].(string)
+		return regexp.MatchString(pattern, s)
+	})
 }
 
 func TestGetAuditDataWithClosedConnections(t *testing.T) {

@@ -19,6 +19,10 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
+// uploadSemaphore limits concurrent upload processing to prevent database contention
+// Even with WAL mode, limiting concurrent writes improves performance
+var uploadSemaphore = make(chan struct{}, 2)
+
 const (
 	maxUploadSize   = 200 << 20 // 200 MB max file size
 	maxUploadSizeMB = 200
@@ -121,16 +125,20 @@ func UploadHandler(w http.ResponseWriter, r *http.Request, params httprouter.Par
 		to:          time.Now().Add(24 * time.Hour),              // Include logs up to tomorrow
 	}
 
-	go func(name string, logv2 *Logv2) {
+	go func(name string, logv2 *Logv2, filename string) {
+		// Acquire semaphore to limit concurrent database writes
+		uploadSemaphore <- struct{}{}
+		defer func() { <-uploadSemaphore }()
+
 		defer os.Remove(tempPath) // Clean up temp file when done
 
-		if err := logv2.Analyze(tempPath, 1); err != nil {
-			log.Printf("Error processing upload %s: %v", header.Filename, err)
+		if err := logv2.Analyze(tempPath, 0); err != nil { // marker=0 to keep pre-set hatchetName
+			log.Printf("Error processing upload %s: %v", filename, err)
 			return
 		}
 		logv2.PrintSummary()
-		log.Printf("Finished processing upload: %s -> %s", header.Filename, name)
-	}(hatchetName, uploadLogv2)
+		log.Printf("Finished processing upload: %s -> %s", filename, name)
+	}(hatchetName, uploadLogv2, header.Filename)
 
 	// Return immediately with status
 	w.Header().Set("Content-Type", "application/json")
@@ -146,9 +154,14 @@ func UploadHandler(w http.ResponseWriter, r *http.Request, params httprouter.Par
 func UploadStatusHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	hatchetName := params.ByName("name")
 
-	existingNames, _ := GetExistingHatchetNames()
+	existingNames, err := GetExistingHatchetNames()
+	if err != nil {
+		log.Printf("UploadStatusHandler: error getting hatchet names: %v", err)
+	}
+	log.Printf("UploadStatusHandler: checking for '%s' in %v", hatchetName, existingNames)
 	for _, name := range existingNames {
 		if name == hatchetName {
+			log.Printf("UploadStatusHandler: found '%s', returning complete", hatchetName)
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(map[string]interface{}{
 				"status": "complete",
@@ -158,6 +171,7 @@ func UploadStatusHandler(w http.ResponseWriter, r *http.Request, params httprout
 		}
 	}
 
+	log.Printf("UploadStatusHandler: '%s' not found, returning processing", hatchetName)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"status": "processing",

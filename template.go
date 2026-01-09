@@ -638,8 +638,8 @@ func getMainPage() string {
 				.then(data => {
 					if (data.status === 'complete') {
 						clearInterval(poll);
-						status.innerHTML = '<i class="fa fa-check" style="color: green;"></i> Processing complete!';
-						loadData('/'); // Refresh the page to show new hatchet
+						status.innerHTML = '<i class="fa fa-check" style="color: green;"></i> Processing complete! Refreshing...';
+						setTimeout(function() { location.reload(); }, 1000); // Reload after 1s to show message
 					} else if (pollCount >= maxPolls) {
 						clearInterval(poll);
 						status.innerHTML = '<i class="fa fa-clock-o"></i> Still processing... refresh page to check.';

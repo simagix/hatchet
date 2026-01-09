@@ -322,7 +322,8 @@ func (ptr *Logv2) Analyze(logname string, marker int) error {
 	index := 0
 	var start, end string
 	var dbase Database
-	var mu sync.Mutex // protects buildInfo, start, and end
+	var mu sync.Mutex   // protects buildInfo, start, and end
+	var dbMu sync.Mutex // protects database operations (SQLite prepared statements aren't thread-safe)
 
 	if !ptr.legacy {
 		if dbase, err = GetDatabase(ptr.hatchetName); err != nil {
@@ -423,29 +424,16 @@ func (ptr *Logv2) Analyze(logname string, marker int) error {
 			}
 			end = docEnd
 			mu.Unlock()
-			if localErr = dbase.InsertLog(index, docEnd, &doc, stat); localErr != nil {
-				log.Println("error InsertLog line", index, localErr)
+
+			// Serialize database operations - SQLite prepared statements aren't thread-safe
+			if localErr = insertLogData(dbase, &dbMu, index, docEnd, &doc, stat); localErr != nil {
+				log.Println("error inserting log data line", index, localErr)
 				return
 			}
 			failed := " failed"
 			if strings.Contains(doc.Message, failed) {
 				n := strings.Index(doc.Message, failed) + len(failed)
 				failedMap.inc(doc.Message[:n])
-			}
-			if doc.Client != nil {
-				if (doc.Client.Accepted + doc.Client.Ended) > 0 { // record connections
-					if localErr = dbase.InsertClientConn(index, &doc); localErr != nil {
-						log.Println("error InsertClientConn line", index, localErr)
-						return
-					}
-				} else if doc.Client.Driver != "" {
-					if isAppDriver(doc.Client) {
-						if localErr = dbase.InsertDriver(index, &doc); localErr != nil {
-							log.Println("error InsertDriver line", index, localErr)
-							return
-						}
-					}
-				}
 			}
 		}(index, str, marker)
 	}
@@ -488,6 +476,31 @@ func (ptr *Logv2) Analyze(logname string, marker int) error {
 	if err = dbase.UpdateHatchetInfo(info); err != nil {
 		log.Println("error update Hatchet info", err)
 		return err
+	}
+	return nil
+}
+
+// insertLogData serializes database operations with a mutex.
+// SQLite prepared statements within a transaction aren't thread-safe.
+func insertLogData(dbase Database, dbMu *sync.Mutex, index int, docEnd string, doc *Logv2Info, stat *OpStat) error {
+	dbMu.Lock()
+	defer dbMu.Unlock()
+
+	if err := dbase.InsertLog(index, docEnd, doc, stat); err != nil {
+		return err
+	}
+	if doc.Client != nil {
+		if (doc.Client.Accepted + doc.Client.Ended) > 0 { // record connections
+			if err := dbase.InsertClientConn(index, doc); err != nil {
+				return err
+			}
+		} else if doc.Client.Driver != "" {
+			if isAppDriver(doc.Client) {
+				if err := dbase.InsertDriver(index, doc); err != nil {
+					return err
+				}
+			}
+		}
 	}
 	return nil
 }

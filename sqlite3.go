@@ -33,6 +33,17 @@ func NewSQLite3DB(dbfile string, hatchetName string, cacheSize int) (*SQLite3DB,
 	if sqlite.db, err = sql.Open("sqlite", dbfile); err != nil {
 		return nil, err
 	}
+
+	// Enable WAL mode for better concurrent access (allows readers during writes)
+	if _, err = sqlite.db.Exec("PRAGMA journal_mode=WAL;"); err != nil {
+		log.Println("warning: failed to enable WAL mode:", err)
+	}
+
+	// Set busy timeout to 30 seconds - SQLite will retry instead of returning SQLITE_BUSY
+	if _, err = sqlite.db.Exec("PRAGMA busy_timeout = 30000;"); err != nil {
+		log.Println("warning: failed to set busy_timeout:", err)
+	}
+
 	if cacheSize > 0 && cacheSize != 2000 {
 		pragma := fmt.Sprintf("PRAGMA cache_size = %d;", cacheSize)
 		if _, err = sqlite.db.Exec(pragma); err != nil {

@@ -234,6 +234,37 @@ func GetAuditTablesTemplate(download string) (*template.Template, error) {
 	{{end}}
 	</table>
 {{end}}
+
+{{if hasData .Data "ns-index"}}
+	<div style='clear: left; margin: 10px 10px;'>
+		<div style='margin-bottom: 6px;'>
+			<i class='fa fa-list'></i> <b>Namespace &amp; Index Usage</b>
+			<input id='ns-index-filter' type='text' placeholder='Filter by namespace...'
+				style='margin-left: 12px; padding: 3px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.9em; width: 220px;'
+				oninput='filterNsIndexTable(this.value)' />
+		</div>
+		<table id='ns-index-table' style='float: left;'>
+			<tr><th></th><th>Namespace</th><th>Index</th><th>Count</th><th>Max (ms)</th></tr>
+		{{range $n, $val := index .Data "ns-index"}}
+			<tr data-ns='{{$val.Name}}'><td align=right>{{add $n 1}}</td>
+			<td>{{$val.Name}}</td>
+			<td>{{index $val.Values 0}}</td>
+			<td align=right>{{getFormattedNumber $val.Values 1}}</td>
+			<td align=right>{{getFormattedNumber $val.Values 2}}</td></tr>
+		{{end}}
+		</table>
+	</div>
+	<script>
+	function filterNsIndexTable(keyword) {
+		var kw = keyword.toLowerCase();
+		var rows = document.querySelectorAll('#ns-index-table tr[data-ns]');
+		rows.forEach(function(row) {
+			var ns = row.getAttribute('data-ns').toLowerCase();
+			row.style.display = ns.indexOf(kw) >= 0 ? '' : 'none';
+		});
+	}
+	</script>
+{{end}}
 	<div style='clear: left;' align='center'><hr/><p/>{{.Version}}</div>
 `
 	if download == "" {

@@ -204,5 +204,31 @@ func (ptr *SQLite3DB) GetAuditData() (map[string][]NameValues, error) {
 		rows.Close()
 	}
 
+	category = "ns-index"
+	query = fmt.Sprintf(`SELECT ns, _index, SUM(count) count, MAX(max_ms) max_ms
+		FROM %v_ops
+		WHERE ns != '' AND _index != ''
+		GROUP BY ns, _index
+		ORDER BY ns, count DESC;`, ptr.hatchetName)
+	if ptr.verbose {
+		log.Println(query)
+	}
+	rows, err = db.Query(query)
+	if err == nil {
+		for rows.Next() {
+			var doc NameValues
+			var index string
+			var count, maxMs int
+			if err = rows.Scan(&doc.Name, &index, &count, &maxMs); err != nil {
+				break
+			}
+			doc.Values = append(doc.Values, index)
+			doc.Values = append(doc.Values, count)
+			doc.Values = append(doc.Values, maxMs)
+			data[category] = append(data[category], doc)
+		}
+		rows.Close()
+	}
+
 	return data, err
 }

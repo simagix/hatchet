@@ -269,5 +269,41 @@ func (ptr *MongoDB) GetAuditData() (map[string][]NameValues, error) {
 		doc.Values = append(doc.Values, appnameData.Reslen)
 		data[category] = append(data[category], doc)
 	}
+
+	// get ns-index relationship
+	category = "ns-index"
+	collection = ptr.db.Collection(ptr.hatchetName + "_ops")
+	pipeline = []bson.M{
+		{"$match": bson.M{"ns": bson.M{"$ne": ""}, "_index": bson.M{"$ne": ""}}},
+		{"$group": bson.M{
+			"_id":    bson.M{"ns": "$ns", "_index": "$_index"},
+			"count":  bson.M{"$sum": "$count"},
+			"max_ms": bson.M{"$max": "$max_ms"},
+		}},
+		{"$sort": bson.D{{Key: "_id.ns", Value: 1}, {Key: "count", Value: -1}}},
+	}
+	if cur, err = collection.Aggregate(ctx, pipeline); err == nil {
+		defer cur.Close(ctx)
+		for cur.Next(ctx) {
+			var m struct {
+				ID struct {
+					NS    string `bson:"ns"`
+					Index string `bson:"_index"`
+				} `bson:"_id"`
+				Count int `bson:"count"`
+				MaxMs int `bson:"max_ms"`
+			}
+			if err := cur.Decode(&m); err != nil {
+				return data, err
+			}
+			doc := NameValues{}
+			doc.Name = m.ID.NS
+			doc.Values = append(doc.Values, m.ID.Index)
+			doc.Values = append(doc.Values, m.Count)
+			doc.Values = append(doc.Values, m.MaxMs)
+			data[category] = append(data[category], doc)
+		}
+	}
+
 	return data, err
 }

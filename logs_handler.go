@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/julienschmidt/httprouter"
@@ -98,6 +99,43 @@ func LogsHandler(w http.ResponseWriter, r *http.Request, params httprouter.Param
 			return
 		}
 		doc := map[string]interface{}{"Hatchet": hatchetName, "Merge": info.Merge, "Logs": logstrs, "Summary": summary, "Version": GetLogv2().version}
+		if err = templ.Execute(w, doc); err != nil {
+			renderErrorPage(w, r, hatchetName, err.Error())
+			return
+		}
+		return
+	} else if attr == "pattern" {
+		op := r.URL.Query().Get("op")
+		ns := r.URL.Query().Get("ns")
+		filter, err := url.QueryUnescape(r.URL.Query().Get("filter"))
+		if err != nil {
+			filter = r.URL.Query().Get("filter")
+		}
+		download := r.URL.Query().Get("download")
+		topN := ToInt(r.URL.Query().Get("topN"))
+		if topN == 0 {
+			topN = TOP_N
+		}
+		logstrs, err := dbase.GetLogsByPattern(op, ns, filter, topN)
+		if err != nil {
+			renderErrorPage(w, r, hatchetName, err.Error())
+			return
+		}
+		templ, err := GetLogTableTemplate(attr, download)
+		if err != nil {
+			renderErrorPage(w, r, hatchetName, err.Error())
+			return
+		}
+		doc := map[string]interface{}{
+			"Hatchet":   hatchetName,
+			"Merge":     info.Merge,
+			"Logs":      logstrs,
+			"Op":        op,
+			"Namespace": ns,
+			"Filter":    filter,
+			"Summary":   summary,
+			"Version":   GetLogv2().version,
+		}
 		if err = templ.Execute(w, doc); err != nil {
 			renderErrorPage(w, r, hatchetName, err.Error())
 			return

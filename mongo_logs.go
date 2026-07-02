@@ -252,3 +252,39 @@ func (ptr *MongoDB) GetSlowestLogs(topN int) ([]LegacyLog, error) {
 	}
 	return docs, err
 }
+
+func (ptr *MongoDB) GetLogsByPattern(op, ns, filter string, topN int) ([]LegacyLog, error) {
+	collection := ptr.db.Collection(ptr.hatchetName)
+	pipeline := []bson.M{
+		{
+			"$match": bson.M{
+				"op":     op,
+				"ns":     ns,
+				"filter": filter,
+			},
+		},
+		{
+			"$sort": bson.M{
+				"milli": -1,
+			},
+		},
+		{
+			"$limit": topN,
+		},
+	}
+	cursor, err := collection.Aggregate(context.Background(), pipeline)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(context.Background())
+
+	var docs []LegacyLog
+	for cursor.Next(context.Background()) {
+		var doc LegacyLog
+		if err = cursor.Decode(&doc); err != nil {
+			return nil, err
+		}
+		docs = append(docs, doc)
+	}
+	return docs, err
+}

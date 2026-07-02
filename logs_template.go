@@ -23,6 +23,8 @@ func GetLogTableTemplate(attr string, download string) (*template.Template, erro
 	}
 	if attr == "slowops" {
 		html += getSlowOpsLogsTable(download)
+	} else if attr == "pattern" {
+		html += getPatternLogsTable(download)
 	} else {
 		html += getLegacyLogsTable()
 	}
@@ -190,6 +192,121 @@ function syntaxHighlight(json) {
 </script>
 `
 	return template
+}
+
+func getPatternLogsTable(download string) string {
+	tmpl := `
+<script>
+	function downloadPattern() {
+		anchor = document.createElement('a');
+		anchor.download = '{{.Hatchet}}_pattern.html';
+		anchor.href = '/hatchets/{{.Hatchet}}/logs/pattern?op={{.Op}}&ns={{.Namespace}}&filter={{.Filter}}&download=true';
+		anchor.dataset.downloadurl = ['text/html', anchor.download, anchor.href].join(':');
+		anchor.click();
+	}
+</script>`
+	if download == "" {
+		tmpl += `
+<!-- Header Bar -->
+<div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;'>
+	<div>
+		<h2 style='margin: 0 0 4px 0; color: #444; font-size: 1.4em;'>
+			<i class='fa fa-list' style='color: #1565c0;'></i> Pattern Operations
+		</h2>
+		<div style='font-size: 0.85em; color: #666;'>
+			<span style='margin-right: 16px;'><b>op:</b> {{.Op}}</span>
+			<span style='margin-right: 16px;'><b>namespace:</b> {{.Namespace}}</span>
+			<span><b>pattern:</b> <code style='background:#f4f4f4; padding: 1px 4px; border-radius:3px;'>{{.Filter}}</code></span>
+		</div>
+	</div>
+	<div style='display: flex; gap: 8px; align-items: center;'>
+		<a href='/hatchets/{{.Hatchet}}/stats/slowops'
+			style='font-size:0.85em; color:#1565c0; text-decoration:none;'>
+			<i class='fa fa-arrow-left'></i> Back to Slow Query Patterns
+		</a>
+		<button id="download" onClick="downloadPattern(); return false;"
+			class="download-btn"><i class="fa fa-download"></i> Download</button>
+	</div>
+</div>`
+	} else {
+		tmpl += `<div align='center'>{{.Summary}}</div>`
+	}
+	tmpl += `
+<div align='center'>
+	<table width='100%'>
+		<tr>
+			<th>#</th>
+		{{ if .Merge }}
+			<th>M</th>
+		{{ end }}
+			<th>date</th>
+			<th>S</th>
+			<th>component</th>
+			<th>context</th>
+			<th>message</th>
+			<th style='width: 40px;'></th>
+		</tr>
+{{$hatchet := .Hatchet}}
+{{$merge := .Merge}}
+{{range $n, $value := .Logs}}
+		<tr>
+			<td align='right'>{{ add $n 1 }}</td>
+		{{ if $merge }}
+			<td>{{ getMarkerHTML $value.Marker }}</td>
+		{{ end }}
+			<td>{{ formatDateTime $value.Timestamp }}</td>
+			<td>{{ $value.Severity }}</td>
+			<td>{{ $value.Component }}</td>
+			<td><a href='/hatchets/{{$hatchet}}/logs/all?context={{$value.Context}}'>{{ $value.Context }}</a></td>
+			<td class='break'>{{ highlightLog $value.Message }}</td>
+			<td align='center'><button id='btn-pattern-{{$n}}' class='json-toggle-btn' onclick='toggleJsonView("pattern-{{$n}}")' title='View formatted JSON'>{}</button></td>
+		</tr>
+		<tr id='json-pattern-{{$n}}' class='json-row'>
+			<td colspan='{{ if $merge }}8{{ else }}7{{ end }}' style='padding: 0 10px;'>
+				<pre class='json-content' id='json-content-pattern-{{$n}}'>{{ $value.Message }}</pre>
+			</td>
+		</tr>
+{{end}}
+	</table>
+	<div style='clear: left;' align='center'><hr/><p/>{{.Version}}</div>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+	document.querySelectorAll('.json-content').forEach(function(el) {
+		try {
+			var json = JSON.parse(el.textContent);
+			el.innerHTML = syntaxHighlight(JSON.stringify(json, null, 2));
+		} catch(e) {}
+	});
+});
+
+function syntaxHighlight(json) {
+	json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+	return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+		var cls = 'json-number';
+		if (/^"/.test(match)) {
+			if (/:$/.test(match)) {
+				cls = 'json-key';
+				if (/planSummary|errMsg|durationMillis/i.test(match)) {
+					cls = 'json-key json-highlight';
+				}
+			} else {
+				cls = 'json-string';
+				if (/COLLSCAN/.test(match)) {
+					cls = 'json-error';
+				}
+			}
+		} else if (/true|false/.test(match)) {
+			cls = 'json-boolean';
+		} else if (/null/.test(match)) {
+			cls = 'json-null';
+		}
+		return '<span class="' + cls + '">' + match + '</span>';
+	});
+}
+</script>
+`
+	return tmpl
 }
 
 func getLegacyLogsTable() string {

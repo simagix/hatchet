@@ -228,6 +228,31 @@ func (ptr *SQLite3DB) GetSlowestLogs(topN int) ([]LegacyLog, error) {
 	return docs, err
 }
 
+func (ptr *SQLite3DB) GetLogsByPattern(op, ns, filter string, topN int) ([]LegacyLog, error) {
+	docs := []LegacyLog{}
+	query := fmt.Sprintf(`SELECT date, severity, component, context, message, marker
+			FROM %v WHERE op = ? AND ns = ? AND filter = ?
+			ORDER BY milli DESC LIMIT %v`,
+		ptr.hatchetName, topN)
+	if ptr.verbose {
+		explain(ptr.db, query)
+	}
+	rows, err := ptr.db.Query(query, op, ns, filter)
+	if err != nil {
+		return docs, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var doc LegacyLog
+		if err = rows.Scan(&doc.Timestamp, &doc.Severity, &doc.Component, &doc.Context, &doc.Message,
+			&doc.Marker); err != nil {
+			return docs, err
+		}
+		docs = append(docs, doc)
+	}
+	return docs, err
+}
+
 func (ptr *SQLite3DB) GetAverageOpTime(op string, duration string) ([]OpCount, error) {
 	docs := []OpCount{}
 	db := ptr.db

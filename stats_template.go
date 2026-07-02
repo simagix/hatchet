@@ -8,6 +8,7 @@ package hatchet
 import (
 	"fmt"
 	"html/template"
+	"net/url"
 	"strings"
 
 	"golang.org/x/text/language"
@@ -40,6 +41,9 @@ func GetStatsTableTemplate(collscan bool, orderBy string, download string) (*tem
 		},
 		"getMarkerHTML": func(marker int) template.HTML {
 			return template.HTML(GetMarkerHTML(marker))
+		},
+		"urlEncode": func(s string) string {
+			return url.QueryEscape(s)
 		}}).Parse(html)
 }
 
@@ -184,9 +188,10 @@ func getStatsTable(collscan bool, orderBy string, download string) string {
 	} else {
 		html += "<th valign='middle'>index</th>"
 	}
-	html += `<th>query pattern</th><th style='width: 40px;'></th>
+	html += `<th>query pattern</th><th style='width: 70px;'></th>
 		</tr>
 {{$merge := .Merge}}
+{{$hatchet := .Hatchet}}
 {{range $n, $value := .Ops}}
 		<tr>
 		{{if $merge}}
@@ -212,7 +217,12 @@ func getStatsTable(collscan bool, orderBy string, download string) string {
 			<td>{{ $value.Index }}</td>
 		{{end}}
 			<td class='break'>{{ $value.QueryPattern }}</td>
-			<td align='center'><button id='btn-stats-{{$n}}' class='stats-json-btn' onclick='toggleStatsJson({{$n}})' title='View formatted'>{}</button></td>
+			<td align='center' style='white-space: nowrap;'>
+			<button id='btn-stats-{{$n}}' class='stats-json-btn' onclick='toggleStatsJson({{$n}})' title='View formatted'>{}</button>
+			<a href='/hatchets/{{$hatchet}}/logs/pattern?op={{$value.Op}}&ns={{$value.Namespace}}&filter={{urlEncode $value.QueryPattern}}' title='View matching operations'>
+				<button class='stats-json-btn' onclick='return true;'><i class='fa fa-list'></i></button>
+			</a>
+		</td>
 		</tr>
 		<tr id='json-stats-{{$n}}' class='stats-json-row'>
 			<td colspan='11' style='padding: 5px 10px;'>

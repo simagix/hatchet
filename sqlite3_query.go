@@ -231,13 +231,13 @@ func (ptr *SQLite3DB) GetSlowestLogs(topN int) ([]LegacyLog, error) {
 func (ptr *SQLite3DB) GetLogsByPattern(op, ns, filter string, topN int) ([]LegacyLog, error) {
 	docs := []LegacyLog{}
 	query := fmt.Sprintf(`SELECT date, severity, component, context, message, marker
-			FROM %v WHERE op = "%v" AND ns = "%v" AND filter = "%v"
+			FROM %v WHERE op = ? AND ns = ? AND filter = ?
 			ORDER BY milli DESC LIMIT %v`,
-		ptr.hatchetName, EscapeString(op), EscapeString(ns), EscapeString(filter), topN)
+		ptr.hatchetName, topN)
 	if ptr.verbose {
 		explain(ptr.db, query)
 	}
-	rows, err := ptr.db.Query(query)
+	rows, err := ptr.db.Query(query, op, ns, filter)
 	if err != nil {
 		return docs, err
 	}
